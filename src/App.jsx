@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
-import { Sun, Settings, Moon, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, X, Check, AlertTriangle, Search, Lock, Upload, ChevronDown, Pencil, Eye, Users, BarChart2, BookOpen, ClipboardList, FileText, TrendingUp, Info } from "lucide-react"
+import { Sun, Settings as SettingsIcon, Moon, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, X, Check, AlertTriangle, Search, Lock, Upload, ChevronDown, Pencil, Eye, Users, BarChart2, BookOpen, ClipboardList, FileText, TrendingUp, Info } from "lucide-react"
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ReferenceLine } from "recharts"
 
 // ─── THEME TOKENS ─────────────────────────────────────────────────────────────
@@ -2031,7 +2031,7 @@ export default function App(){
         <div className="nav-stretch"/>
         <div style={{display:"flex",alignItems:"center",gap:8,alignSelf:"center"}}>
           <div className="theme-toggle">
-            {[{m:"light",l:<Sun size={14}/>},{m:"system",l:<Settings size={14}/>},{m:"dark",l:<Moon size={14}/>}].map(({m,l})=>(
+            {[{m:"light",l:<Sun size={14}/>},{m:"system",l:<SettingsIcon size={14}/>},{m:"dark",l:<Moon size={14}/>}].map(({m,l})=>(
               <button key={m} className={`theme-btn ${themeMode===m?"active":""}`} onClick={()=>changeTheme(m)} title={`${m} mode`}>{l}</button>
             ))}
           </div>
@@ -2040,7 +2040,7 @@ export default function App(){
               <div className="nav-divider"/>
               {view==="settings"
                 ? <button className="btn btn-outlined btn-sm" onClick={()=>setView("dashboard")}><ArrowLeft size={14}/> Dashboard</button>
-                : <button className="btn btn-outlined btn-sm" onClick={()=>setView("settings")}><Settings size={14}/> Configure</button>
+                : <button className="btn btn-outlined btn-sm" onClick={()=>setView("settings")}><SettingsIcon size={14}/> Configure</button>
               }
             </>
           )}
