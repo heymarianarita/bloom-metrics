@@ -70,12 +70,20 @@ function periodsToCapture(now = new Date()): Period[] {
   return periods;
 }
 
-/** The `count` quarters before the current one, oldest first, each over its full range. */
-function closedQuarters(count: number, now = new Date()): Period[] {
+/** Figma keeps library insert/detach analytics for roughly this long. */
+const FIGMA_RETENTION_DAYS = 365;
+
+/**
+ * Closed quarters, oldest first, that lie entirely inside Figma's retention window:
+ * older quarters would only be partly counted (or not at all).
+ */
+function closedQuartersInRetention(now = new Date()): Period[] {
+  const oldest = now.getTime() - FIGMA_RETENTION_DAYS * 86400000;
   const out: Period[] = [];
   let cursor = Date.parse(quarterOf(now).periodStart + "T00:00:00Z");
-  for (let i = 0; i < count; i++) {
+  for (;;) {
     const prev = quarterOf(new Date(cursor - 86400000));
+    if (Date.parse(prev.periodStart + "T00:00:00Z") < oldest) break;
     out.unshift({ ...prev, final: true });
     cursor = Date.parse(prev.periodStart + "T00:00:00Z");
   }
@@ -137,9 +145,10 @@ async function captureOne(
 
   const components = (payload.components ?? []) as any[];
   const s = payload.summary ?? {};
-  // Figma keeps analytics for a limited time: an old quarter with no activity at all
-  // is "no data", not a real zero, so don't store it.
-  if (opts.skipEmpty && !s.totalInserts && !s.totalUsages && !s.totalDetaches) {
+  // Figma keeps insert/detach analytics for about a year: a quarter with neither is
+  // "no data", not a real zero, so don't store it. (Usages are a current count, not
+  // activity within the range, so they don't count as data here.)
+  if (opts.skipEmpty && !s.totalInserts && !s.totalDetaches) {
     return { fileKey: key, quarter, ok: false, skipped: "no analytics for this period" };
   }
   const componentsUsed = components.filter((c) => (c.inserts ?? 0) > 0).length;
@@ -222,19 +231,24 @@ export async function captureFigmaSnapshots(): Promise<FnResponse> {
 }
 
 /**
- * Fills in closed quarters that were never captured (e.g. before the snapshot job
- * existed), straight from Figma. Closed quarters don't change, so each is fetched
- * once; quarters Figma no longer has data for are skipped, not stored as zero.
+ * Fills in closed quarters inside Figma's retention window that were never captured
+ * (e.g. before the snapshot job existed), straight from Figma. Closed quarters don't
+ * change, so each is fetched once. Also removes stored "false zero" quarters (no
+ * inserts and no detaches), which mean Figma had no data, not zero activity.
  */
-export async function backfillFigmaSnapshots(quarters = 6): Promise<{ captured: number; skipped: number; failed: number }> {
+export async function backfillFigmaSnapshots(): Promise<{ captured: number; skipped: number; failed: number; removed: number }> {
   const fileKeys = readFileKeys();
-  const tally = { captured: 0, skipped: 0, failed: 0 };
+  const tally = { captured: 0, skipped: 0, failed: 0, removed: 0 };
   if (fileKeys.length === 0) return tally;
+  const cleaned = await execute(
+    "DELETE FROM figma_adoption_snapshots WHERE COALESCE(inserts, 0) = 0 AND COALESCE(detaches, 0) = 0",
+  );
+  tally.removed = cleaned.affectedRows ?? 0;
   const stored = await query<{ file_key: string; quarter: string }>(
     "SELECT file_key, quarter FROM figma_adoption_snapshots",
   );
   const have = new Set(stored.map((r) => `${r.file_key}|${r.quarter}`));
-  for (const period of closedQuarters(quarters)) {
+  for (const period of closedQuartersInRetention()) {
     for (const { key } of fileKeys) {
       if (have.has(`${key}|${period.quarter}`)) continue;
       const r = await captureOne(key, period, { skipEmpty: true });

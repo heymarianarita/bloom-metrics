@@ -8,6 +8,22 @@ import { useFigmaHistory } from "@/hooks/useFigmaHistory";
 import { FIGMA_LIBRARIES } from "@/hooks/useFigmaAnalytics";
 import { LINE_COLORS } from "@/lib/chartColors";
 
+/** Figma keeps library analytics for about a year, so the chart shows the last four quarters. */
+const QUARTERS_SHOWN = 4;
+
+/** Labels ("2026-Q3") of the current quarter and the ones before it, oldest first. */
+const recentQuarters = (count: number, now = new Date()) => {
+  let y = now.getUTCFullYear();
+  let q = Math.floor(now.getUTCMonth() / 3) + 1;
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    out.unshift(`${y}-Q${q}`);
+    q -= 1;
+    if (q === 0) { q = 4; y -= 1; }
+  }
+  return out;
+};
+
 /**
  * Quarterly insertions for every Figma library, from the stored snapshots. The
  * server backfills missing past quarters from Figma (backfillFigmaSnapshots), so
@@ -19,9 +35,11 @@ export const FigmaLibrariesTrend = () => {
 
   const { data, libraries } = React.useMemo(() => {
     const names = new Map(FIGMA_LIBRARIES.map((l) => [l.key, l.name]));
+    const shown = new Set(recentQuarters(QUARTERS_SHOWN));
     const byQuarter = new Map<string, Record<string, string | number>>();
     const seen: string[] = [];
     for (const snap of history.data ?? []) {
+      if (!shown.has(snap.quarter)) continue;
       if (snap.inserts === null || snap.inserts === undefined) continue;
       const name = snap.file_name || names.get(snap.file_key) || snap.file_key;
       if (!seen.includes(name)) seen.push(name);
@@ -37,7 +55,7 @@ export const FigmaLibrariesTrend = () => {
     <section className="pt-2">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[16px] font-medium text-foreground">Evolution over time</p>
-        <p className="text-[12px] text-muted-foreground">Quarterly insertions, all libraries</p>
+        <p className="text-[12px] text-muted-foreground">Quarterly insertions, last 12 months</p>
       </div>
       <DesignSpacer size="small" />
       {history.isLoading ? (
@@ -55,7 +73,7 @@ export const FigmaLibrariesTrend = () => {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
+              <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" interval={0} />
               <YAxis
                 tick={{ fontSize: 12 }}
                 stroke="var(--muted-foreground)"

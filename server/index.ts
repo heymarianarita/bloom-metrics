@@ -99,8 +99,18 @@ cron.schedule(
 // Fill in finished quarters that were never captured (only missing ones are fetched from Figma).
 const backfillFigma = () =>
   backfillFigmaSnapshots()
-    .then((t) => console.log(`figma backfill: ${t.captured} captured, ${t.skipped} without data, ${t.failed} failed`))
+    .then((t) =>
+      console.log(`figma backfill: ${t.captured} captured, ${t.skipped} without data, ${t.failed} failed, ${t.removed} false zeros removed`),
+    )
     .catch((e) => console.error("figma backfill failed", e instanceof Error ? e.message : e));
+
+/** On start: fill past quarters, then refresh the current one so it's on the chart right away. */
+const refreshFigmaOnStart = () =>
+  backfillFigma().then(() =>
+    captureFigmaSnapshots()
+      .then((r) => console.log("figma current quarter captured:", (r.body as { ok?: boolean })?.ok === true))
+      .catch((e) => console.error("figma current quarter capture failed", e instanceof Error ? e.message : e)),
+  );
 cron.schedule("45 5 * * *", backfillFigma, { timezone: "UTC" });
 
 // GetDX teams change rarely: refresh the stored copy on the 1st of each month.
@@ -116,7 +126,7 @@ app.listen(port, () => {
     .then(logAdminSetupLinks)
     .catch((e) => console.error("could not prepare admin sign-in", e));
   // Not with fake Figma data: that must never be stored.
-  if (!localDevFlag("FIGMA_FAKE_DATA")) backfillFigma();
+  if (!localDevFlag("FIGMA_FAKE_DATA")) refreshFigmaOnStart();
   getdxTeamsAgeDays()
     .then((age) => {
       if (age > 31) return refreshGetdx();
