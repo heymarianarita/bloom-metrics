@@ -221,12 +221,47 @@ const MOVERS_OPTIONS = [
 ];
 
 
+/** Table section header: title on the left; search (and optional controls) on the right, outside the table card. */
+const TableSectionHeader = ({
+  title,
+  search,
+  onSearch,
+  placeholder,
+  children,
+}: {
+  title: string;
+  search: string;
+  onSearch: (value: string) => void;
+  placeholder: string;
+  children?: React.ReactNode;
+}) => (
+  <div className="flex items-center justify-between gap-3">
+    <p className="text-[16px] font-medium text-foreground">{title}</p>
+    <div className="flex items-center gap-2">
+      <div className="w-[200px]">
+        <DesignInputBar
+          size="small"
+          placeholder={placeholder}
+          leftIcon={<Search className="w-4 h-4" />}
+          rightIcon={search ? <X className="w-3.5 h-3.5 cursor-pointer" /> : undefined}
+          onRightIconClick={() => onSearch("")}
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+        />
+      </div>
+      {children}
+    </div>
+  </div>
+);
+
 const Documentation = () => {
   const { propertySlug } = useParams();
   const [period, setPeriod] = React.useState("last_30");
   const [threshold, setThreshold] = React.useState("0.2");
   const [moversDirection, setMoversDirection] = React.useState("gaining");
   const [moversSearch, setMoversSearch] = React.useState("");
+  const [platformSearch, setPlatformSearch] = React.useState("");
+  const [topPagesSearch, setTopPagesSearch] = React.useState("");
   const thresholdValue = Number(threshold) || 0;
 
   const { current: ga4Range, previous: ga4PreviousRange } = React.useMemo(
@@ -805,10 +840,12 @@ const Documentation = () => {
             {!propertySlug && (
               <>
                 <section className="pt-2">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-[16px] font-medium text-foreground">{"Documentation platforms"}</p>
-                  <p className="text-[12px] text-muted-foreground">{ga4Rows.length} platforms</p>
-                </div>
+                <TableSectionHeader
+                  title="Documentation platforms"
+                  search={platformSearch}
+                  onSearch={setPlatformSearch}
+                  placeholder="Search platforms"
+                />
                 <DesignSpacer size="small" />
                 <DesignCard radius="small" className="overflow-hidden">
                 <DesignDataTable
@@ -816,9 +853,9 @@ const Documentation = () => {
                   data={ga4Rows}
                   rowKey={(row) => row.id || row.label}
                   hidePagination
-                  totalResultsLabel={`${ga4Rows.length} platforms`}
-                  searchPlaceholder="Search platforms"
-                  emptyTitle="No Google Analytics data yet"
+                  hideToolbar
+                  search={platformSearch}
+                  emptyTitle={platformSearch ? "No matching platforms" : "No Google Analytics data yet"}
                   emptyBody="Run pushGa4Reports in Apps Script to send the first snapshot."
                 />
                 </DesignCard>
@@ -832,31 +869,20 @@ const Documentation = () => {
         {!isGa4Loading && hasMovers && (
           <>
             <section className="pt-2">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[16px] font-medium text-foreground">
-                {moversDirection === "gaining" ? "Pages gaining the most views" : "Pages losing the most views"}
-              </p>
-              <div className="flex items-center gap-2">
-                <div className="w-[200px]">
-                  <DesignInputBar
-                    size="small"
-                    placeholder="Search pages"
-                    leftIcon={<Search className="w-4 h-4" />}
-                    rightIcon={moversSearch ? <X className="w-3.5 h-3.5 cursor-pointer" /> : undefined}
-                    onRightIconClick={() => setMoversSearch("")}
-                    value={moversSearch}
-                    onChange={(e) => setMoversSearch(e.target.value)}
-                  />
-                </div>
-                <DesignInputSelect
-                  className="w-[200px]"
-                  size="small"
-                  options={MOVERS_OPTIONS}
-                  value={moversDirection}
-                  onChange={setMoversDirection}
-                />
-              </div>
-            </div>
+            <TableSectionHeader
+              title={moversDirection === "gaining" ? "Pages gaining the most views" : "Pages losing the most views"}
+              search={moversSearch}
+              onSearch={setMoversSearch}
+              placeholder="Search pages"
+            >
+              <DesignInputSelect
+                className="w-[200px]"
+                size="small"
+                options={MOVERS_OPTIONS}
+                value={moversDirection}
+                onChange={setMoversDirection}
+              />
+            </TableSectionHeader>
             <DesignSpacer size="small" />
             <DesignCard radius="small" className="overflow-hidden">
             <DesignDataTable
@@ -878,7 +904,12 @@ const Documentation = () => {
 
         {!isGa4Loading && topPages.length > 0 && (
           <section className="pt-2">
-          <p className="text-[16px] font-medium text-foreground">Most viewed pages</p>
+          <TableSectionHeader
+            title="Most viewed pages"
+            search={topPagesSearch}
+            onSearch={setTopPagesSearch}
+            placeholder="Search pages"
+          />
           <DesignSpacer size="small" />
           <DesignCard radius="small" className="overflow-hidden">
           <DesignDataTable
@@ -887,8 +918,9 @@ const Documentation = () => {
             rowKey={(row) => row.id}
             pageSize={10}
             totalResultsLabel={`${topPages.length} pages`}
-            searchPlaceholder="Search pages"
-            emptyTitle="No pages yet"
+            hideToolbar
+            search={topPagesSearch}
+            emptyTitle={topPagesSearch ? "No matching pages" : "No pages yet"}
             emptyBody="Page-level data arrives with the next Google Analytics snapshot."
           />
           </DesignCard>
