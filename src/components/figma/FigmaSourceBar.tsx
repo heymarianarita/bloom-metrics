@@ -54,7 +54,7 @@ export const FigmaSourceBar = ({
           variant="outlined"
           theme="muted"
           size="small"
-          className="w-8 px-0"
+          className="h-8 w-8 min-h-0 p-0 shrink-0"
           icon={<ArrowClockwise size={16} />}
           isLoading={isLoading}
           onClick={onRefresh}
