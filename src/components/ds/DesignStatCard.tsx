@@ -2,6 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { DesignCard } from "./DesignCard";
 import { DesignBadge } from "./DesignBadge";
+import { StatGroupContext } from "./DesignStatGroup";
 
 export interface DesignStatCardProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Label displayed at the top-left of the card */
@@ -76,11 +77,18 @@ const DesignStatCard = React.forwardRef<HTMLDivElement, DesignStatCardProps>(
     },
     ref,
   ) => {
+    const inGroup = React.useContext(StatGroupContext);
     return (
       <DesignCard
         ref={ref}
         variant={variant}
-        className={cn("p-4", flagged && "ring-1 ring-inset ring-[var(--destructive)]", className, flagged && "rounded-[6px]")}
+        className={cn(
+          "p-4",
+          inGroup && "flex-1 flex flex-col justify-between border-0 rounded-none bg-transparent",
+          flagged && "ring-1 ring-inset ring-[var(--destructive)]",
+          className,
+          flagged && "rounded-[6px]",
+        )}
         {...props}
       >
         <div className="flex items-center justify-between mb-2">

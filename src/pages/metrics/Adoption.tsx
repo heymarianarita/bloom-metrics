@@ -1,10 +1,11 @@
 import * as React from "react";
-import { Cube, ArrowsOutSimple, ArrowSquareIn, PuzzlePiece, Warning, TrendUp, Eye } from "@phosphor-icons/react";
+import { PuzzlePiece } from "@phosphor-icons/react";
 import { useLocation, useNavigate } from "react-router-dom";
 import AppShell from "@/components/layout/AppShell";
 import { DesignPageHeader } from "@/components/ds/DesignPageHeader";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignStatCard } from "@/components/ds/DesignStatCard";
+import { DesignStatGroup } from "@/components/ds/DesignStatGroup";
 import { DesignDataTable, type DataTableColumn } from "@/components/ds/DesignDataTable";
 import { DesignInfoBanner } from "@/components/ds/DesignInfoBanner";
 import { DesignBadge } from "@/components/ds/DesignBadge";
@@ -354,36 +355,32 @@ const Adoption = () => {
                 </div>
               )}
 
-              <div className="px-5 pb-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              <DesignStatGroup className="mx-5 mb-3">
                 <DesignStatCard
                   label="Insertions"
                   value={numberFormat(totals.inserts)}
                   change={changeText(totals.inserts, compareTotals?.inserts)}
                   changeUp={isUp(totals.inserts, compareTotals?.inserts)}
-                  icon={<ArrowSquareIn size={18} />}
                 />
                 <DesignStatCard
                   label="Detachments"
                   value={numberFormat(totals.detaches)}
                   change={changeText(totals.detaches, compareTotals?.detaches)}
                   changeUp={!isUp(totals.detaches, compareTotals?.detaches)}
-                  icon={<ArrowsOutSimple size={18} />}
                 />
                 <DesignStatCard
                   label="Detach rate"
                   value={totals.detachRate === null ? "—" : `${totals.detachRate}%`}
                   change={changeText(totals.detachRate, compareTotals?.detachRate, " pts")}
                   changeUp={!isUp(totals.detachRate, compareTotals?.detachRate)}
-                  icon={<Warning size={18} />}
                 />
                 <DesignStatCard
                   label="Never inserted"
                   value={numberFormat(totals.never)}
                   change={changeText(totals.never, compareTotals?.never)}
                   changeUp={!isUp(totals.never, compareTotals?.never)}
-                  icon={<Eye size={18} />}
                 />
-              </div>
+              </DesignStatGroup>
 
               <div className="px-5 pb-3">
                 <FigmaComponentChart

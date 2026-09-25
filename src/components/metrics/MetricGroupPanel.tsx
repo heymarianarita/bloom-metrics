@@ -6,6 +6,7 @@ import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { DesignLoader } from "@/components/ds/DesignLoader";
 import { DesignStatCard } from "@/components/ds/DesignStatCard";
+import { DesignStatGroup } from "@/components/ds/DesignStatGroup";
 import { DesignButton } from "@/components/ds/DesignButton";
 import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignChip } from "@/components/ds/DesignChip";
@@ -45,15 +46,6 @@ const LINE_COLORS = [
 
 const ALL = "__all__";
 
-/** Grid columns for n stat cards: 1 → full width, 2 → halves, 3 → thirds, 4+ → 1/2/4 like Documentation. */
-const statGridColumns = (n: number) =>
-  n <= 1
-    ? "grid-cols-1"
-    : n === 2
-      ? "grid-cols-1 sm:grid-cols-2"
-      : n === 3
-        ? "grid-cols-1 sm:grid-cols-3"
-        : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4";
 const PREVIOUS = "__previous__";
 
 const formatNumber = (value: number | undefined) => {
@@ -176,9 +168,7 @@ const MetricStat = ({
     latest && previous ? Number((latest.value - previous.value).toFixed(1)) : undefined;
 
   return (
-    <div className="flex h-full flex-col bg-background">
-      <DesignStatCard
-        className="flex-1 flex flex-col justify-between border-0 rounded-none bg-transparent"
+    <DesignStatCard
         label={metric.name}
         // "%" stays attached to the number; word units are shown smaller beside it.
         value={metric.unit === "%" ? formatValue(latest?.value, "%") : formatNumber(latest?.value)}
@@ -190,7 +180,6 @@ const MetricStat = ({
         }
         changeUp={delta === undefined ? true : delta >= 0}
       />
-    </div>
   );
 };
 
@@ -416,14 +405,7 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
 
 
 
-      {/* One card split into sections; the 1px gaps show the border colour as dividers.
-          Same responsive columns as Documentation, but never more columns than cards. */}
-      <div
-        className={cn(
-          "rounded-[6px] border border-border grid gap-px bg-[rgba(21,25,26,0.06)] overflow-hidden items-stretch auto-rows-fr",
-          statGridColumns(groupMetrics.length),
-        )}
-      >
+      <DesignStatGroup>
         {groupMetrics.map((metric) => (
           <MetricStat
             key={metric.id}
@@ -434,7 +416,7 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
             onSeries={handleSeries}
           />
         ))}
-      </div>
+      </DesignStatGroup>
 
       {/* Feeds the trend chart with the comparison metrics without showing their cards. */}
       <div className="hidden">
