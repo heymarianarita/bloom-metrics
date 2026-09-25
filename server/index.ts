@@ -4,7 +4,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import cookieParser from "cookie-parser";
 import cron from "node-cron";
 import { authRouter, readSession } from "./auth.ts";
-import { logAdminSetupLinks, passwordRouter } from "./passwords.ts";
+import { applyDevAdminPassword, logAdminSetupLinks, passwordRouter } from "./passwords.ts";
 import { handleDbRequest } from "./dbapi.ts";
 import { handleRpc } from "./rpc.ts";
 import { FUNCTIONS } from "./functions/index.ts";
@@ -96,7 +96,9 @@ cron.schedule("0 4 1 * *", refreshGetdx, { timezone: "UTC" });
 
 app.listen(port, () => {
   console.log(`bloom-metrics listening on :${port}`);
-  logAdminSetupLinks().catch((e) => console.error("could not create admin setup links", e));
+  applyDevAdminPassword()
+    .then(logAdminSetupLinks)
+    .catch((e) => console.error("could not prepare admin sign-in", e));
   getdxTeamsAgeDays()
     .then((age) => {
       if (age > 31) return refreshGetdx();

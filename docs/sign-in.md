@@ -22,6 +22,17 @@ link for each of them to the app log:
 Open the app's logs in playground, copy the link, and set a password. Nothing is logged once every
 admin has one.
 
+### Local development
+
+The local database (`npm run db:dev`) starts empty on every run, so passwords from the live
+site don't exist there. Set `DEV_ADMIN_PASSWORD` in `.env` (see `.env.example`) and every
+admin in the local database gets that password when the API starts (the `.env.example` value is
+`dev`; no length rule applies to it). It is ignored when
+`NODE_ENV=production` or `PUBLIC_URL` isn't `localhost`, so it never applies on playground.
+
+To test editor or viewer screens, add a person in **Settings → Users** and open the
+one-time link the dialog shows.
+
 ## Storage
 
 | Table | What |

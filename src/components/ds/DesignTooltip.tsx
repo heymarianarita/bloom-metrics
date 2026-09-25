@@ -15,6 +15,14 @@ const DesignTooltip: React.FC<DesignTooltipProps> = ({
   side = "top",
   className,
 }) => {
+  // Nothing to say (e.g. a table cell holding only a control): don't open an empty bubble.
+  const isEmpty =
+    content === null ||
+    content === undefined ||
+    content === false ||
+    (typeof content === "string" && content.trim() === "");
+  if (isEmpty) return <>{children}</>;
+
   return (
     <TooltipPrimitive.Root delayDuration={300}>
       <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
