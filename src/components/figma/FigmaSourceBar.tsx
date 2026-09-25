@@ -54,12 +54,13 @@ export const FigmaSourceBar = ({
           variant="outlined"
           theme="muted"
           size="small"
+          className="w-8 px-0"
           icon={<ArrowClockwise size={16} />}
           isLoading={isLoading}
           onClick={onRefresh}
-        >
-          Refresh
-        </DesignButton>
+          aria-label="Refresh"
+          title="Refresh"
+        />
       )}
     </div>
   );
