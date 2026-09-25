@@ -112,6 +112,8 @@ export interface DesignDataTableProps<T> {
   title?: string;
   /** Optional action element displayed next to the title (e.g. "View All" button) */
   titleAction?: React.ReactNode;
+  /** Show the search field in the title row, right-aligned, instead of in the toolbar (needs `title`) */
+  searchInTitle?: boolean;
 
   className?: string;
 }
@@ -168,6 +170,7 @@ function DesignDataTableInner<T>(
     emptyAction,
     title,
     titleAction,
+    searchInTitle = false,
     className,
   }: DesignDataTableProps<T>,
   ref: React.ForwardedRef<HTMLDivElement>
@@ -276,6 +279,7 @@ function DesignDataTableInner<T>(
     }
   };
 
+  const searchMovedToTitle = searchInTitle && Boolean(title);
   const hasActions = actions.length > 0 || rowToggle;
   const resultsLabel = query
     ? `${visibleData.length} of ${data.length} results`
@@ -287,16 +291,35 @@ function DesignDataTableInner<T>(
     <div ref={ref} className={cn("flex flex-col", className)}>
       {/* ── Title ── */}
       {title && (
-        <div className="flex items-center justify-between px-5 pt-4 pb-[8px]">
+        <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-[8px]">
           <h2 className="text-[18px] font-[580] text-[var(--foreground)]">{title}</h2>
-          {titleAction}
+          {(searchInTitle || titleAction) && (
+            <div className="flex items-center gap-2">
+              {searchInTitle && (
+                <div className="w-[200px]">
+                  <DesignInputBar
+                    size="small"
+                    placeholder={searchPlaceholder}
+                    leftIcon={<Search className="w-4 h-4" />}
+                    rightIcon={search ? <X className="w-3.5 h-3.5 cursor-pointer" /> : undefined}
+                    onRightIconClick={() => { setSearch(""); setPage(1); }}
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                  />
+                </div>
+              )}
+              {titleAction}
+            </div>
+          )}
         </div>
       )}
       {/* ── Toolbar ── */}
       {!hideToolbar && (
       <div className="flex flex-col gap-[12px] px-5 py-3 pb-[24px] relative z-10">
         {/* Row 1: Search + Select filters + All filters + Reset */}
+        {(!searchMovedToTitle || filters.length > 0 || (!wrapFilters && allFilters.length > 0)) && (
         <div className={cn("flex items-center gap-3", wrapFilters ? "flex-wrap" : "flex-nowrap")}>
+          {!searchMovedToTitle && (
           <div className="w-[200px]">
             <DesignInputBar
               placeholder={searchPlaceholder}
@@ -307,6 +330,7 @@ function DesignDataTableInner<T>(
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             />
           </div>
+          )}
           {filters.map((f) => (
              <div key={f.id} className="w-[180px]">
               <DesignInputSelect
@@ -339,6 +363,7 @@ function DesignDataTableInner<T>(
             </>
           )}
         </div>
+        )}
 
         {/* Active filter chips row (shown when wrapFilters is enabled and filters are active) */}
         {wrapFilters && allActiveChips.length > 0 && (
