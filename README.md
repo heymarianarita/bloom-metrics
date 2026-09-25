@@ -48,7 +48,8 @@ entirely environment variables:
 | `PUBLIC_URL` | Public address of the app (sign-in links, OAuth redirect) |
 | `PERFORMANCE_SHEET_ID` | Google Sheet with the quarterly performance tabs |
 | `FIGMA_FILE_KEYS` | Figma libraries captured by the snapshot job |
-| `GA4_APPS_SCRIPT_SECRET`, `GA4_PROPERTIES` | GA4 data pushed by the Apps Script in `docs/ga4-apps-script.gs` |
+| `GA4_APPS_SCRIPT_URL` | The Apps Script web app (`docs/ga4-apps-script.gs`); editors sync GA4 data with **Sync Google Analytics** on the Documentation page |
+| `GA4_PROPERTIES` | GA4 property labels |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional Google sign-in |
 
 Integration tokens (Figma, Atlassian, GetDX) are entered by an admin in Settings, not as variables.

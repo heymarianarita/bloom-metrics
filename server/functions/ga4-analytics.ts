@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { execute, nowMysql, query, toIso } from "../db.ts";
+import { canEdit } from "../auth.ts";
 import type { FnHandler } from "./types.ts";
 
 /**
@@ -9,6 +10,11 @@ import type { FnHandler } from "./types.ts";
  * 1) Pull: calls a publicly callable Apps Script web app.
  * 2) Push: accepts snapshots posted by Apps Script when the web app is restricted
  *    to a company workspace.
+ * 3) Browser sync: playground is only reachable inside Vinted's network, so Apps Script
+ *    can't push to it and the server can't get past the web app's Vinted-only sign-in.
+ *    An editor's browser carries the report instead ("Sync Google Analytics" button):
+ *    mode "sync-info" tells the page where the web app is; mode "browser_sync" stores
+ *    the report the web app handed to the page (signed-in editors only).
  */
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -197,6 +203,26 @@ const handler: FnHandler = async (req) => {
 
   const secret = process.env.GA4_APPS_SCRIPT_SECRET;
   const range = normalizeRange(payload);
+
+  const mode = (payload as { mode?: string }).mode;
+  if (mode === "sync-info") {
+    const latest = await query<{ created_at: string | null }>(`SELECT MAX(created_at) AS created_at FROM ${SNAPSHOT_TABLE}`);
+    return jsonResponse({ syncUrl: process.env.GA4_APPS_SCRIPT_URL?.trim() || null, refreshedAt: toIso(latest[0]?.created_at ?? null) });
+  }
+  if (mode === "browser_sync") {
+    if (!(await canEdit(req.user?.id))) return jsonResponse({ error: "Only editors can sync Google Analytics" }, 403);
+    const report = (req.body as { report?: Ga4Payload })?.report ?? {};
+    const properties = normalizeReportProperties(report.properties);
+    if (!properties.length) return jsonResponse({ error: "The report has no GA4 properties" }, 400);
+    const saveResult = await saveSnapshot({
+      source: "browser_sync",
+      range: normalizeRange(report),
+      properties,
+      rawPayload: withoutSecret(report as Record<string, unknown>),
+    });
+    if (!saveResult.saved) return jsonResponse({ error: "Could not save GA4 snapshot", details: saveResult.error }, 500);
+    return jsonResponse({ ok: true, saved: true, propertyCount: properties.length });
+  }
 
   if (isIngestPayload(payload)) {
     if (!secret) return jsonResponse({ error: "GA4 ingest secret is not configured" }, 503);

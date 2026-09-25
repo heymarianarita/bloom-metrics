@@ -25,11 +25,18 @@
  *      ]
  *    }
  * 3. Project Settings → Script properties → add:
- *      SHARED_SECRET    same long random value saved in the backend
- *      GA4_INGEST_URL   backend function endpoint for ga4-analytics
  *      GA4_PROPERTIES   JSON array, e.g. [{"id":"123","label":"Zeroheight"}]
- * 4. Run pushGa4Reports once from the Apps Script editor and authorize it.
- * 5. Run installDailyGa4PushTrigger to refresh every morning.
+ *      SHARED_SECRET    only needed for the old push/pull paths below
+ *      GA4_INGEST_URL   only needed for the old push path below
+ * 4. Run prepareGa4Snapshot once from the editor and authorize it.
+ * 5. Run installDailyGa4PrepareTrigger to rebuild the report every morning.
+ * 6. Deploy → New deployment → Web app (Execute as: Me, Who has access: Anyone
+ *    within Vinted). Put its /exec URL in the dashboard's GA4_APPS_SCRIPT_URL.
+ *
+ * How the dashboard gets the data: Bloom Metrics runs on playground, which Google
+ * can't reach, so the old push (pushGa4Reports) fails. Instead an editor clicks
+ * "Sync Google Analytics" on the Documentation page: it opens this web app in a small
+ * window, and doGet hands the report prepared this morning back to the dashboard page.
  */
 
 var DAILY_WINDOW_DAYS = 400;
@@ -54,8 +61,84 @@ function doPost(e) {
   }
 }
 
-function doGet() {
-  return json_({ ok: true, service: 'ds-metrics-ga4-bridge' }, 200);
+/** Dashboard pages allowed to receive the report (the live app, and local development). */
+var SYNC_ORIGINS = ['https://metrics--bloom.playground.vinted.dev', 'http://localhost:5173'];
+
+/**
+ * Opened by the dashboard's "Sync Google Analytics" button with ?origin=<dashboard>.
+ * Hands this morning's prepared report to that page (and nobody else) via postMessage.
+ */
+function doGet(e) {
+  var origin = String((e && e.parameter && e.parameter.origin) || '');
+  if (SYNC_ORIGINS.indexOf(origin) === -1) {
+    return json_({ ok: true, service: 'ds-metrics-ga4-bridge' }, 200);
+  }
+  var report = readStoredReport_();
+  if (!report) {
+    report = buildReport_(readProperties_(), 50);
+    saveStoredReport_(report);
+  }
+  var message = JSON.stringify({ type: 'bloom-ga4-snapshot', report: report }).replace(/</g, '\\u003c');
+  var html =
+    '<!doctype html><html><body style="font-family:sans-serif;padding:24px;color:#15191a">' +
+    '<p id="status">Sending Google Analytics data to Bloom Metrics…</p>' +
+    '<script>' +
+    'var message = ' + message + ';' +
+    'var target = window.top.opener;' +
+    'if (target) { target.postMessage(message, ' + JSON.stringify(origin) + ');' +
+    '  document.getElementById("status").textContent = "Sent. This window closes by itself."; }' +
+    'else { document.getElementById("status").textContent = "Open this from the Sync button on the dashboard."; }' +
+    '</script></body></html>';
+  return HtmlService.createHtmlOutput(html).setTitle('Syncing Google Analytics');
+}
+
+/** Builds the report and stores it for the dashboard's Sync button. Runs every morning. */
+function prepareGa4Snapshot() {
+  var properties = readProperties_();
+  if (!properties.length) throw new Error('GA4_PROPERTIES script property is empty or invalid');
+  var report = buildReport_(properties, 50);
+  saveStoredReport_(report);
+  Logger.log('Prepared GA4 report for ' + report.properties.length + ' properties');
+}
+
+/** Replaces the old push trigger with a daily prepare at around 06:00. */
+function installDailyGa4PrepareTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    var fn = trigger.getHandlerFunction();
+    if (fn === 'pushGa4Reports' || fn === 'prepareGa4Snapshot') ScriptApp.deleteTrigger(trigger);
+  });
+  ScriptApp.newTrigger('prepareGa4Snapshot').timeBased().everyDays(1).atHour(6).create();
+  Logger.log('Installed daily GA4 prepare trigger.');
+}
+
+/*
+ * The report is stored gzipped in script properties, split into chunks (each value
+ * is limited to 9 KB), so no Drive access is needed.
+ */
+var STORED_PREFIX = 'GA4_REPORT_';
+var CHUNK_SIZE = 8000;
+
+function saveStoredReport_(report) {
+  var json = JSON.stringify(Object.assign({}, report, { preparedAt: new Date().toISOString() }));
+  var packed = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(json, 'application/json')).getBytes());
+  var props = PropertiesService.getScriptProperties();
+  var previous = Number(props.getProperty(STORED_PREFIX + 'COUNT') || 0);
+  var count = Math.ceil(packed.length / CHUNK_SIZE);
+  var values = {};
+  for (var i = 0; i < count; i++) values[STORED_PREFIX + i] = packed.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+  values[STORED_PREFIX + 'COUNT'] = String(count);
+  props.setProperties(values);
+  for (var j = count; j < previous; j++) props.deleteProperty(STORED_PREFIX + j);
+}
+
+function readStoredReport_() {
+  var props = PropertiesService.getScriptProperties();
+  var count = Number(props.getProperty(STORED_PREFIX + 'COUNT') || 0);
+  if (!count) return null;
+  var packed = '';
+  for (var i = 0; i < count; i++) packed += props.getProperty(STORED_PREFIX + i) || '';
+  var blob = Utilities.newBlob(Utilities.base64Decode(packed), 'application/x-gzip');
+  return JSON.parse(Utilities.ungzip(blob).getDataAsString());
 }
 
 /** Pushes the configured GA4 reports to the ga4-analytics edge function. */
