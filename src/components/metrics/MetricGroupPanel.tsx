@@ -45,9 +45,14 @@ const LINE_COLORS = [
 const ALL = "__all__";
 const PREVIOUS = "__previous__";
 
-const formatValue = (value: number | undefined, unit: string) => {
+const formatNumber = (value: number | undefined) => {
   if (value === undefined || Number.isNaN(value)) return "—";
-  const rounded = Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+};
+
+const formatValue = (value: number | undefined, unit: string) => {
+  const rounded = formatNumber(value);
+  if (rounded === "—") return rounded;
   return unit ? `${rounded}${unit === "%" ? "%" : ` ${unit}`}` : rounded;
 };
 
@@ -164,7 +169,9 @@ const MetricStat = ({
       <DesignStatCard
         className="flex-1 flex flex-col justify-between border-0 rounded-none bg-transparent"
         label={metric.name}
-        value={formatValue(latest?.value, metric.unit)}
+        // "%" stays attached to the number; word units are shown smaller beside it.
+        value={metric.unit === "%" ? formatValue(latest?.value, "%") : formatNumber(latest?.value)}
+        unit={metric.unit && metric.unit !== "%" && latest ? metric.unit : undefined}
         change={
           delta !== undefined
             ? `${delta >= 0 ? "+" : ""}${delta} vs ${previous?.period}`
@@ -398,8 +405,9 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
 
 
 
-      {/* One card split into sections; the 1px gaps show the border colour as dividers. */}
-      <div className="rounded-[6px] border border-border grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-[rgba(21,25,26,0.06)] overflow-hidden items-stretch auto-rows-fr">
+      {/* One card split into sections; the 1px gaps show the border colour as dividers.
+          Four across only on wide screens: the panel is two thirds of the page, so at xl each card got ~150px. */}
+      <div className="rounded-[6px] border border-border grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-px bg-[rgba(21,25,26,0.06)] overflow-hidden items-stretch auto-rows-fr">
         {groupMetrics.map((metric) => (
           <MetricStat
             key={metric.id}
@@ -463,7 +471,7 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
             body="Once these metrics have values across more than one period, the trend appears here."
           />
         ) : (
-          <div className="h-[352px] w-full rounded-[6px] border border-border p-4">
+          <div className="h-[256px] w-full rounded-[6px] border border-border p-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
