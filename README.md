@@ -24,6 +24,17 @@ npm run server    # API on :8080 (creates tables on start)
 npm run dev       # app on :5173, proxies /api to the server
 ```
 
+Integrations (Figma, Atlassian Goals, GetDX) need tokens. Locally, put them in `.env`
+(`FIGMA_ACCESS_TOKEN`, `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, `ATLASSIAN_WORKSPACE`,
+`GETDX_API_TOKEN`): the server falls back to these when nothing is saved in Settings, and they
+survive the local database being reset. Restart the API after editing `.env`.
+
+No Figma token? Set `FIGMA_FAKE_DATA=1` in `.env` for made-up, deterministic Figma data (library
+analytics, file names and quarterly snapshots for all libraries). It only works locally: it's
+ignored in production and off `localhost`, and its code (`server/dev/`) isn't in the production image.
+
+Local sign-in: set `DEV_ADMIN_PASSWORD` in `.env` (see [docs/sign-in.md](docs/sign-in.md)).
+
 ## Deploy
 
 The `Dockerfile` builds the app and runs `npm start` (apply schema, then serve). Configuration is

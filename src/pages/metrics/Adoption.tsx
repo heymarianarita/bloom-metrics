@@ -6,6 +6,7 @@ import { DesignPageHeader } from "@/components/ds/DesignPageHeader";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignStatCard } from "@/components/ds/DesignStatCard";
 import { DesignStatGroup } from "@/components/ds/DesignStatGroup";
+import { FigmaLibrariesTrend } from "@/components/figma/FigmaLibrariesTrend";
 import { DesignDataTable, type DataTableColumn } from "@/components/ds/DesignDataTable";
 import { DesignInfoBanner } from "@/components/ds/DesignInfoBanner";
 import { DesignBadge } from "@/components/ds/DesignBadge";
@@ -381,6 +382,10 @@ const Adoption = () => {
                   changeUp={!isUp(totals.never, compareTotals?.never)}
                 />
               </DesignStatGroup>
+
+              <div className="px-5 pb-3">
+                <FigmaLibrariesTrend />
+              </div>
 
               <div className="px-5 pb-3">
                 <FigmaComponentChart

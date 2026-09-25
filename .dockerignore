@@ -6,3 +6,4 @@ dist
 supabase
 *.log
 .env
+server/dev

@@ -11,6 +11,8 @@ import { FUNCTIONS } from "./functions/index.ts";
 import { captureFigmaSnapshots } from "./functions/figma-snapshot.ts";
 import { getdxTeamsAgeDays, refreshGetdxTeams } from "./functions/getdx-teams.ts";
 import { pool } from "./db.ts";
+import { localDevFlag } from "./devmode.ts";
+import type { FnHandler } from "./functions/types.ts";
 
 const app = express();
 const port = Number(process.env.PORT ?? 8080);
@@ -44,8 +46,15 @@ app.post("/api/rpc/:name", wrap(async (req, res) => {
   res.status(out.status).json(out);
 }));
 
+/** Local development only: made-up Figma data (server/dev is not in the production image). */
+const fakeFigma = async (name: string): Promise<FnHandler | undefined> => {
+  if (!name.startsWith("figma-") || !localDevFlag("FIGMA_FAKE_DATA")) return undefined;
+  const { FAKE_FIGMA_FUNCTIONS } = await import("./dev/fake-figma.ts");
+  return FAKE_FIGMA_FUNCTIONS[name];
+};
+
 app.all("/api/functions/:name", wrap(async (req, res) => {
-  const handler = FUNCTIONS[req.params.name];
+  const handler = (await fakeFigma(req.params.name)) ?? FUNCTIONS[req.params.name];
   if (!handler) {
     res.status(404).json({ error: `Function ${req.params.name} not found` });
     return;

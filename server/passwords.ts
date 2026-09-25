@@ -13,6 +13,7 @@ import {
   type AppRole,
   type SessionUser,
 } from "./auth.ts";
+import { isLocalDev } from "./devmode.ts";
 
 /**
  * Email + password sign-in for people an admin has added (no self sign-up).
@@ -107,8 +108,7 @@ const validPassword = (pw: unknown): pw is string => typeof pw === "string" && p
 export async function applyDevAdminPassword() {
   const password = process.env.DEV_ADMIN_PASSWORD;
   if (!password) return;
-  const local = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(publicUrl());
-  if (process.env.NODE_ENV === "production" || !local) {
+  if (!isLocalDev()) {
     console.warn("DEV_ADMIN_PASSWORD ignored: only used for local development");
     return;
   }
