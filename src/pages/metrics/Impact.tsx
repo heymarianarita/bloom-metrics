@@ -15,7 +15,7 @@ import { useNavigate } from "react-router-dom";
 import MetricGroupPanel from "@/components/metrics/MetricGroupPanel";
 import { useSheetsAnalytics, type SurveyMetrics } from "@/hooks/useSheetsAnalytics";
 import { cn } from "@/lib/utils";
-import { InsightsPanel, metricInsights, type MetricSeries } from "@/components/metrics/InsightsPanel";
+import { InsightsPanel, metricInsights, seriesForChat, type MetricSeries } from "@/components/metrics/InsightsPanel";
 
 type MetricKey = keyof SurveyMetrics;
 
@@ -128,6 +128,15 @@ const Impact = () => {
           <InsightsPanel
             subject="Impact"
             insights={insights}
+            chat={{
+              page: "Metrics › Impact (survey scores, OKRs, RAG grades)",
+              view: { selectedQuarter: activeQuarter, metrics: seriesForChat(metricSeries) },
+              suggestions: [
+                "Summarise impact this quarter for a status update",
+                "Which roles or business units score lowest, and how has that changed?",
+                "How did satisfaction trend over the last four quarters?",
+              ],
+            }}
             className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)]"
           />
         </div>

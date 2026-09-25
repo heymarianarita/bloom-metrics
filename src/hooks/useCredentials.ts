@@ -52,6 +52,13 @@ export const CREDENTIAL_DEFS: {
     helper: "getdx.com → Settings → Web API → create a token with read access to teams.",
     secret: true,
   },
+  {
+    sourceKey: "anthropic",
+    name: "ANTHROPIC_API_KEY",
+    label: "Anthropic API key",
+    helper: "platform.claude.com → API keys. Each question in the Insights chat uses API credits.",
+    secret: true,
+  },
 ];
 
 export const useCredentialStatus = () =>

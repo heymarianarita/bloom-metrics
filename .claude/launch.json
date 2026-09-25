@@ -18,6 +18,18 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "api-alt",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["PORT=8081", "PUBLIC_URL=http://localhost:5174", "npm", "run", "server"],
+      "port": 8081
+    },
+    {
+      "name": "web-alt",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["API_PORT=8081", "npx", "vite", "--port", "5174", "--strictPort"],
+      "port": 5174
     }
   ]
 }
