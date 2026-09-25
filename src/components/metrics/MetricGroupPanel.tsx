@@ -24,6 +24,7 @@ import MetricBreakdowns from "@/components/metrics/MetricBreakdowns";
 import MergedBreakdowns from "@/components/metrics/MergedBreakdowns";
 import { useMetricGroups, PERIODICITY_OPTIONS, type Periodicity } from "@/hooks/useMetricGroups";
 import { bucketSeries, type SeriesPoint } from "@/lib/periodBuckets";
+import { LINE_COLORS } from "@/lib/chartColors";
 import {
   CartesianGrid,
   Legend,
@@ -35,14 +36,6 @@ import {
   YAxis,
 } from "recharts";
 
-const LINE_COLORS = [
-  "var(--primary)",
-  "var(--btn-success)",
-  "var(--destructive)",
-  "var(--btn-highlight)",
-  "var(--primary-medium)",
-  "var(--primary-dark)",
-];
 
 const ALL = "__all__";
 
