@@ -90,9 +90,9 @@ const DesignStatCard = React.forwardRef<HTMLDivElement, DesignStatCardProps>(
         <div className="flex items-end justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-end gap-2 flex-wrap">
-              <span className="text-[18px] font-[580] leading-6 text-foreground">
+              <span className="min-w-0 max-w-full text-[18px] font-[580] leading-6 text-foreground break-words">
                 {value}
-                {unit && <span className="text-[14px] font-[375] text-muted-foreground ml-1 whitespace-nowrap">{unit}</span>}
+                {unit && <span className="inline-block max-w-full text-[14px] font-[375] text-muted-foreground ml-1 break-words">{unit}</span>}
               </span>
               {change && (
                 <DesignBadge theme={changeUp ? "success" : "error"} styling="light">

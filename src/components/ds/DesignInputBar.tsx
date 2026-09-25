@@ -8,6 +8,8 @@ export interface DesignInputBarProps extends Omit<React.InputHTMLAttributes<HTML
   onRightIconClick?: () => void;
   multiline?: boolean;
   maxRows?: number;
+  /** "small" matches DesignInputSelect size="small" (32px, 14px text) */
+  size?: "default" | "small";
 }
 
 export interface TextAreaBarProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
@@ -19,7 +21,7 @@ export interface TextAreaBarProps extends React.TextareaHTMLAttributes<HTMLTextA
 }
 
 const DesignInputBar = React.forwardRef<HTMLInputElement, DesignInputBarProps>(
-  ({ className, leftIcon, rightIcon, onLeftIconClick, onRightIconClick, multiline, maxRows = 5, ...props }, ref) => {
+  ({ className, leftIcon, rightIcon, onLeftIconClick, onRightIconClick, multiline, maxRows = 5, size = "default", ...props }, ref) => {
     if (multiline) {
       return (
         <DesignTextAreaBar
@@ -36,7 +38,8 @@ const DesignInputBar = React.forwardRef<HTMLInputElement, DesignInputBarProps>(
 
     return (
       <div className={cn(
-        "flex items-center gap-1 bg-inputbar rounded-md min-h-[36px] px-[11px] py-[7px]",
+        "flex items-center gap-1 bg-inputbar rounded-md",
+        size === "small" ? "min-h-[32px] px-3 py-1" : "min-h-[36px] px-[11px] py-[7px]",
         className
       )}>
         {leftIcon && (
@@ -53,7 +56,7 @@ const DesignInputBar = React.forwardRef<HTMLInputElement, DesignInputBarProps>(
         <input
           className={cn(
             "flex-1 bg-transparent border-none outline-none",
-            "text-base font-normal leading-[22px] tracking-normal",
+            size === "small" ? "text-[14px] font-normal leading-[18px] tracking-normal" : "text-base font-normal leading-[22px] tracking-normal",
             "text-inputbar-text placeholder:text-inputbar-placeholder",
             "caret-inputbar-cursor"
           )}
