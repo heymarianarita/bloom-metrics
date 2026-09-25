@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="10 8 176 176" fill="none">
+  <!-- Three stacked metric cards, fanned out: light, mid and Bloom teal. -->
+  <rect x="34" y="58" width="92" height="116" rx="12" fill="#C8EBEC" transform="rotate(-32 80 116)" />
+  <rect x="44" y="46" width="94" height="118" rx="12" fill="#8DD4D8" transform="rotate(-20 91 105)" />
+  <rect x="58" y="22" width="98" height="120" rx="12" fill="#067D85" transform="rotate(-8 107 82)" />
+</svg>
