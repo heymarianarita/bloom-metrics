@@ -8,6 +8,8 @@ export interface DesignStatCardProps extends React.HTMLAttributes<HTMLDivElement
   label: string;
   /** Main metric value */
   value: string;
+  /** Unit shown after the value in smaller, muted text (e.g. "Inserts in code") */
+  unit?: string;
   /** Change indicator text (e.g. "+12%") */
   change?: string;
   /** Whether the change is positive (true = success, false = error) */
@@ -62,6 +64,7 @@ const DesignStatCard = React.forwardRef<HTMLDivElement, DesignStatCardProps>(
       className,
       label,
       value,
+      unit,
       change,
       changeUp = true,
       icon,
@@ -80,14 +83,17 @@ const DesignStatCard = React.forwardRef<HTMLDivElement, DesignStatCardProps>(
         className={cn("p-4", flagged && "ring-1 ring-inset ring-[var(--destructive)]", className, flagged && "rounded-[6px]")}
         {...props}
       >
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm text-muted-foreground">{label}</span>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-muted-foreground">{label}</span>
           {icon && <span className="text-muted-foreground">{icon}</span>}
         </div>
         <div className="flex items-end justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-end gap-2 flex-wrap">
-              <span className="text-[22px] font-[580] text-foreground">{value}</span>
+              <span className="text-[18px] font-[580] leading-6 text-foreground">
+                {value}
+                {unit && <span className="text-[14px] font-[375] text-muted-foreground ml-1 whitespace-nowrap">{unit}</span>}
+              </span>
               {change && (
                 <DesignBadge theme={changeUp ? "success" : "error"} styling="light">
                   {change}
