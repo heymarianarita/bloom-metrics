@@ -26,7 +26,7 @@ import {
 import { useFigmaHistory } from "@/hooks/useFigmaHistory";
 import MetricGroupPanel from "@/components/metrics/MetricGroupPanel";
 import { useManualMetrics, type ManualMetric } from "@/hooks/useManualMetrics";
-import { InsightsPanel, metricInsights, type Insight, type MetricSeries } from "@/components/metrics/InsightsPanel";
+import { InsightsPanel, metricInsights, seriesForChat, type Insight, type MetricSeries } from "@/components/metrics/InsightsPanel";
 
 /** Fixed tabs; every other sub-tab is one metric configured in Settings → Metrics. */
 const TOUCHPOINTS = [
@@ -218,6 +218,28 @@ const Adoption = () => {
     () => (isDesign ? figmaInsights : metricInsights(metricSeries)),
     [isDesign, figmaInsights, metricSeries],
   );
+
+  /** What the Design view shows, for the Insights chat (live Figma numbers for the selected range). */
+  const figmaChatView = React.useMemo(() => {
+    if (!isDesign || !data) return {};
+    const brief = (c: FigmaComponentRow) => ({ name: c.name, page: c.page, inserts: c.inserts, detaches: c.detaches, detachRate: Number(rateOf(c).toFixed(1)) });
+    return {
+      library: { fileKey, name: data.file?.name },
+      range,
+      compareRange,
+      excludedPages,
+      totals,
+      compareTotals,
+      componentCount: visibleComponents.length,
+      tableFilter: activeView.label,
+      mostInserted: [...visibleComponents].sort((a, b) => (b.inserts ?? 0) - (a.inserts ?? 0)).slice(0, 15).map(brief),
+      highestDetachRate: [...visibleComponents]
+        .filter((c) => (c.inserts ?? 0) + (c.detaches ?? 0) > 50)
+        .sort((a, b) => rateOf(b) - rateOf(a))
+        .slice(0, 15)
+        .map(brief),
+    };
+  }, [isDesign, data, fileKey, range, compareRange, excludedPages, totals, compareTotals, visibleComponents, activeView.label]);
 
   const columns: DataTableColumn<FigmaComponentRow>[] = [
     { key: "name", header: "Component", sortable: true, width: "2fr" },
@@ -424,6 +446,19 @@ const Adoption = () => {
       subject={metricTab?.name ?? (touchpoint === "design" ? "Figma" : "Adoption")}
       insights={insights}
       emptyText="Insights appear once this touchpoint has data to analyse."
+      chat={{
+        page: isDesign
+          ? "Metrics › Adoption › Design (Figma library adoption)"
+          : `Metrics › Adoption › ${metricTab?.name ?? touchpoint}`,
+        view: isDesign ? figmaChatView : { metrics: seriesForChat(metricSeries) },
+        suggestions: isDesign
+          ? [
+              "Summarise Figma adoption this quarter for a status update",
+              "Which components are detached most, and is it getting better?",
+              "Compare all libraries over the last four quarters",
+            ]
+          : undefined,
+      }}
       className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)]"
       footer={
         isDesign && (

@@ -7,6 +7,7 @@ import { authRouter, readSession } from "./auth.ts";
 import { applyDevAdminPassword, logAdminSetupLinks, passwordRouter } from "./passwords.ts";
 import { handleDbRequest } from "./dbapi.ts";
 import { handleRpc } from "./rpc.ts";
+import { insightsChatRouter } from "./insights/chat.ts";
 import { FUNCTIONS } from "./functions/index.ts";
 import { backfillFigmaSnapshots, captureFigmaSnapshots } from "./functions/figma-snapshot.ts";
 import { getdxTeamsAgeDays, refreshGetdxTeams } from "./functions/getdx-teams.ts";
@@ -35,6 +36,7 @@ app.get("/healthz", wrap(async (_req, res) => {
 
 app.use(authRouter());
 app.use(passwordRouter());
+app.use(insightsChatRouter());
 
 app.post("/api/db", wrap(async (req, res) => {
   const out = await handleDbRequest(req.body, await readSession(req));

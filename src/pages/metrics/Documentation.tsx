@@ -948,6 +948,25 @@ const Documentation = () => {
         <InsightsPanel
           subject={selectedProperty?.label ?? "Documentation"}
           insights={insights}
+          chat={{
+            page: "Metrics › Documentation (Google Analytics for the docs sites)",
+            view: {
+              period,
+              range: ga4Range,
+              previousRange: ga4PreviousRange,
+              property: selectedProperty?.label ?? "All properties",
+              totals: ga4Totals,
+              previousTotals,
+              ...(hasYearAgo && { yearAgoTotals }),
+              perProperty: ga4Rows.map((r) => ({ label: r.label, totals: r.rowTotals, previousTotals: r.rowPreviousTotals })),
+              topPages: topPages.slice(0, 10).map((p) => ({ path: p.path, pageViews: p.pageViews, previousPageViews: p.previousPageViews })),
+            },
+            suggestions: [
+              "Summarise documentation usage for a status update",
+              "Which pages gained or lost the most views, and why might that be?",
+              "Compare the platforms: which docs site is growing fastest?",
+            ],
+          }}
           className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)]"
         />
         </div>

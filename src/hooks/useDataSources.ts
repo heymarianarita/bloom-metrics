@@ -70,6 +70,14 @@ export const DATA_SOURCE_DEFS: {
     credential: "GETDX_API_TOKEN",
     fields: [],
   },
+  {
+    key: "anthropic",
+    label: "AI assistant (Claude)",
+    description: "Powers \"Ask the data\" in the Insights panels. Questions are answered from this app's data.",
+    mode: "dynamic",
+    credential: "ANTHROPIC_API_KEY",
+    fields: [],
+  },
 ];
 
 export const useDataSourceConfigs = () =>

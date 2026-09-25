@@ -2,6 +2,10 @@ import * as React from "react";
 import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignPageHeader } from "@/components/ds/DesignPageHeader";
 import { DesignBadge } from "@/components/ds/DesignBadge";
+import { DesignTabs } from "@/components/ds/DesignTabs";
+import { Sparkle } from "@phosphor-icons/react";
+import { InsightsChat } from "@/components/metrics/InsightsChat";
+import { useInsightsChat } from "@/hooks/useInsightsChat";
 import type { ManualMetric } from "@/hooks/useManualMetrics";
 import type { SeriesPoint } from "@/lib/periodBuckets";
 
@@ -111,42 +115,104 @@ export const metricInsights = (series: MetricSeries): Insight[] => {
   return out;
 };
 
+/** Compact form of the metric series on screen, for the chat's view of the page. */
+export const seriesForChat = (series: MetricSeries) =>
+  series.map(({ metric, points }) => ({
+    metric: metric.name,
+    slug: metric.slug,
+    unit: metric.unit,
+    // Latest first, as shown on the page.
+    points: points.slice(0, 8).map((p) => ({ period: p.period, value: Number(p.value.toFixed(2)), responses: p.rows })),
+  }));
+
 interface InsightsPanelProps {
   subject: string;
   insights: Insight[];
   emptyText?: string;
   footer?: React.ReactNode;
   className?: string;
+  /**
+   * Enables the "Ask" tab. `page` names the page; `view` is a compact summary of what is on
+   * screen (filters, figures). The insights listed here are always included.
+   */
+  chat?: { page: string; view?: Record<string, unknown>; suggestions?: string[] };
 }
 
-/** Side panel listing data-derived insights for the current view. */
-export const InsightsPanel = ({ subject, insights, emptyText, footer, className }: InsightsPanelProps) => (
-  <DesignCard variant="default" className={`flex flex-col overflow-hidden ${className ?? ""}`}>
-    <div className="px-5 pt-5 pb-3">
-      <DesignPageHeader
-        title="Insights"
-        subtitle={`What the data says about ${subject}`}
-        showBackChevron={false}
-      />
-    </div>
-    <div className="px-5 pb-5 flex flex-col gap-3 flex-1 overflow-y-auto min-h-0">
-      {insights.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          {emptyText ?? "Insights appear once there is data to analyse."}
-        </p>
+const DEFAULT_SUGGESTIONS = [
+  "Summarise this page for a status update",
+  "What changed most since last period, and why?",
+  "Compare this with the same period last year",
+];
+
+/** Side panel listing data-derived insights for the current view, plus an AI chat to dig deeper. */
+export const InsightsPanel = ({ subject, insights, emptyText, footer, className, chat }: InsightsPanelProps) => {
+  const [tab, setTab] = React.useState<"insights" | "ask">("insights");
+  const conversation = useInsightsChat({
+    page: chat?.page ?? "",
+    subject,
+    view: { ...chat?.view, insightsShown: insights.map(({ kind, title, body }) => `${kind}: ${title}. ${body}`) },
+  });
+
+  const askAbout = (item: Insight) => {
+    setTab("ask");
+    conversation.ask(`Tell me more about this: "${item.title}". What's behind it, and which segments or items drive it?`);
+  };
+
+  return (
+    <DesignCard
+      variant="default"
+      className={`flex flex-col overflow-hidden ${tab === "ask" ? "min-h-[480px]" : ""} ${className ?? ""}`}
+    >
+      <div className="px-5 pt-5 pb-3">
+        <DesignPageHeader
+          title="Insights"
+          subtitle={tab === "ask" ? `Ask the data about ${subject}` : `What the data says about ${subject}`}
+          showBackChevron={false}
+        />
+      </div>
+      {chat && (
+        <DesignTabs
+          className="mx-5 mb-3"
+          tabs={[
+            { id: "insights", label: "Highlights" },
+            { id: "ask", label: "Ask" },
+          ]}
+          activeTab={tab}
+          onTabChange={(id) => setTab(id as "insights" | "ask")}
+        />
       )}
-      {insights.map((item, i) => (
-        <div key={i} className="py-2 border-b border-border last:border-0">
-          <DesignBadge theme={INSIGHT_KINDS[item.kind]} styling="light">
-            {item.kind}
-          </DesignBadge>
-          <p className="text-sm font-medium text-foreground mt-2">{item.title}</p>
-          <p className="text-xs text-muted-foreground mt-1">{item.body}</p>
+      {tab === "ask" && chat ? (
+        <InsightsChat chat={conversation} suggestions={chat.suggestions ?? DEFAULT_SUGGESTIONS} />
+      ) : (
+        <div className="px-5 pb-5 flex flex-col gap-3 flex-1 overflow-y-auto min-h-0">
+          {insights.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              {emptyText ?? "Insights appear once there is data to analyse."}
+            </p>
+          )}
+          {insights.map((item, i) => (
+            <div key={i} className="py-2 border-b border-border last:border-0">
+              <DesignBadge theme={INSIGHT_KINDS[item.kind]} styling="light">
+                {item.kind}
+              </DesignBadge>
+              <p className="text-sm font-medium text-foreground mt-2">{item.title}</p>
+              <p className="text-xs text-muted-foreground mt-1">{item.body}</p>
+              {chat && (
+                <button
+                  type="button"
+                  onClick={() => askAbout(item)}
+                  className="mt-1.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <Sparkle size={12} weight="fill" /> Dig deeper
+                </button>
+              )}
+            </div>
+          ))}
+          {footer}
         </div>
-      ))}
-      {footer}
-    </div>
-  </DesignCard>
-);
+      )}
+    </DesignCard>
+  );
+};
 
 export default InsightsPanel;
