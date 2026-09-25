@@ -392,6 +392,7 @@ const Adoption = () => {
               <div className="flex-1">
                 <DesignDataTable
                   title="Components"
+                  searchInTitle
                   columns={columns}
                   data={tableRows}
                   tabs={componentViews.map((v) => ({ id: v.id, label: v.label, count: v.rows.length }))}
