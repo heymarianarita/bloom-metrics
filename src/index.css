@@ -1,0 +1,491 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mini Bloom Design System — All colors as HEX/rgba for exact brand fidelity */
+
+@layer base {
+  :root {
+    /* Core Neutrals */
+    --background: #FFFFFF;
+    --foreground: #15191A;
+
+    --card: #FFFFFF;
+    --card-foreground: #15191A;
+
+    --popover: #FFFFFF;
+    --popover-foreground: #15191A;
+
+    /* Primary - Teal #007782 */
+    --primary: #007782;
+    --primary-dark: #005A63;
+    --primary-light: #E6FAFA;
+    --primary-foreground: #FFFFFF;
+
+    /* Secondary/Muted */
+    --secondary: #F0F2F2;
+    --secondary-foreground: #15191A;
+
+    --muted: #F0F2F2;
+    --muted-foreground: #5A6566;
+
+    --accent: #F0F2F2;
+    --accent-foreground: #15191A;
+
+    /* Destructive */
+    --destructive: #D04555;
+    --destructive-foreground: #FFFFFF;
+
+    /* Border/Input */
+    --border: rgba(21, 25, 26, 0.12);
+    --input: rgba(21, 25, 26, 0.12);
+    --ring: #007782;
+
+    --radius: 0.375rem;
+
+    /* Text Colors */
+    --text-primary: #15191A;
+    --text-secondary: #5A6566;
+    --text-placeholder: #9CA3A5;
+
+    /* Button Theme Colors */
+    --btn-primary: #007782;
+    --btn-primary-hover-bg: rgba(0, 119, 130, 0.02);
+    --btn-primary-active-bg: rgba(0, 119, 130, 0.08);
+    --btn-success: #28865A;
+    --btn-success-hover-bg: rgba(40, 134, 90, 0.02);
+    --btn-success-active-bg: rgba(40, 134, 90, 0.08);
+    --btn-error: #D04555;
+    --btn-error-hover-bg: rgba(208, 69, 85, 0.02);
+    --btn-error-active-bg: rgba(208, 69, 85, 0.08);
+    --btn-highlight: #F9BB42;
+    --btn-highlight-text: #15191A;
+    --btn-highlight-hover-bg: rgba(249, 187, 66, 0.02);
+    --btn-highlight-active-bg: rgba(249, 187, 66, 0.08);
+    --btn-muted-hover-bg: rgba(90, 101, 102, 0.02);
+    --btn-muted-active-bg: rgba(90, 101, 102, 0.08);
+    --btn-dark-hover-bg: rgba(21, 25, 26, 0.02);
+    --btn-dark-active-bg: rgba(21, 25, 26, 0.08);
+
+    /* Interactive surface hover/active (shared) */
+    --surface-hover: rgba(21, 25, 26, 0.04);
+    --surface-active: rgba(21, 25, 26, 0.08);
+    --overlay-bg: rgba(21, 25, 26, 0.64);
+    --overlay-bg-light: rgba(15, 18, 18, 0.48);
+
+    /* Bubble Colors */
+    --bubble-received-bg: #FFFFFF;
+    --bubble-received-text: #15191A;
+    --bubble-sent-bg: #EDF2F2;
+    --bubble-sent-text: #15191A;
+    --bubble-footer-text: #15191A;
+    --bubble-border: rgba(21, 25, 26, 0.12);
+
+    /* Note Colors */
+    --note-text: #5A6566;
+
+    /* DoubleImage */
+    --double-image-border: #FFFFFF;
+
+    --banner-text: #15191A;
+    --banner-info-bg: #EDF2F2;
+    --banner-info-icon: #007782;
+    --banner-info-link: #005A63;
+    --banner-success-bg: #EBFCEF;
+    --banner-success-icon: #28865A;
+    --banner-success-link: #1D6442;
+    --banner-warning-bg: #FFF5E5;
+    --banner-warning-icon: #F9BB42;
+    --banner-warning-link: #8B6A2E;
+    --banner-error-bg: #FFF4F4;
+    --banner-error-icon: #D04555;
+    --banner-error-link: #9A323F;
+
+    /* Chip Colors */
+    --chip-bg: #FFFFFF;
+    --chip-border: #B6BEBF;
+    --chip-text: #0F1212;
+    --chip-hover-bg: #EDF2F2;
+    --chip-hover-border: #007782;
+    --chip-active-bg: #E6FAFA;
+    --chip-active-border: #007782;
+    --chip-pressed-bg: #C9F0EE;
+    --chip-filled-bg: #F0F2F2;
+    --chip-filled-text: #15191A;
+    --chip-filled-hover-bg: #E6E9E9;
+    --chip-filled-pressed-bg: #D9DDDD;
+    --chip-filled-active-bg: #E6FAFA;
+
+    /* Radio Colors */
+    --radio-border: #5A6566;
+    --radio-hover: #F0F2F2;
+    --radio-checked: #007782;
+    --radio-checker: #FFFFFF;
+
+    /* Checkbox Colors */
+    --checkbox-border: #5A6566;
+    --checkbox-hover: #F0F2F2;
+    --checkbox-checked: #007782;
+    --checkbox-icon: #FFFFFF;
+
+    /* Toggle Colors */
+    --toggle-unchecked: #9CA3A5;
+    --toggle-checked: #007782;
+    --toggle-checker: #FFFFFF;
+
+    /* Badge Colors */
+    --badge-default: #FFFFFF;
+    --badge-default-border: rgba(21, 25, 26, 0.12);
+    --badge-default-text: #15191A;
+    --badge-primary: #007782;
+    --badge-primary-text: #FFFFFF;
+    --badge-success: #28865A;
+    --badge-success-text: #FFFFFF;
+    --badge-error: #D04555;
+    --badge-error-text: #FFFFFF;
+    --badge-muted: #5A6566;
+    --badge-muted-text: #FFFFFF;
+    --badge-muted-light-bg: #F0F2F2;
+    --badge-muted-light-text: #5A6566;
+
+    /* Card Colors */
+    --design-card: #FFFFFF;
+    --design-card-border: rgba(21, 25, 26, 0.12);
+    --design-card-primary-bg: #E6FAFA;
+    --design-card-highlight-bg: #FFF5E5;
+
+    /* Image Colors */
+    --image-placeholder: #F0F2F2;
+
+    /* Divider Colors */
+    --divider: rgba(21, 25, 26, 0.12);
+    --spacing-bg: #EDF2F2;
+
+    /* Navigation Colors */
+    --nav-none: #FFFFFF;
+    --nav-none-title: #15191A;
+    --nav-primary: #007782;
+    --nav-primary-title: #FFFFFF;
+    --nav-dark: #15191A;
+    --nav-dark-title: #FFFFFF;
+    --nav-transparent-title: #15191A;
+
+    /* InputBar Colors */
+    --inputbar-bg: #EDF2F2;
+    --inputbar-text: #15191A;
+    --inputbar-placeholder: #9CA3A5;
+    --inputbar-icon: #5A6566;
+    --inputbar-cursor: #007782;
+
+    /* Cell Colors */
+    --cell-hover: #F0F2F2;
+    --cell-active: #F0F2F2;
+
+    /* Input Colors */
+    --input-bg: #FFFFFF;
+    --input-value: #15191A;
+    --input-title: #5A6566;
+    --input-placeholder: #9CA3A5;
+    --input-icon: #5A6566;
+    --input-cursor: #007782;
+    --input-border-color: rgba(21, 25, 26, 0.08);
+    --input-focus: rgba(0, 119, 130, 0.48);
+
+    /* Rating Colors */
+    --rating-star: #F9BB42;
+    --rating-empty: #E1E6E6;
+    --rating-text: #5A6566;
+    --highlight-tint: #FFF5E5;
+
+    /* Tooltip Colors */
+    --tooltip-bg: #004654;
+    --tooltip-text: #FFFFFF;
+
+    /* Highlight Color Scale (Yellow — attention, promos, star ratings) */
+    --highlight-default: #F9BB42;
+    --highlight-dark: #C9942F;
+    --highlight-extra-dark: #8B6A2E;
+    --highlight-medium: #FBCE73;
+    --highlight-light: #FDE6B3;
+    --highlight-extra-light: #FFF5E5;
+
+    /* Primary Color Scale */
+    --primary-extra-dark: #003D42;
+    --primary-dark: #005A63;
+    --primary-default: #007782;
+    --primary-medium: #33B3C2;
+    --primary-extra-light: #E6FAFA;
+
+    /* Success Color Scale */
+    --success-default: #28865A;
+    --success-dark: #1D6442;
+    --success-extra-dark: #134A30;
+    --success-medium: #4DB87A;
+    --success-light: #A3E4B8;
+    --success-extra-light: #EBFCEF;
+
+    /* Error Color Scale (Red — errors, destructive, validation failures) */
+    --error-default: #D04555;
+    --error-dark: #9A323F;
+    --error-extra-dark: #6B232C;
+    --error-medium: #E56978;
+    --error-extra-light: #FFF4F4;
+
+    /* Greyscale */
+    --greyscale-1: #15191A;
+    --greyscale-2: #5A6566;
+    --greyscale-3: #9CA3A5;
+    --greyscale-4: #B6BEBF;
+    --greyscale-5: #F0F2F2;
+    --greyscale-6: #FFFFFF;
+
+    /* Text Semantic Aliases */
+    --text-subtle: #5A6566;
+    --text-strong: #15191A;
+
+    /* Badge Highlight */
+    --badge-highlight: #F9BB42;
+    --badge-highlight-text: #15191A;
+
+    /* Badge Dark */
+    --badge-dark: #15191A;
+    --badge-dark-text: #FFFFFF;
+
+    /* Badge Light variants */
+    --badge-primary-light-bg: #E6FAFA;
+    --badge-primary-light-text: #005A63;
+    --badge-success-light-bg: #EBFCEF;
+    --badge-success-light-text: #1D6442;
+    --badge-error-light-bg: #FFF4F4;
+    --badge-error-light-text: #9A323F;
+    --badge-highlight-light-bg: #FFF5E5;
+    --badge-highlight-light-text: #8B6A2E;
+    --badge-dark-light-bg: #F0F2F2;
+    --badge-dark-light-text: #15191A;
+
+    /* Button Muted/Dark */
+    --btn-muted: #5A6566;
+    --btn-dark: #15191A;
+
+    /* PromoBanner */
+    --promo-bg: #E6FAFA;
+    --promo-text: #15191A;
+    --promo-action: #007782;
+    --promo-overlay: rgba(21, 25, 26, 1);
+
+    /* Documentation Colors */
+    --docs-bg: #F7F8F8;
+    --docs-foreground: #15191A;
+    --docs-heading: #15191A;
+    --docs-muted: #5A6566;
+    --docs-border: rgba(21, 25, 26, 0.12);
+    --docs-code: #F0F2F2;
+    --docs-code-text: #15191A;
+    --docs-preview-header: #F0F2F2;
+
+    /* Sidebar Colors */
+    --sidebar-background: #FFFFFF;
+    --sidebar-foreground: #15191A;
+    --sidebar-primary: #007782;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #F0F2F2;
+    --sidebar-accent-foreground: #15191A;
+    --sidebar-border: rgba(21, 25, 26, 0.12);
+    --sidebar-ring: #007782;
+  }
+
+  .dark {
+    --background: #0F1212;
+    --foreground: #FFFFFF;
+    --card: #1A1D1D;
+    --card-foreground: #FFFFFF;
+    --popover: #1A1D1D;
+    --popover-foreground: #FFFFFF;
+    --primary: #007782;
+    --primary-light: #1A3538;
+    --primary-foreground: #FFFFFF;
+    --secondary: #252929;
+    --secondary-foreground: #FFFFFF;
+    --muted: #252929;
+    --muted-foreground: #9CA3A5;
+    --accent: #252929;
+    --accent-foreground: #FFFFFF;
+    --destructive: #C73E4D;
+    --destructive-foreground: #FFFFFF;
+    --border: rgba(255, 255, 255, 0.12);
+    --input: rgba(255, 255, 255, 0.12);
+    --ring: #007782;
+    --text-primary: #FFFFFF;
+    --text-secondary: #9CA3A5;
+    --text-placeholder: #6B7374;
+    --btn-primary: #007782;
+    --btn-success: #35A06F;
+    --btn-error: #C73E4D;
+    --btn-highlight: #F9BB42;
+    --btn-highlight-text: #0F1212;
+    --banner-text: #FFFFFF;
+    --banner-info-bg: #0D2F33;
+    --banner-info-icon: #33B3C2;
+    --banner-info-link: #66D4E0;
+    --banner-success-bg: #0D2F1D;
+    --banner-success-icon: #4DB87A;
+    --banner-success-link: #7DD9A0;
+    --banner-warning-bg: #2F2510;
+    --banner-warning-icon: #F9BB42;
+    --banner-warning-link: #FBCE73;
+    --banner-error-bg: #2F1518;
+    --banner-error-icon: #E56978;
+    --banner-error-link: #F09DA7;
+    --bubble-received-bg: #252929;
+    --bubble-received-text: #FFFFFF;
+    --bubble-sent-bg: #1A3538;
+    --bubble-sent-text: #66D4E0;
+    --bubble-footer-text: #FFFFFF;
+    --bubble-border: rgba(255, 255, 255, 0.12);
+    --chip-bg: #252929;
+    --chip-border: #6B7374;
+    --chip-text: #FFFFFF;
+    --chip-hover-bg: #303535;
+    --chip-hover-border: #33B3C2;
+    --chip-active-bg: #1A3538;
+    --chip-active-border: #33B3C2;
+    --chip-pressed-bg: #1A3538;
+    --radio-border: #6B7374;
+    --radio-hover: #303535;
+    --radio-checked: #33B3C2;
+    --radio-checker: #FFFFFF;
+    --checkbox-border: #6B7374;
+    --checkbox-hover: #303535;
+    --checkbox-checked: #33B3C2;
+    --checkbox-icon: #FFFFFF;
+    --toggle-unchecked: #6B7374;
+    --toggle-checked: #33B3C2;
+    --toggle-checker: #FFFFFF;
+    --badge-default: #303535;
+    --badge-default-border: rgba(255, 255, 255, 0.12);
+    --badge-default-text: #FFFFFF;
+    --badge-primary: #007782;
+    --badge-primary-text: #FFFFFF;
+    --badge-success: #35A06F;
+    --badge-success-text: #FFFFFF;
+    --badge-error: #C73E4D;
+    --badge-error-text: #FFFFFF;
+    --design-card: #252929;
+    --design-card-border: rgba(255, 255, 255, 0.12);
+    --divider: rgba(255, 255, 255, 0.12);
+    --spacing-bg: #1A1D1D;
+    --nav-none: #1A1D1D;
+    --nav-none-title: #FFFFFF;
+    --nav-primary: #007782;
+    --nav-primary-title: #FFFFFF;
+    --nav-dark: #0F1212;
+    --nav-dark-title: #FFFFFF;
+    --nav-transparent-title: #FFFFFF;
+    --inputbar-bg: #1A3538;
+    --inputbar-text: #FFFFFF;
+    --inputbar-placeholder: #6B7374;
+    --inputbar-icon: #6B7374;
+    --inputbar-cursor: #33B3C2;
+    --cell-hover: #252929;
+    --cell-active: #252929;
+    --input-bg: #252929;
+    --input-value: #FFFFFF;
+    --input-title: #FFFFFF;
+    --input-placeholder: #6B7374;
+    --input-icon: #6B7374;
+    --input-cursor: #33B3C2;
+    --input-border-color: rgba(255, 255, 255, 0.08);
+    --input-focus: rgba(51, 179, 194, 0.48);
+    --rating-star: #F9BB42;
+    --rating-empty: #3A4445;
+    --rating-text: #9CA3A5;
+    --highlight-tint: #2F2510;
+    --tooltip-bg: #004654;
+    --tooltip-text: #FFFFFF;
+    --highlight-default: #F9BB42;
+    --highlight-dark: #C9942F;
+    --highlight-extra-dark: #8B6A2E;
+    --highlight-medium: #FBCE73;
+    --highlight-light: #FDE6B3;
+    --highlight-extra-light: #2F2510;
+    --primary-extra-dark: #003D42;
+    --primary-dark: #005A63;
+    --primary-default: #007782;
+    --primary-medium: #33B3C2;
+    --primary-extra-light: #1A3538;
+    --success-default: #35A06F;
+    --success-dark: #1D6442;
+    --success-extra-dark: #134A30;
+    --success-medium: #4DB87A;
+    --success-light: #2D6B4A;
+    --success-extra-light: #0D2F1D;
+    --error-default: #C73E4D;
+    --error-dark: #9A323F;
+    --error-extra-dark: #6B232C;
+    --error-medium: #E56978;
+    --error-extra-light: #2F1518;
+    --greyscale-1: #FFFFFF;
+    --greyscale-2: #9CA3A5;
+    --greyscale-3: #6B7374;
+    --greyscale-4: #454A4B;
+    --greyscale-5: #252929;
+    --greyscale-6: #0F1212;
+    --text-subtle: #9CA3A5;
+    --text-strong: #FFFFFF;
+    --badge-highlight: #F9BB42;
+    --badge-highlight-text: #0F1212;
+    --badge-dark: #FFFFFF;
+    --badge-dark-text: #0F1212;
+    --badge-primary-light-bg: #1A3538;
+    --badge-primary-light-text: #66D4E0;
+    --badge-success-light-bg: #0D2F1D;
+    --badge-success-light-text: #7DD9A0;
+    --badge-error-light-bg: #2F1518;
+    --badge-error-light-text: #F09DA7;
+    --badge-highlight-light-bg: #2F2510;
+    --badge-highlight-light-text: #FBCE73;
+    --badge-dark-light-bg: #252929;
+    --badge-dark-light-text: #FFFFFF;
+    --btn-muted: #9CA3A5;
+    --btn-dark: #FFFFFF;
+    --promo-bg: #1A3A3D;
+    --promo-text: #FFFFFF;
+    --promo-action: #5CC8D2;
+    --promo-overlay: rgba(255, 255, 255, 1);
+    --docs-bg: #0F1212;
+    --docs-foreground: #FFFFFF;
+    --docs-heading: #FFFFFF;
+    --docs-muted: #9CA3A5;
+    --docs-border: rgba(255, 255, 255, 0.12);
+    --docs-code: #252929;
+    --docs-code-text: #E5E5E5;
+    --docs-preview-header: #1A1D1D;
+    --sidebar-background: #0F1212;
+    --sidebar-foreground: #FFFFFF;
+    --sidebar-primary: #33B3C2;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #252929;
+    --sidebar-accent-foreground: #FFFFFF;
+    --sidebar-border: rgba(255, 255, 255, 0.12);
+    --sidebar-ring: #33B3C2;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Figtree', 'Inter', system-ui, sans-serif;
+  }
+}
