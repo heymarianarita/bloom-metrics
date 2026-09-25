@@ -8,7 +8,7 @@ import { applyDevAdminPassword, logAdminSetupLinks, passwordRouter } from "./pas
 import { handleDbRequest } from "./dbapi.ts";
 import { handleRpc } from "./rpc.ts";
 import { FUNCTIONS } from "./functions/index.ts";
-import { captureFigmaSnapshots } from "./functions/figma-snapshot.ts";
+import { backfillFigmaSnapshots, captureFigmaSnapshots } from "./functions/figma-snapshot.ts";
 import { getdxTeamsAgeDays, refreshGetdxTeams } from "./functions/getdx-teams.ts";
 import { pool } from "./db.ts";
 import { localDevFlag } from "./devmode.ts";
@@ -96,6 +96,13 @@ cron.schedule(
   { timezone: "UTC" },
 );
 
+// Fill in finished quarters that were never captured (only missing ones are fetched from Figma).
+const backfillFigma = () =>
+  backfillFigmaSnapshots()
+    .then((t) => console.log(`figma backfill: ${t.captured} captured, ${t.skipped} without data, ${t.failed} failed`))
+    .catch((e) => console.error("figma backfill failed", e instanceof Error ? e.message : e));
+cron.schedule("45 5 * * *", backfillFigma, { timezone: "UTC" });
+
 // GetDX teams change rarely: refresh the stored copy on the 1st of each month.
 const refreshGetdx = () =>
   refreshGetdxTeams()
@@ -108,6 +115,8 @@ app.listen(port, () => {
   applyDevAdminPassword()
     .then(logAdminSetupLinks)
     .catch((e) => console.error("could not prepare admin sign-in", e));
+  // Not with fake Figma data: that must never be stored.
+  if (!localDevFlag("FIGMA_FAKE_DATA")) backfillFigma();
   getdxTeamsAgeDays()
     .then((age) => {
       if (age > 31) return refreshGetdx();

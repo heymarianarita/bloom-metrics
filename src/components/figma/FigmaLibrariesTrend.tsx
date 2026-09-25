@@ -9,8 +9,9 @@ import { FIGMA_LIBRARIES } from "@/hooks/useFigmaAnalytics";
 import { LINE_COLORS } from "@/lib/chartColors";
 
 /**
- * Quarterly insertions for every Figma library, from the stored snapshots
- * (Figma's API only answers per date range, so history comes from figma-snapshot).
+ * Quarterly insertions for every Figma library, from the stored snapshots. The
+ * server backfills missing past quarters from Figma (backfillFigmaSnapshots), so
+ * history is there without waiting for the scheduled captures.
  * Same look as the Adoption → Overview "Evolution over time" chart.
  */
 export const FigmaLibrariesTrend = () => {
@@ -47,7 +48,7 @@ export const FigmaLibrariesTrend = () => {
         <DesignEmptyState
           icon={<ChartBar size={40} />}
           title="No history yet"
-          body="Quarterly Figma snapshots are captured on the 1st and 15th of each month; the trend appears once they arrive."
+          body="Past quarters are fetched from Figma when the app starts and daily after that. Refresh in a few minutes."
         />
       ) : (
         <div className="h-[256px] w-full rounded-[6px] border border-border p-4">
