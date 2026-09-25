@@ -18,8 +18,23 @@ const statements = (sql: string) =>
     .map((s) => s.replace(/^\s*--.*$/gm, "").trim())
     .filter(Boolean);
 
+/** The database may still be starting (dev db, or a restarting MySQL pod): retry for up to a minute. */
+async function connectWithRetry() {
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    try {
+      return await pool.getConnection();
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? "";
+      if (!["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "PROTOCOL_CONNECTION_LOST"].includes(code) || Date.now() > deadline) throw e;
+      console.log(`database not reachable yet (${code}), retrying…`);
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+}
+
 async function main() {
-  const conn = await pool.getConnection();
+  const conn = await connectWithRetry();
   try {
     for (const stmt of statements(readFileSync(path.join(here, "schema.sql"), "utf8"))) {
       await conn.query(stmt);
