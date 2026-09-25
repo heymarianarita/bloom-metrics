@@ -876,7 +876,7 @@ const Documentation = () => {
               placeholder="Search pages"
             >
               <DesignInputSelect
-                className="w-[200px]"
+                className="w-[152px]"
                 size="small"
                 options={MOVERS_OPTIONS}
                 value={moversDirection}

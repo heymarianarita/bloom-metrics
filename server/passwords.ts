@@ -100,6 +100,34 @@ const toSessionUser = (p: { user_id: string; email: string; display_name: string
 const validPassword = (pw: unknown): pw is string => typeof pw === "string" && pw.length >= MIN_PASSWORD && pw.length <= 200;
 
 /**
+ * Local development only: gives every admin in the (throwaway) dev database the
+ * DEV_ADMIN_PASSWORD from .env, so admin screens can be tested without setup links.
+ * Refuses to run in production or when the app isn't served from localhost.
+ */
+export async function applyDevAdminPassword() {
+  const password = process.env.DEV_ADMIN_PASSWORD;
+  if (!password) return;
+  const local = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(publicUrl());
+  if (process.env.NODE_ENV === "production" || !local) {
+    console.warn("DEV_ADMIN_PASSWORD ignored: only used for local development");
+    return;
+  }
+  // No length rule here: this password only exists in the throwaway local database.
+  const admins = await query<{ id: string; email: string }>(
+    "SELECT p.id, p.email FROM profiles p JOIN user_roles r ON r.user_id = p.id AND r.role = 'admin'",
+  );
+  const hash = await hashPassword(password);
+  for (const a of admins) {
+    await query(
+      `INSERT INTO user_passwords (user_id, password_hash) VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash), updated_at = CURRENT_TIMESTAMP(6)`,
+      [a.id, hash],
+    );
+  }
+  console.log(`[dev] admins can sign in with DEV_ADMIN_PASSWORD: ${admins.map((a) => a.email).join(", ") || "none found"}`);
+}
+
+/**
  * Admins who can't sign in yet (e.g. right after the Lovable import) get a setup
  * link in the server log on start. Nothing is printed once they have a password.
  */

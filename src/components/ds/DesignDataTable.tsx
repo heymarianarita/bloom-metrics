@@ -425,7 +425,13 @@ function DesignDataTableInner<T>(
           <table className="w-full text-sm table-fixed">
             {!hideHeader && (
               <thead>
-                <tr className="h-[44px] border-t border-t-[rgba(21,25,26,0.08)] border-b border-[var(--border)]">
+                <tr
+                  className={cn(
+                    "h-[44px] border-b border-[var(--border)]",
+                    // Divider from the toolbar/title above; without them the card's own border is the edge.
+                    (!hideToolbar || title) && "border-t border-t-[rgba(21,25,26,0.08)]",
+                  )}
+                >
                   {selectable && (
                     <th className="w-[48px]" />
                   )}
