@@ -87,9 +87,14 @@ function readFileKeys(): { key: string; label?: string }[] {
   if (!raw) return [];
   if (raw.startsWith("[")) {
     try {
-      return JSON.parse(raw).map((e: unknown) =>
-        typeof e === "string" ? { key: e } : (e as { key: string; label?: string })
-      );
+      // Entries may be plain keys, {key, label} or {id, label} (the format playground uses).
+      return (JSON.parse(raw) as unknown[])
+        .map((e) => {
+          if (typeof e === "string") return { key: e.trim() };
+          const o = (e ?? {}) as { key?: string; id?: string; fileKey?: string; label?: string; name?: string };
+          return { key: String(o.key ?? o.id ?? o.fileKey ?? "").trim(), label: o.label ?? o.name };
+        })
+        .filter((e) => e.key);
     } catch {
       return [];
     }
