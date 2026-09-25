@@ -58,6 +58,9 @@ export interface DesignDataTableProps<T> {
 
   /* ── Toolbar ── */
   searchPlaceholder?: string;
+  /** Controlled search text, for a search field rendered outside the table (e.g. with hideToolbar) */
+  search?: string;
+  onSearchChange?: (value: string) => void;
   filters?: DataTableFilter[];
   /** Additional filters shown only in the side sheet */
   sideSheetFilters?: DataTableFilter[];
@@ -136,6 +139,8 @@ function DesignDataTableInner<T>(
     data,
     rowKey,
     searchPlaceholder = "Search",
+    search: controlledSearch,
+    onSearchChange,
     filters = [],
     sideSheetFilters = [],
     tabs = [],
@@ -167,7 +172,12 @@ function DesignDataTableInner<T>(
   }: DesignDataTableProps<T>,
   ref: React.ForwardedRef<HTMLDivElement>
 ) {
-  const [search, setSearch] = useState("");
+  const [internalSearch, setInternalSearch] = useState("");
+  const search = controlledSearch ?? internalSearch;
+  const setSearch = (value: string) => {
+    onSearchChange?.(value);
+    if (controlledSearch === undefined) setInternalSearch(value);
+  };
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
   const [page, setPage] = useState(1);
   const [internalSelected, setInternalSelected] = useState<string[]>([]);
@@ -227,9 +237,24 @@ function DesignDataTableInner<T>(
     setPage(1);
   };
 
+  // Search: case-insensitive match on any column's plain value (strings and numbers).
+  const query = search.trim().toLowerCase();
+  const visibleData = useMemo(() => {
+    if (!query) return data;
+    return data.filter((row) =>
+      columns.some((col) => {
+        const value = (row as Record<string, unknown>)[col.key];
+        return (typeof value === "string" || typeof value === "number") && String(value).toLowerCase().includes(query);
+      }),
+    );
+  }, [data, columns, query]);
+
+  // A search typed outside the table starts again from the first page.
+  React.useEffect(() => setPage(1), [controlledSearch]);
+
   // Pagination
-  const pageCount = Math.max(1, Math.ceil(data.length / pageSize));
-  const pagedData = data.slice((page - 1) * pageSize, page * pageSize);
+  const pageCount = Math.max(1, Math.ceil(visibleData.length / pageSize));
+  const pagedData = visibleData.slice((page - 1) * pageSize, page * pageSize);
 
   // Selection helpers
   const allPageKeys = pagedData.map((row, i) => rowKey(row, (page - 1) * pageSize + i));
@@ -252,7 +277,9 @@ function DesignDataTableInner<T>(
   };
 
   const hasActions = actions.length > 0 || rowToggle;
-  const resultsLabel = totalResultsLabel ?? `${data.length} results`;
+  const resultsLabel = query
+    ? `${visibleData.length} of ${data.length} results`
+    : (totalResultsLabel ?? `${data.length} results`);
   const totalFilterCount = allActiveChips.length;
 
   return (

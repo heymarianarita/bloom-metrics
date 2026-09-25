@@ -1,4 +1,5 @@
 import * as React from "react";
+import { cn } from "@/lib/utils";
 import { ChartBar } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
 import { DesignCard } from "@/components/ds/DesignCard";
@@ -43,6 +44,16 @@ const LINE_COLORS = [
 ];
 
 const ALL = "__all__";
+
+/** Grid columns for n stat cards: 1 → full width, 2 → halves, 3 → thirds, 4+ → 1/2/4 like Documentation. */
+const statGridColumns = (n: number) =>
+  n <= 1
+    ? "grid-cols-1"
+    : n === 2
+      ? "grid-cols-1 sm:grid-cols-2"
+      : n === 3
+        ? "grid-cols-1 sm:grid-cols-3"
+        : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4";
 const PREVIOUS = "__previous__";
 
 const formatNumber = (value: number | undefined) => {
@@ -406,8 +417,13 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
 
 
       {/* One card split into sections; the 1px gaps show the border colour as dividers.
-          Four across only on wide screens: the panel is two thirds of the page, so at xl each card got ~150px. */}
-      <div className="rounded-[6px] border border-border grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-px bg-[rgba(21,25,26,0.06)] overflow-hidden items-stretch auto-rows-fr">
+          Same responsive columns as Documentation, but never more columns than cards. */}
+      <div
+        className={cn(
+          "rounded-[6px] border border-border grid gap-px bg-[rgba(21,25,26,0.06)] overflow-hidden items-stretch auto-rows-fr",
+          statGridColumns(groupMetrics.length),
+        )}
+      >
         {groupMetrics.map((metric) => (
           <MetricStat
             key={metric.id}

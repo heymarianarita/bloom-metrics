@@ -172,8 +172,7 @@ const Adoption = () => {
     if (worst && libRate !== null) {
       const gap = worst.rate - libRate;
       out.push({
-        kind: gap >= 5 ? "Risk" : "Watch",
-        theme: gap >= 5 ? "error" : "highlight",
+        kind: gap >= 5 ? "Risk" : "Needs attention",
         title:
           gap >= 5
             ? `${worst.name} detaches far above the library average`
@@ -188,8 +187,7 @@ const Adoption = () => {
       const up = latest.insertsDelta >= 0;
       const rateDown = (latest.detachRateDelta ?? 0) <= 0;
       out.push({
-        kind: "Trend",
-        theme: up && rateDown ? "success" : "highlight",
+        kind: up && rateDown ? "Growth" : "Needs attention",
         title:
           up && rateDown
             ? "Detach rate falling while insertions climb"
@@ -202,8 +200,7 @@ const Adoption = () => {
 
     if (totals.never > 0) {
       out.push({
-        kind: "Watch",
-        theme: "highlight",
+        kind: "Needs attention",
         title: `${totals.never} components have never been inserted`,
         body: `${Math.round((totals.never / Math.max(visibleComponents.length, 1)) * 100)}% of the ${
           visibleComponents.length

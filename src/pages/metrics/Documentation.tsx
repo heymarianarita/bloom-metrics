@@ -21,7 +21,9 @@ import { DesignLoader } from "@/components/ds/DesignLoader";
 import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { useParams } from "react-router-dom";
-import { InsightsPanel, type Insight } from "@/components/metrics/InsightsPanel";
+import { changeKind, DECLINE_THRESHOLD, InsightsPanel, type Insight } from "@/components/metrics/InsightsPanel";
+import { DesignInputBar } from "@/components/ds/DesignInputBar";
+import { Search, X } from "lucide-react";
 import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import {
   ga4PropertySlug,
@@ -224,6 +226,7 @@ const Documentation = () => {
   const [period, setPeriod] = React.useState("last_30");
   const [threshold, setThreshold] = React.useState("0.2");
   const [moversDirection, setMoversDirection] = React.useState("gaining");
+  const [moversSearch, setMoversSearch] = React.useState("");
   const thresholdValue = Number(threshold) || 0;
 
   const { current: ga4Range, previous: ga4PreviousRange } = React.useMemo(
@@ -386,10 +389,8 @@ const Documentation = () => {
     const change = (label: string, cur: number, prev: number, fmt: (v: number) => string) => {
       if (prev <= 0 && cur <= 0) return;
       const pct = pctChange(cur, prev);
-      const risk = pct <= -0.1;
       out.push({
-        kind: risk ? "Risk" : "Trend",
-        theme: risk ? "error" : pct >= 0 ? "success" : "highlight",
+        kind: changeKind(cur - prev, pct, Math.abs(pct) < 0.005),
         title: `${label} ${pct >= 0 ? "up" : "down"} ${signedPercent(pct).replace(/^[+−]/, "")}`,
         body: `${fmt(cur)} against ${fmt(prev)} in the previous period.`,
       });
@@ -403,8 +404,7 @@ const Documentation = () => {
     const fastest = ga4Rows.find((r) => r.fastest);
     if (fastest && ga4Rows.length > 1) {
       out.unshift({
-        kind: "Trend",
-        theme: "success",
+        kind: "Top mover",
         title: `${fastest.label} is growing fastest`,
         body: `Users ${signedPercent(fastest.growth)} versus the previous period.`,
       });
@@ -413,8 +413,7 @@ const Documentation = () => {
     const gain = [...comparable].sort((a, b) => b.delta - a.delta)[0];
     if (gain && gain.delta > 0) {
       out.push({
-        kind: "Trend",
-        theme: "success",
+        kind: "Growth",
         title: `Biggest gain: ${gain.title}`,
         body: `+${n(gain.delta)} views (${gain.platform}).`,
       });
@@ -422,8 +421,7 @@ const Documentation = () => {
     const loss = [...comparable].sort((a, b) => a.delta - b.delta)[0];
     if (loss && loss.delta < 0) {
       out.push({
-        kind: "Watch",
-        theme: "highlight",
+        kind: loss.previousPageViews && Math.abs(loss.delta) / loss.previousPageViews >= DECLINE_THRESHOLD ? "Decline" : "Dip",
         title: `Biggest drop: ${loss.title}`,
         body: `−${n(Math.abs(loss.delta))} views (${loss.platform}).`,
       });
@@ -567,7 +565,7 @@ const Documentation = () => {
     {
       title: "Users",
       lines: [
-        { key: "totalUsers", name: "Total users", color: "var(--primary)", width: 6 },
+        { key: "totalUsers", name: "Total users", color: "var(--primary)" },
         { key: "activeUsers", name: "Active users", color: "#8B5CF6" },
       ],
     },
@@ -838,13 +836,26 @@ const Documentation = () => {
               <p className="text-[16px] font-medium text-foreground">
                 {moversDirection === "gaining" ? "Pages gaining the most views" : "Pages losing the most views"}
               </p>
-              <DesignInputSelect
-                className="w-[200px]"
-                size="small"
-                options={MOVERS_OPTIONS}
-                value={moversDirection}
-                onChange={setMoversDirection}
-              />
+              <div className="flex items-center gap-2">
+                <div className="w-[200px]">
+                  <DesignInputBar
+                    size="small"
+                    placeholder="Search pages"
+                    leftIcon={<Search className="w-4 h-4" />}
+                    rightIcon={moversSearch ? <X className="w-3.5 h-3.5 cursor-pointer" /> : undefined}
+                    onRightIconClick={() => setMoversSearch("")}
+                    value={moversSearch}
+                    onChange={(e) => setMoversSearch(e.target.value)}
+                  />
+                </div>
+                <DesignInputSelect
+                  className="w-[200px]"
+                  size="small"
+                  options={MOVERS_OPTIONS}
+                  value={moversDirection}
+                  onChange={setMoversDirection}
+                />
+              </div>
             </div>
             <DesignSpacer size="small" />
             <DesignCard radius="small" className="overflow-hidden">
@@ -854,8 +865,9 @@ const Documentation = () => {
               rowKey={(row) => `mover-${row.id}`}
               pageSize={10}
               totalResultsLabel={`${movers.length} pages`}
-              searchPlaceholder="Search pages"
-              emptyTitle="No movers in this period"
+              hideToolbar
+              search={moversSearch}
+              emptyTitle={moversSearch ? "No matching pages" : "No movers in this period"}
               emptyBody="No page changed enough versus the previous period."
             />
             </DesignCard>
