@@ -23,6 +23,7 @@ import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { useParams } from "react-router-dom";
 import { changeKind, DECLINE_THRESHOLD, InsightsPanel, type Insight } from "@/components/metrics/InsightsPanel";
 import { DesignInputBar } from "@/components/ds/DesignInputBar";
+import { Ga4SyncButton } from "@/components/metrics/Ga4SyncButton";
 import { Search, X } from "lucide-react";
 import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import {
@@ -651,6 +652,9 @@ const Documentation = () => {
 
         {ga4SetupMessage && (
           <>
+            <div className="flex justify-end mb-2">
+              <Ga4SyncButton />
+            </div>
             <DesignInfoBanner
               type="warning"
               title="Google Analytics snapshot needed"
@@ -834,7 +838,10 @@ const Documentation = () => {
               <p className="text-sm text-muted-foreground">
                 Google Analytics: {ga4Range.startDate} → {ga4Range.endDate} · refreshed {formatDate(ga4Data?.refreshedAt)}
               </p>
-              {isGa4Fetching && <DesignBadge theme="muted" styling="light">Refreshing</DesignBadge>}
+              <div className="flex items-center gap-2">
+                {isGa4Fetching && <DesignBadge theme="muted" styling="light">Refreshing</DesignBadge>}
+                <Ga4SyncButton />
+              </div>
             </div>
             <DesignSpacer size="small" />
             {!propertySlug && (
