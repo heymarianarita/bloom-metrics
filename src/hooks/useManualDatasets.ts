@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { comparePeriods, periodRank } from "../../server/shared/periods.ts";
 
-export type DatasetColumnKind = "text" | "number" | "email" | "date" | "period";
+/** "rating": a 1–5 score (e.g. a survey answer); its metrics can label each score. */
+export type DatasetColumnKind = "text" | "number" | "rating" | "email" | "date" | "period";
 
 export interface ManualDataset {
   id: string;
@@ -353,47 +355,4 @@ export const aggregateDataset = (
     .sort((a, b) => comparePeriods(b.period, a.period));
 };
 
-/** Chronological rank for a period label (date, quarter, month or year). */
-export const periodRank = (period: string): number | null => {
-  const value = period.trim();
-  if (!value) return null;
-
-  // 2026-Q2 / Q2 2026
-  const quarter = value.match(/^(\d{4})[-\s]?Q([1-4])$/i) ?? value.match(/^Q([1-4])[-\s](\d{4})$/i);
-  if (quarter) {
-    const year = Number(quarter[1].length === 4 ? quarter[1] : quarter[2]);
-    const q = Number(quarter[1].length === 4 ? quarter[2] : quarter[1]);
-    return Date.UTC(year, (q - 1) * 3, 1);
-  }
-
-  // ISO-ish dates: 2026-03-05, 2026/03, 2026
-  const iso = value.match(/^(\d{4})(?:[-/](\d{1,2}))?(?:[-/](\d{1,2}))?$/);
-  if (iso) return Date.UTC(Number(iso[1]), Number(iso[2] ?? 1) - 1, Number(iso[3] ?? 1));
-
-  // Two-part dates: 05/03/2026 (day-first) or 5/29/2026 (month-first).
-  const dmy = value.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
-  if (dmy) {
-    const year = Number(dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3]);
-    const first = Number(dmy[1]);
-    const second = Number(dmy[2]);
-    // If the second part can't be a month, the date is month-first (US style).
-    const monthFirst = second > 12 && first <= 12;
-    const month = monthFirst ? first : second;
-    const day = monthFirst ? second : first;
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    return Date.UTC(year, month - 1, day);
-  }
-
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
-};
-
-/** Compare two period labels chronologically, falling back to text order. */
-export const comparePeriods = (a: string, b: string) => {
-  const ra = periodRank(a);
-  const rb = periodRank(b);
-  if (ra !== null && rb !== null) return ra - rb;
-  if (ra !== null) return 1;
-  if (rb !== null) return -1;
-  return a.localeCompare(b);
-};
+export { periodRank, comparePeriods };

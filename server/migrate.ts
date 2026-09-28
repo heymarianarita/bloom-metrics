@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { PoolConnection } from "mysql2/promise";
 import { pool } from "./db.ts";
+import { normalizeDateColumn } from "./shared/dates.ts";
 
 /**
  * Runs on every start: creates missing tables, then imports the Lovable data
@@ -11,6 +13,112 @@ import { pool } from "./db.ts";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const IMPORT_NAME = "2026-09-24-lovable-import";
 const EXPORT_FILE = path.join(here, "seed", "lovable-export.sql");
+
+/**
+ * Columns added to tables that already exist in production. CREATE TABLE IF NOT EXISTS
+ * never alters an existing table, so each is added here when missing.
+ */
+const ADDED_COLUMNS: { table: string; column: string; definition: string }[] = [
+  { table: "manual_metrics", column: "scale_labels", definition: "JSON NOT NULL DEFAULT (JSON_OBJECT()) AFTER `breakdown_views`" },
+];
+
+/** One-off: the Impact survey's answer labels, filled in only where no labels were set yet. */
+const SCALE_LABELS_NAME = "2026-09-28-impact-scale-labels";
+const IMPACT_SCALE_LABELS: Record<string, Record<string, string>> = {
+  "perceived-efficiency-avg-score": {
+    "1": "Greatly slows me down",
+    "2": "Somewhat slows me down",
+    "3": "Has no impact on my speed",
+    "4": "Somewhat speeds me up",
+    "5": "Greatly speeds me up",
+  },
+  "discoverability-avg-score": {
+    "1": "Very difficult",
+    "2": "Somewhat difficult",
+    "3": "Neutral",
+    "4": "Somewhat easy",
+    "5": "Very easy",
+  },
+  "design-to-development-handoff-time-avg-score": {
+    "1": "Greatly slows it down",
+    "2": "Somewhat slows it down",
+    "3": "No impact on handoff time",
+    "4": "Somewhat speeds it up",
+    "5": "Greatly speeds it up",
+  },
+  "user-confidence-avg-score": {
+    "1": "Not at all confident",
+    "2": "Slightly confident",
+    "3": "Moderately confident",
+    "4": "Very confident",
+    "5": "Extremely confident",
+  },
+};
+
+async function applyScaleLabels(conn: PoolConnection) {
+  const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [SCALE_LABELS_NAME]);
+  if ((done as unknown[]).length) return;
+  for (const [slug, labels] of Object.entries(IMPACT_SCALE_LABELS)) {
+    await conn.query(
+      "UPDATE manual_metrics SET scale_labels = CAST(? AS JSON) WHERE slug = ? AND JSON_LENGTH(scale_labels) = 0",
+      [JSON.stringify(labels), slug],
+    );
+  }
+  await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [SCALE_LABELS_NAME]);
+  console.log("impact scale labels applied");
+}
+
+/** One-off: dates in Date columns are rewritten as YYYY-MM-DD (e.g. "3/26/2025" → "2025-03-26"). */
+const ISO_DATES_NAME = "2026-09-28-iso-dates";
+
+async function isoDates(conn: PoolConnection) {
+  const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [ISO_DATES_NAME]);
+  if ((done as unknown[]).length) return;
+  const [cols] = await conn.query(
+    "SELECT c.dataset_id, c.`key`, d.slug FROM manual_dataset_columns c JOIN manual_datasets d ON d.id = c.dataset_id WHERE c.kind = 'date'",
+  );
+  for (const col of cols as { dataset_id: string; key: string; slug: string }[]) {
+    const [rows] = await conn.query("SELECT id, data FROM manual_dataset_rows WHERE dataset_id = ?", [col.dataset_id]);
+    const list = (rows as { id: string; data: unknown }[]).map((r) => {
+      const data = (typeof r.data === "string" ? JSON.parse(r.data) : r.data) as Record<string, unknown>;
+      return { id: r.id, value: data?.[col.key] == null ? "" : String(data[col.key]) };
+    });
+    const result = normalizeDateColumn(list.map((r) => r.value));
+    if (result.ambiguous) {
+      // Month-first or day-first can't be told from this column: leave it for a person to decide.
+      console.log(`dates in ${col.slug}.${col.key} could be either month-first or day-first; left as they are`);
+      continue;
+    }
+    let changed = 0;
+    for (const [i, row] of list.entries()) {
+      if (result.values[i] === row.value) continue;
+      await conn.query("UPDATE manual_dataset_rows SET data = JSON_SET(data, ?, ?) WHERE id = ?", [
+        `$."${col.key}"`,
+        result.values[i],
+        row.id,
+      ]);
+      changed++;
+    }
+    console.log(`dates in ${col.slug}.${col.key}: ${changed} rewritten as YYYY-MM-DD${result.unreadable ? `, ${result.unreadable} not readable as dates` : ""}`);
+  }
+  await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [ISO_DATES_NAME]);
+}
+
+/** One-off: the Impact survey's 1–5 score columns are ratings, not plain numbers. */
+const RATING_COLUMNS_NAME = "2026-09-28-impact-rating-columns";
+
+async function markRatingColumns(conn: PoolConnection) {
+  const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [RATING_COLUMNS_NAME]);
+  if ((done as unknown[]).length) return;
+  await conn.query(
+    `UPDATE manual_dataset_columns c JOIN manual_datasets d ON d.id = c.dataset_id
+        SET c.kind = 'rating'
+      WHERE d.slug = 'impact_data' AND c.kind = 'number'
+        AND c.\`key\` IN ('perceived_efficiency_score', 'discoverability_score', 'user_confidence_score', 'design_to_development_handoff_time_score')`,
+  );
+  await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [RATING_COLUMNS_NAME]);
+  console.log("impact rating columns marked");
+}
 
 const statements = (sql: string) =>
   sql
@@ -39,11 +147,35 @@ async function main() {
     for (const stmt of statements(readFileSync(path.join(here, "schema.sql"), "utf8"))) {
       await conn.query(stmt);
     }
+    for (const { table, column, definition } of ADDED_COLUMNS) {
+      const [cols] = await conn.query(
+        "SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+        [table, column],
+      );
+      if ((cols as unknown[]).length === 0) {
+        await conn.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+        console.log(`added ${table}.${column}`);
+      }
+    }
+    // The column type list grew ("rating"); CREATE TABLE IF NOT EXISTS leaves the old CHECK in place.
+    const [kindCheck] = await conn.query(
+      "SELECT CHECK_CLAUSE AS clause FROM information_schema.CHECK_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_NAME = 'manual_dataset_columns_kind_check'",
+    );
+    const clause = String((kindCheck as { clause?: string }[])[0]?.clause ?? "");
+    if (clause && !clause.includes("rating")) {
+      await conn.query(
+        "ALTER TABLE `manual_dataset_columns` DROP CHECK `manual_dataset_columns_kind_check`, ADD CONSTRAINT `manual_dataset_columns_kind_check` CHECK (`kind` IN ('text','number','rating','period','email','date'))",
+      );
+      console.log("manual_dataset_columns.kind now allows rating");
+    }
     console.log("schema ready");
 
     const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [IMPORT_NAME]);
     if ((done as unknown[]).length) {
       console.log("lovable import already applied");
+      await applyScaleLabels(conn);
+      await markRatingColumns(conn);
+      await isoDates(conn);
       return;
     }
     if (!existsSync(EXPORT_FILE)) {
@@ -80,6 +212,9 @@ async function main() {
       "SELECT (SELECT COUNT(*) FROM manual_dataset_rows) AS dataset_rows, (SELECT COUNT(*) FROM data_change_log) AS change_log, (SELECT COUNT(*) FROM profiles) AS profiles",
     );
     console.log("lovable import complete", JSON.stringify(counts));
+    await applyScaleLabels(conn);
+    await markRatingColumns(conn);
+    await isoDates(conn);
   } finally {
     conn.release();
     await pool.end();

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { ChartBar } from "@phosphor-icons/react";
+import { ChartBar, Info } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
 import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
@@ -11,7 +11,8 @@ import { DesignButton } from "@/components/ds/DesignButton";
 import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignChip } from "@/components/ds/DesignChip";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
-import { useManualMetrics, type ManualMetric } from "@/hooks/useManualMetrics";
+import { DesignTooltip } from "@/components/ds/DesignTooltip";
+import { hasScaleLabels, scaleLabelFor, SCALE_POINTS, useManualMetrics, type ManualMetric } from "@/hooks/useManualMetrics";
 import {
   aggregateDataset,
   comparePeriods,
@@ -24,6 +25,8 @@ import MetricBreakdowns from "@/components/metrics/MetricBreakdowns";
 import MergedBreakdowns from "@/components/metrics/MergedBreakdowns";
 import { useMetricGroups, PERIODICITY_OPTIONS, type Periodicity } from "@/hooks/useMetricGroups";
 import { bucketSeries, type SeriesPoint } from "@/lib/periodBuckets";
+import { bucketPeriod } from "../../../server/shared/periods.ts";
+import { QualitativeSection } from "@/components/metrics/QualitativeSection";
 import { LINE_COLORS } from "@/lib/chartColors";
 import {
   CartesianGrid,
@@ -52,6 +55,13 @@ const formatValue = (value: number | undefined, unit: string) => {
   return unit ? `${rounded}${unit === "%" ? "%" : ` ${unit}`}` : rounded;
 };
 
+/** How many responses gave each score (1–5) in one period, for rating metrics. */
+export interface ScoreDistribution {
+  period: string;
+  total: number;
+  counts: Record<string, number>;
+}
+
 /** Facet values a single metric contributes to the shared filter bar. */
 interface Facets {
   periods: string[];
@@ -77,6 +87,80 @@ const distinct = (rows: ManualDatasetRow[], key?: string) =>
       ).sort((a, b) => a.localeCompare(b))
     : [];
 
+/** Under the trend chart: for each rating metric, the share of responses per score (1–5) with its label. */
+const ScoreDistributions = ({
+  metrics,
+  distributions,
+}: {
+  metrics: ManualMetric[];
+  distributions: Record<string, ScoreDistribution | null>;
+}) => {
+  const rated = metrics.filter((m) => distributions[m.id]);
+  if (rated.length === 0) return null;
+  const period = distributions[rated[0].id]?.period;
+  return (
+    <section className="pt-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[16px] font-medium text-foreground">How people answered</p>
+        <p className="text-[12px] text-muted-foreground">{period}</p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 mt-3">
+        {rated.map((m) => {
+          const d = distributions[m.id]!;
+          const max = Math.max(...SCALE_POINTS.map((p) => d.counts[p] ?? 0), 1);
+          return (
+            <div key={m.id} className="rounded-[6px] border border-border p-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="text-sm font-medium text-foreground">{m.name}</p>
+                <p className="text-xs text-muted-foreground whitespace-nowrap">{d.total} responses</p>
+              </div>
+              <div className="mt-2 flex flex-col gap-2">
+                {SCALE_POINTS.map((p) => {
+                  const count = d.counts[p] ?? 0;
+                  const share = d.total ? (count / d.total) * 100 : 0;
+                  const label = m.scale_labels?.[p]?.trim();
+                  return (
+                    <div key={p}>
+                      <p className="text-xs text-foreground">
+                        {p}
+                        {label ? ` – ${label}` : ""}
+                        <span className="text-muted-foreground"> · {share.toFixed(share > 0 && share < 10 ? 1 : 0)}%</span>
+                      </p>
+                      <div className="h-1.5 rounded-full bg-muted mt-1" aria-hidden="true">
+                        <div className="h-1.5 rounded-full bg-primary" style={{ width: `${(count / max) * 100}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+/** The full 1–5 scale of a rating metric, behind an info icon on its card. */
+const ScaleInfo = ({ metric }: { metric: ManualMetric }) => (
+  <DesignTooltip
+    content={
+      <div className="space-y-1">
+        <p className="font-medium">What the scores mean</p>
+        {SCALE_POINTS.filter((p) => metric.scale_labels?.[p]?.trim()).map((p) => (
+          <p key={p}>
+            <span className="font-medium">{p}</span> = {metric.scale_labels[p]}
+          </p>
+        ))}
+      </div>
+    }
+  >
+    <button type="button" aria-label={`What the ${metric.name} scores mean`} className="flex hover:text-foreground">
+      <Info size={14} />
+    </button>
+  </DesignTooltip>
+);
+
 /** One configured metric, reading either a dataset entered here or a connected live source. */
 const MetricStat = ({
   metric,
@@ -84,12 +168,14 @@ const MetricStat = ({
   periodicity,
   onFacets,
   onSeries,
+  onDistribution,
 }: {
   metric: ManualMetric;
   filters: Filters;
   periodicity: Periodicity;
   onFacets: (id: string, facets: Facets) => void;
   onSeries: (id: string, points: SeriesPoint[]) => void;
+  onDistribution?: (id: string, distribution: ScoreDistribution | null) => void;
 }) => {
   const isDataset = metric.source_type !== "dynamic";
   const datasetId = isDataset ? metric.dataset_id ?? undefined : undefined;
@@ -160,9 +246,33 @@ const MetricStat = ({
   const delta =
     latest && previous ? Number((latest.value - previous.value).toFixed(1)) : undefined;
 
+  // For 1–5 ratings: the share of responses per score in the shown period.
+  const distributionSignature = React.useMemo(() => {
+    const isRating = (columns.data ?? []).find((c) => c.key === metric.value_column)?.kind === "rating";
+    if (!isDataset || !isRating || !latest) return "null";
+    const values = filteredRows
+      .filter((row) => {
+        const raw = String(row.data?.[metric.period_column] ?? "").trim();
+        return raw && bucketPeriod(raw, periodicity) === latest.period;
+      })
+      .map((row) => Number(row.data?.[metric.value_column]))
+      .filter((v) => Number.isInteger(v) && v >= 1 && v <= 5);
+    if (values.length === 0) return "null";
+    const counts = Object.fromEntries(SCALE_POINTS.map((p) => [p, values.filter((v) => String(v) === p).length]));
+    return JSON.stringify({ period: latest.period, total: values.length, counts });
+  }, [isDataset, metric, latest, filteredRows, periodicity, columns.data]);
+  React.useEffect(() => {
+    onDistribution?.(metric.id, JSON.parse(distributionSignature) as ScoreDistribution | null);
+  }, [distributionSignature, metric.id, onDistribution]);
+
+  const isRatingColumn = (columns.data ?? []).find((c) => c.key === metric.value_column)?.kind === "rating";
+  const meaning = isRatingColumn ? scaleLabelFor(metric, latest?.value) : undefined;
+
   return (
     <DesignStatCard
         label={metric.name}
+        icon={isRatingColumn && hasScaleLabels(metric) ? <ScaleInfo metric={metric} /> : undefined}
+        note={meaning ? `≈ ${meaning.score}: ${meaning.label}` : undefined}
         // "%" stays attached to the number; word units are shown smaller beside it.
         value={metric.unit === "%" ? formatValue(latest?.value, "%") : formatNumber(latest?.value)}
         unit={metric.unit && metric.unit !== "%" && latest ? metric.unit : undefined}
@@ -214,6 +324,11 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
       if (current && JSON.stringify(current) === JSON.stringify(next)) return prev;
       return { ...prev, [id]: next };
     });
+  }, []);
+
+  const [distributions, setDistributions] = React.useState<Record<string, ScoreDistribution | null>>({});
+  const handleDistribution = React.useCallback((id: string, next: ScoreDistribution | null) => {
+    setDistributions((prev) => (JSON.stringify(prev[id]) === JSON.stringify(next) ? prev : { ...prev, [id]: next }));
   }, []);
 
   const handleSeries = React.useCallback((id: string, points: SeriesPoint[]) => {
@@ -321,7 +436,7 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
         <DesignEmptyState
           icon={<ChartBar size={40} />}
           title={emptyTitle ?? `No metrics in ${group} yet`}
-          body="Add metrics to this group in Settings → Metrics."
+          body="Add metrics to this group in Settings → Metrics → Quantitative."
           action={
             <DesignButton
               variant="outlined"
@@ -407,6 +522,7 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
             periodicity={periodicity}
             onFacets={handleFacets}
             onSeries={handleSeries}
+            onDistribution={handleDistribution}
           />
         ))}
       </DesignStatGroup>
@@ -499,6 +615,8 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
         )}
       </section>
 
+      <ScoreDistributions metrics={groupMetrics} distributions={distributions} />
+
       {groupMetrics.length > 1 ? (
         <MergedBreakdowns
           group={group}
@@ -516,8 +634,14 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
           />
         ))
       )}
-    </div>
 
+      <QualitativeSection
+        group={group}
+        period={filters.period}
+        compare={filters.compare}
+        segmentFilters={Object.fromEntries(Object.entries(filters.segments).filter(([, value]) => value && value !== ALL))}
+      />
+    </div>
   );
 };
 

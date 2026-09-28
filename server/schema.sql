@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS `manual_dataset_columns` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `manual_dataset_columns_dataset_id_key_key` (`dataset_id`, `key`),
   CONSTRAINT `manual_dataset_columns_dataset_fk` FOREIGN KEY (`dataset_id`) REFERENCES `manual_datasets` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `manual_dataset_columns_kind_check` CHECK (`kind` IN ('text','number','period','email','date'))
+  CONSTRAINT `manual_dataset_columns_kind_check` CHECK (`kind` IN ('text','number','rating','period','email','date'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `manual_dataset_rows` (
@@ -128,6 +128,8 @@ CREATE TABLE IF NOT EXISTS `manual_metrics` (
   `source_field` VARCHAR(191) NOT NULL DEFAULT '',
   `filter_columns` JSON NOT NULL DEFAULT (JSON_ARRAY()),
   `breakdown_views` JSON NOT NULL DEFAULT (JSON_OBJECT()),
+  -- What each score means on a rating scale: {"1": "…", …, "5": "…"}.
+  `scale_labels` JSON NOT NULL DEFAULT (JSON_OBJECT()),
   `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
@@ -274,6 +276,74 @@ CREATE TABLE IF NOT EXISTS `integration_cache` (
   `payload` JSON NOT NULL,
   `fetched_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`cache_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Qualitative metrics: a free-text dataset column summarised into themes per period and segment.
+CREATE TABLE IF NOT EXISTS `qualitative_sources` (
+  `id` CHAR(36) NOT NULL DEFAULT (UUID()),
+  `name` TEXT NOT NULL DEFAULT (''),
+  `group_name` VARCHAR(191) NOT NULL,
+  `dataset_id` CHAR(36) NOT NULL,
+  `description` TEXT NOT NULL DEFAULT (''),
+  `period_column` VARCHAR(191) NOT NULL,
+  -- The free-text column summarised, and whether its answers are praise or requests.
+  `text_column` VARCHAR(191) NOT NULL,
+  `tone` VARCHAR(32) NOT NULL DEFAULT 'neutral',
+  -- [{kind: "column", column, label} | {kind: "business_unit", column, label}]
+  `breakdowns` JSON NOT NULL DEFAULT (JSON_ARRAY()),
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+  `sort_order` INT NOT NULL DEFAULT 0,
+  `run_status` VARCHAR(32) NOT NULL DEFAULT 'idle',
+  `run_message` TEXT NOT NULL DEFAULT (''),
+  `run_at` DATETIME(6) NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `qualitative_sources_group_idx` (`group_name`),
+  CONSTRAINT `qualitative_sources_dataset_fk` FOREIGN KEY (`dataset_id`) REFERENCES `manual_datasets` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `qualitative_themes` (
+  `id` CHAR(36) NOT NULL DEFAULT (UUID()),
+  `source_id` CHAR(36) NOT NULL,
+  `question` VARCHAR(191) NOT NULL,
+  `name` TEXT NOT NULL DEFAULT (''),
+  `description` TEXT NOT NULL DEFAULT (''),
+  `sort_order` INT NOT NULL DEFAULT 0,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `qualitative_themes_source_idx` (`source_id`, `question`),
+  CONSTRAINT `qualitative_themes_source_fk` FOREIGN KEY (`source_id`) REFERENCES `qualitative_sources` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `qualitative_tags` (
+  `source_id` CHAR(36) NOT NULL,
+  `row_id` CHAR(36) NOT NULL,
+  `question` VARCHAR(191) NOT NULL,
+  -- Hash of the answer text: a changed answer is tagged again.
+  `answer_hash` CHAR(64) NOT NULL,
+  `theme_ids` JSON NOT NULL DEFAULT (JSON_ARRAY()),
+  `non_answer` TINYINT(1) NOT NULL DEFAULT 0,
+  `excerpt` TEXT NOT NULL DEFAULT (''),
+  `tagged_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`source_id`, `row_id`, `question`),
+  CONSTRAINT `qualitative_tags_source_fk` FOREIGN KEY (`source_id`) REFERENCES `qualitative_sources` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `qualitative_summaries` (
+  `source_id` CHAR(36) NOT NULL,
+  `question` VARCHAR(191) NOT NULL,
+  `period` VARCHAR(64) NOT NULL,
+  -- "all", or a breakdown label ("Role", "Business unit").
+  `segment_type` VARCHAR(191) NOT NULL,
+  `segment_value` VARCHAR(191) NOT NULL,
+  -- Hash of what the summary was written from: unchanged inputs are not summarised again.
+  `input_hash` CHAR(64) NOT NULL,
+  `summary` TEXT NOT NULL DEFAULT (''),
+  `generated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`source_id`, `question`, `period`, `segment_type`, `segment_value`),
+  CONSTRAINT `qualitative_summaries_source_fk` FOREIGN KEY (`source_id`) REFERENCES `qualitative_sources` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Tracks one-off data steps (the Lovable import) so they never run twice.

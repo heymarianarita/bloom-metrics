@@ -6,6 +6,7 @@ import ga4Analytics from "./ga4-analytics.ts";
 import getdxTeams from "./getdx-teams.ts";
 import jiraGoals from "./jira-goals.ts";
 import performanceSheet from "./performance-sheet.ts";
+import qualitative from "./qualitative.ts";
 import sheetsAnalytics from "./sheets-analytics.ts";
 
 export const FUNCTIONS: Record<string, FnHandler> = {
@@ -16,5 +17,6 @@ export const FUNCTIONS: Record<string, FnHandler> = {
   "getdx-teams": getdxTeams,
   "jira-goals": jiraGoals,
   "performance-sheet": performanceSheet,
+  qualitative,
   "sheets-analytics": sheetsAnalytics,
 };

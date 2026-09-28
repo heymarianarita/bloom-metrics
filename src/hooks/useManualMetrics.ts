@@ -22,7 +22,23 @@ export interface ManualMetric {
   filter_columns: string[];
   /** How each filter column's breakdown is shown: column key → "table" | "bar" | "line" | "none". */
   breakdown_views: Record<string, BreakdownView>;
+  /** What each score means on a rating scale ("1" → "…"); empty when not a rating. */
+  scale_labels: Record<string, string>;
 }
+
+/** The scores a rating-scale metric can take. */
+export const SCALE_POINTS = ["1", "2", "3", "4", "5"] as const;
+
+/** Meaning of the whole score nearest to an average (4.2 → the "4" label), if defined. */
+export const scaleLabelFor = (metric: Pick<ManualMetric, "scale_labels">, value: number | undefined) => {
+  if (value === undefined || !Number.isFinite(value)) return undefined;
+  const key = String(Math.min(5, Math.max(1, Math.round(value))));
+  const label = metric.scale_labels?.[key]?.trim();
+  return label ? { score: key, label } : undefined;
+};
+
+export const hasScaleLabels = (metric: Pick<ManualMetric, "scale_labels">) =>
+  SCALE_POINTS.some((p) => metric.scale_labels?.[p]?.trim());
 
 export type BreakdownView = "none" | "table" | "bar" | "line";
 

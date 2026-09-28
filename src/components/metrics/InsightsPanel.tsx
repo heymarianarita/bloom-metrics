@@ -175,7 +175,7 @@ export const InsightsPanel = ({ subject, insights, emptyText, footer, className,
           className="mx-5 mb-3"
           tabs={[
             { id: "insights", label: "Highlights" },
-            { id: "ask", label: "Ask" },
+            { id: "ask", label: "AI Analysis" },
           ]}
           activeTab={tab}
           onTabChange={(id) => setTab(id as "insights" | "ask")}

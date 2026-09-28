@@ -17,6 +17,8 @@ import DataSourcesSettings from "./pages/settings/DataSourcesSettings";
 import PerformanceSettings from "./pages/settings/PerformanceSettings";
 import ManualMetricsSettings from "./pages/settings/ManualMetricsSettings";
 import MetricsSettings from "./pages/settings/MetricsSettings";
+import QualitativeSettings from "./pages/settings/QualitativeSettings";
+import MetricGroupsSettings from "./pages/settings/MetricGroupsSettings";
 import HistorySettings from "./pages/settings/HistorySettings";
 import ComponentsSettings from "./pages/settings/ComponentsSettings";
 import UsersSettings from "./pages/settings/UsersSettings";
@@ -66,6 +68,8 @@ const App = () => (
           <Route path="/settings/performance" element={<PerformanceSettings />} />
           <Route path="/settings/manual-metrics" element={<ManualMetricsSettings />} />
           <Route path="/settings/metrics" element={<MetricsSettings />} />
+          <Route path="/settings/qualitative" element={<QualitativeSettings />} />
+          <Route path="/settings/metric-groups" element={<MetricGroupsSettings />} />
           <Route path="/settings/components" element={<ComponentsSettings />} />
           <Route path="/settings/history" element={<HistorySettings />} />
           <Route path="/settings/users" element={<UsersSettings />} />
