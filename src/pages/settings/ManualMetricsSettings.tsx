@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import DatasetGrid from "@/components/datasets/DatasetGrid";
 import CsvImportSheet, { CSV_IGNORE, CSV_NEW_COLUMN, looksNumeric } from "@/components/datasets/CsvImportSheet";
+import { inferDateOrder, looksLikeDates, toIsoDate, type DateOrder } from "../../../server/shared/dates.ts";
 import BulkCsvImportSheet, {
   BULK_IGNORE,
   BULK_NEW_COLUMN,
@@ -59,6 +60,7 @@ const kindOptions = [
   { value: "email", label: "Email" },
   { value: "date", label: "Date" },
   { value: "number", label: "Number" },
+  { value: "rating", label: "Rating (1–5 score)" },
   { value: "text", label: "Text" },
   { value: "period", label: "Quarter (e.g. 2026-Q3)" },
 ];
@@ -173,17 +175,29 @@ const DatasetsTab = () => {
     }
   };
 
-  const castValue = (column: ManualDatasetColumn, value: string) =>
-    column.kind === "number" ? (value.trim() === "" ? null : Number(value) || 0) : value;
+  /** Numbers become numbers; dates become YYYY-MM-DD when their order is known (or can only be read one way). */
+  const castValue = (column: ManualDatasetColumn, value: string, dateOrder: DateOrder | null = null) =>
+    column.kind === "number" || column.kind === "rating"
+      ? value.trim() === "" ? null : Number(value) || 0
+      : column.kind === "date"
+        ? toIsoDate(value, dateOrder) ?? value
+        : value;
+
+  /** Month-first or day-first per file column, worked out from all of its values. */
+  const dateOrdersOf = (body: string[][], width: number) =>
+    Array.from({ length: width }, (_, i) => inferDateOrder(body.map((row) => row[i] ?? "")).order);
 
   const handleCsvImport = async ({
     mapping,
     header,
     body,
+    dateOrders,
   }: {
     mapping: string[];
     header: string[];
     body: string[][];
+    /** Chosen in the import sheet for columns whose date order can't be told. */
+    dateOrders: (DateOrder | null)[];
   }) => {
     if (!datasetId) return;
     setImporting(true);
@@ -200,7 +214,7 @@ const DatasetsTab = () => {
         if (choice === CSV_NEW_COLUMN) {
           const label = (header[index] || `Column ${index + 1}`).trim();
           const sample = body.slice(0, 20).map((row) => (row[index] ?? "").trim()).filter(Boolean);
-          const kind: DatasetColumnKind = looksNumeric(sample) ? "number" : "text";
+          const kind: DatasetColumnKind = looksLikeDates(sample) ? "date" : looksNumeric(sample) ? "number" : "text";
           await addColumn.mutateAsync({
             dataset_id: datasetId,
             label,
@@ -223,13 +237,14 @@ const DatasetsTab = () => {
       }
 
       const kindByKey = new Map(existingColumns.map((column) => [column.key, column]));
+      const inferred = dateOrdersOf(body, mapping.length);
       const newRows = body.map((cells) => {
         const data: Record<string, unknown> = {};
         keyByIndex.forEach((key, index) => {
           if (!key) return;
           const column = kindByKey.get(key);
           const raw = (cells[index] ?? "").trim();
-          data[key] = column ? castValue(column, raw) : raw;
+          data[key] = column ? castValue(column, raw, dateOrders[index] ?? inferred[index]) : raw;
         });
         return data;
       });
@@ -356,7 +371,7 @@ const DatasetsTab = () => {
                 .slice(0, 20)
                 .map((row) => (row[index] ?? "").trim())
                 .filter(Boolean);
-              const kind: DatasetColumnKind = looksNumeric(sample) ? "number" : "text";
+              const kind: DatasetColumnKind = looksLikeDates(sample) ? "date" : looksNumeric(sample) ? "number" : "text";
               await addColumn.mutateAsync({
                 dataset_id: targetId,
                 label,
@@ -379,13 +394,14 @@ const DatasetsTab = () => {
           keyByIndex.push(entry.choice);
         }
 
+        const inferred = dateOrdersOf(plan.body, plan.mapping.length);
         const newRows = plan.body.map((cells) => {
           const data: Record<string, unknown> = {};
           keyByIndex.forEach((key, index) => {
             if (!key) return;
             const column = kindByKey.get(key);
             const raw = (cells[index] ?? "").trim();
-            data[key] = column ? castValue(column, raw) : raw;
+            data[key] = column ? castValue(column, raw, inferred[index]) : raw;
           });
           return data;
         });
@@ -417,6 +433,7 @@ const DatasetsTab = () => {
     const cols = columns.data ?? [];
     const existing = rows.data ?? [];
     const newRows: Record<string, unknown>[] = [];
+    const inferred = dateOrdersOf(block, Math.max(0, ...block.map((r) => r.length)));
 
     for (let i = 0; i < block.length; i += 1) {
       const cells = block[i];
@@ -425,7 +442,7 @@ const DatasetsTab = () => {
       cells.forEach((cell, j) => {
         const column = cols[columnIndex + j];
         if (!column) return;
-        data[column.key] = castValue(column, cell.trim());
+        data[column.key] = castValue(column, cell.trim(), inferred[j]);
       });
       if (target) await updateRow.mutateAsync({ id: target.id, data });
       else newRows.push(data);
@@ -815,7 +832,7 @@ const ManualMetricsSettings = () => (
     <AppShell>
       <DesignPageHeader
         title="Datasets"
-        subtitle="Enter your data here. Metrics that read from these columns are configured in Settings → Metrics."
+        subtitle="Enter your data here. Metrics that read from these columns are configured in Settings → Metrics → Quantitative."
       />
       <DesignSpacer size="medium" />
       <DatasetsTab />

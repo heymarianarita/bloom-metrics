@@ -36,6 +36,7 @@ const kindLabels: { kind: DatasetColumnKind; label: string }[] = [
   { kind: "email", label: "Email" },
   { kind: "date", label: "Date" },
   { kind: "number", label: "Number" },
+  { kind: "rating", label: "Rating (1–5)" },
   { kind: "text", label: "Text" },
   { kind: "period", label: "Quarter" },
 ];
@@ -215,13 +216,16 @@ const GridCell = ({
 
   const invalidEmail =
     column.kind === "email" && draft.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.trim());
+  // A date picker can only show YYYY-MM-DD and renders anything else (e.g. "3/26/2025") as empty,
+  // so dates written another way are shown and edited as plain text, exactly as stored.
+  const datePicker = column.kind === "date" && (draft.trim() === "" || /^\d{4}-\d{2}-\d{2}$/.test(draft.trim()));
 
   return (
     <td className={ts.tdEditable}>
       <input
         id={cellId(rowIndex, columnIndex)}
-        type={column.kind === "date" ? "date" : column.kind === "email" ? "email" : "text"}
-        inputMode={column.kind === "number" ? "decimal" : undefined}
+        type={datePicker ? "date" : column.kind === "email" ? "email" : "text"}
+        inputMode={column.kind === "number" || column.kind === "rating" ? "decimal" : undefined}
         disabled={readOnly}
         value={draft}
         placeholder={column.kind === "email" ? "name@vinted.com" : undefined}
@@ -230,7 +234,7 @@ const GridCell = ({
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
         title={invalidEmail ? "This does not look like an email address" : undefined}
-        className={`${base} ${column.kind === "number" ? "text-right tabular-nums" : ""} ${
+        className={`${base} ${column.kind === "number" || column.kind === "rating" ? "text-right tabular-nums" : ""} ${
           invalidEmail ? "text-destructive" : ""
         }`}
       />

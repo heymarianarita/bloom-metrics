@@ -73,7 +73,7 @@ export const DATA_SOURCE_DEFS: {
   {
     key: "anthropic",
     label: "AI assistant (Claude)",
-    description: "Powers \"Ask the data\" in the Insights panels. Questions are answered from this app's data.",
+    description: "Powers \"AI Analysis\" in the Insights panels. Questions are answered from this app's data.",
     mode: "dynamic",
     credential: "ANTHROPIC_API_KEY",
     fields: [],

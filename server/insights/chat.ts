@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { readSession } from "../auth.ts";
-import { getCredential } from "../credentials.ts";
+import { anthropicClient, FALLBACK, MODEL } from "../ai.ts";
 import { runTool, toolDefinitions, toolStatus } from "./tools.ts";
 
 /**
@@ -21,7 +21,6 @@ import { runTool, toolDefinitions, toolStatus } from "./tools.ts";
  * Requires ANTHROPIC_API_KEY (Settings → Data sources, or the environment).
  */
 
-const MODEL = "claude-opus-5";
 /** Upper bound on tool round-trips for one question. */
 const MAX_TURNS = 12;
 /** Questions per user per hour. */
@@ -91,8 +90,8 @@ async function chat(req: Request, res: Response) {
     res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
     return;
   }
-  const apiKey = await getCredential("ANTHROPIC_API_KEY");
-  if (!apiKey) {
+  const client = await anthropicClient();
+  if (!client) {
     res.status(503).json({ error: "The AI assistant isn't set up yet: an admin needs to add an Anthropic API key in Settings → Data sources." });
     return;
   }
@@ -115,7 +114,6 @@ async function chat(req: Request, res: Response) {
     i === history.length - 1 ? { role: "user", content: `${describeView(context)}\n\n${m.content}` } : m,
   );
 
-  const client = new Anthropic({ apiKey });
   const tools = toolDefinitions();
   let jsonRetries = 0;
 
@@ -130,8 +128,8 @@ async function chat(req: Request, res: Response) {
           tools,
           messages,
           cache_control: { type: "ephemeral" },
-          betas: ["server-side-fallback-2026-07-01"],
-          fallbacks: "default",
+          ...FALLBACK,
+          betas: [...FALLBACK.betas],
         },
         { signal: abort.signal },
       );

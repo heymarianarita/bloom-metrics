@@ -102,7 +102,16 @@ export const settingsNavItems: NavItem[] = [
       { label: "Dynamic sources", path: "/settings/data-sources" },
     ],
   },
-  { label: "Metrics", path: "/settings/metrics", icon: ChartLineUp },
+  {
+    label: "Metrics",
+    path: "/settings/metrics",
+    icon: ChartLineUp,
+    children: [
+      { label: "Quantitative", path: "/settings/metrics" },
+      { label: "Qualitative", path: "/settings/qualitative" },
+      { label: "Metric groups", path: "/settings/metric-groups" },
+    ],
+  },
   { label: "Components", path: "/settings/components", icon: Cube },
   { label: "Performance", path: "/settings/performance", icon: Table },
   { label: "Data history", path: "/settings/history", icon: ClockCounterClockwise },

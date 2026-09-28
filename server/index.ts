@@ -8,6 +8,7 @@ import { applyDevAdminPassword, logAdminSetupLinks, passwordRouter } from "./pas
 import { handleDbRequest } from "./dbapi.ts";
 import { handleRpc } from "./rpc.ts";
 import { insightsChatRouter } from "./insights/chat.ts";
+import { resetInterruptedRuns, runAllSources } from "./qualitative/job.ts";
 import { FUNCTIONS } from "./functions/index.ts";
 import { backfillFigmaSnapshots, captureFigmaSnapshots } from "./functions/figma-snapshot.ts";
 import { getdxTeamsAgeDays, refreshGetdxTeams } from "./functions/getdx-teams.ts";
@@ -122,6 +123,15 @@ const refreshGetdx = () =>
     .catch((e) => console.error("getdx teams refresh failed", e instanceof Error ? e.message : e));
 cron.schedule("0 4 1 * *", refreshGetdx, { timezone: "UTC" });
 
+// Qualitative metrics: pick up new or edited answers once a day.
+cron.schedule(
+  "30 6 * * *",
+  () => {
+    runAllSources().catch((e) => console.error("qualitative refresh failed", e instanceof Error ? e.message : e));
+  },
+  { timezone: "UTC" },
+);
+
 app.listen(port, () => {
   console.log(`bloom-metrics listening on :${port}`);
   applyDevAdminPassword()
@@ -129,6 +139,7 @@ app.listen(port, () => {
     .catch((e) => console.error("could not prepare admin sign-in", e));
   // Not with fake Figma data: that must never be stored.
   if (!localDevFlag("FIGMA_FAKE_DATA")) refreshFigmaOnStart();
+  resetInterruptedRuns().catch((e) => console.error("could not reset qualitative runs", e));
   getdxTeamsAgeDays()
     .then((age) => {
       if (age > 31) return refreshGetdx();

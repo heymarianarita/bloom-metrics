@@ -399,6 +399,7 @@ export type Database = {
           aggregation: string
           archived: boolean
           breakdown_views: Json
+          scale_labels: Json
           created_at: string
           dataset_id: string | null
           description: string
@@ -420,6 +421,7 @@ export type Database = {
           aggregation?: string
           archived?: boolean
           breakdown_views?: Json
+          scale_labels?: Json
           created_at?: string
           dataset_id?: string | null
           description?: string
@@ -441,6 +443,7 @@ export type Database = {
           aggregation?: string
           archived?: boolean
           breakdown_views?: Json
+          scale_labels?: Json
           created_at?: string
           dataset_id?: string | null
           description?: string
@@ -497,6 +500,63 @@ export type Database = {
           periodicity?: string
           slug?: string
           sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qualitative_sources: {
+        Row: {
+          breakdowns: Json
+          created_at: string
+          dataset_id: string
+          description: string
+          enabled: boolean
+          group_name: string
+          id: string
+          name: string
+          period_column: string
+          run_at: string | null
+          run_message: string
+          run_status: string
+          sort_order: number
+          text_column: string
+          tone: string
+          updated_at: string
+        }
+        Insert: {
+          breakdowns?: Json
+          created_at?: string
+          dataset_id: string
+          description?: string
+          enabled?: boolean
+          group_name: string
+          id?: string
+          name?: string
+          period_column: string
+          run_at?: string | null
+          run_message?: string
+          run_status?: string
+          sort_order?: number
+          text_column: string
+          tone?: string
+          updated_at?: string
+        }
+        Update: {
+          breakdowns?: Json
+          created_at?: string
+          dataset_id?: string
+          description?: string
+          enabled?: boolean
+          group_name?: string
+          id?: string
+          name?: string
+          period_column?: string
+          run_at?: string | null
+          run_message?: string
+          run_status?: string
+          sort_order?: number
+          text_column?: string
+          tone?: string
           updated_at?: string
         }
         Relationships: []

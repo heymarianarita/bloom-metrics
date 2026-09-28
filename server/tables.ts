@@ -86,9 +86,9 @@ export const TABLES: Record<string, TableDef> = {
     columns: [
       "id", "slug", "name", "unit", "surface", "description", "sort_order", "archived",
       "dataset_id", "value_column", "period_column", "aggregation", "source_type",
-      "source_key", "source_field", "filter_columns", "breakdown_views", ...ts,
+      "source_key", "source_field", "filter_columns", "breakdown_views", "scale_labels", ...ts,
     ],
-    json: ["filter_columns", "breakdown_views"],
+    json: ["filter_columns", "breakdown_views", "scale_labels"],
     bool: ["archived"],
     read: "public",
     write: "editor",
@@ -130,6 +130,18 @@ export const TABLES: Record<string, TableDef> = {
     audited: true,
     updatedAt: true,
   },
+  qualitative_sources: {
+    columns: [
+      "id", "name", "description", "group_name", "dataset_id", "period_column", "text_column", "tone", "breakdowns",
+      "enabled", "sort_order", "run_status", "run_message", "run_at", ...ts,
+    ],
+    json: ["breakdowns"],
+    bool: ["enabled"],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
   data_change_log: {
     columns: ["id", "table_name", "row_id", "action", "changed_by", "old_data", "new_data", "changed_at"],
     json: ["old_data", "new_data"],
@@ -154,4 +166,4 @@ export const TABLES: Record<string, TableDef> = {
   },
 };
 
-export const DATETIME_COLUMNS = new Set(["created_at", "updated_at", "ran_at", "changed_at", "captured_at"]);
+export const DATETIME_COLUMNS = new Set(["created_at", "updated_at", "ran_at", "changed_at", "captured_at", "run_at"]);

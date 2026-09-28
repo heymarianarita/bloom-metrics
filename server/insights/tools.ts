@@ -4,6 +4,8 @@ import { query, toIso } from "../db.ts";
 import type { FnHandler } from "../functions/types.ts";
 import ga4Analytics from "../functions/ga4-analytics.ts";
 import sheetsAnalytics from "../functions/sheets-analytics.ts";
+import { periodRank } from "../shared/periods.ts";
+import { groupView } from "../qualitative/view.ts";
 
 /**
  * Read-only tools the Insights chat can call to look at the app's data.
@@ -28,21 +30,6 @@ const asJson = (v: unknown) => {
 const callFunction = async (fn: FnHandler, body: Record<string, unknown>) => {
   const res = await fn({ method: "POST", query: new URLSearchParams(), body, headers: {}, user: null });
   return res.body as Record<string, any>;
-};
-
-/** Chronological rank of a period label (2026-Q2, 2026-03, 2026-03-05…). Mirrors periodRank in the app. */
-const periodRank = (period: string): number | null => {
-  const value = period.trim();
-  const quarter = value.match(/^(\d{4})[-\s]?Q([1-4])$/i) ?? value.match(/^Q([1-4])[-\s](\d{4})$/i);
-  if (quarter) {
-    const year = Number(quarter[1].length === 4 ? quarter[1] : quarter[2]);
-    const q = Number(quarter[1].length === 4 ? quarter[2] : quarter[1]);
-    return Date.UTC(year, (q - 1) * 3, 1);
-  }
-  const iso = value.match(/^(\d{4})(?:[-/](\d{1,2}))?(?:[-/](\d{1,2}))?$/);
-  if (iso) return Date.UTC(Number(iso[1]), Number(iso[2] ?? 1) - 1, Number(iso[3] ?? 1));
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
 };
 
 const byPeriod = (a: string, b: string) => (periodRank(a) ?? 0) - (periodRank(b) ?? 0) || a.localeCompare(b);
@@ -395,6 +382,73 @@ const getAiTemplateMetrics = async () => {
   return { entries: rows };
 };
 
+const qualitativeInput = z.object({
+  group: z.string().describe("Metric group name, e.g. \"Impact\"."),
+  question: z.string().optional().describe("Question column or label (default: all questions)."),
+  period: z.string().optional().describe("e.g. 2026-Q2 for segment detail (default: the latest two periods). The trend across all periods is always included."),
+  segment: z.string().optional().describe("Only segments whose key contains this, e.g. \"Role: Android\" (default: all)."),
+});
+
+/** Themes, mention counts, summaries and anonymised excerpts from free-text survey answers. */
+const getQualitativeFeedback = async (input: z.infer<typeof qualitativeInput>) => {
+  const view = await groupView(input.group);
+  if (!view.sources.length) return { error: `No qualitative data is set up for "${input.group}".` };
+  const q = input.question?.toLowerCase();
+  const seg = input.segment?.toLowerCase();
+  return {
+    note: "Counts are answers mentioning a theme (an answer can mention up to three). Excerpts are anonymised and drawn from the whole period.",
+    sources: view.sources.map((s) => ({
+      name: s.name,
+      periods: s.periods,
+      questions: s.questions
+        .filter((x) => !q || x.column.toLowerCase() === q || x.label.toLowerCase().includes(q))
+        .map((x) => {
+          const themeName = new Map(x.themes.map((t) => [t.id, t.name]));
+          const periods = input.period ? [input.period] : s.periods.slice(-2);
+          return {
+            question: x.label,
+            themes: x.themes.map((t) => ({ name: t.name, description: t.description })),
+            trendSummary: x.trendSummary,
+            // Every period's theme shares (all respondents), for questions about change over time.
+            trend: s.periods.map((p) => {
+              const all = x.periods[p]?.segments.find((c) => c.key === "all");
+              return {
+                period: p,
+                answered: all?.answered ?? 0,
+                sharePct: Object.fromEntries(
+                  (all?.themes ?? [])
+                    .filter((t) => t.count > 0)
+                    .map((t) => [themeName.get(t.id), Math.round((t.count / Math.max(all?.answered ?? 1, 1)) * 100)]),
+                ),
+              };
+            }),
+            periods: Object.fromEntries(
+              periods
+                .filter((p) => x.periods[p])
+                .map((p) => [
+                  p,
+                  {
+                    segments: x.periods[p].segments
+                      .filter((c) => !seg || c.key.toLowerCase().includes(seg) || c.key === "all")
+                      .map((c) => ({
+                        segment: c.key,
+                        answered: c.answered,
+                        nonAnswers: c.nonAnswers,
+                        summary: c.summary,
+                        themes: c.themes.filter((t) => t.count > 0).map((t) => ({ theme: themeName.get(t.id), mentions: t.count })),
+                      })),
+                    excerpts: Object.fromEntries(
+                      Object.entries(x.periods[p].excerpts).map(([id, list]) => [themeName.get(id) ?? id, list]),
+                    ),
+                  },
+                ]),
+            ),
+          };
+        }),
+    })),
+  };
+};
+
 // ---- Registry ----------------------------------------------------------------
 
 interface ToolDef<S extends z.ZodTypeAny> {
@@ -457,6 +511,13 @@ const TOOLS: Record<string, ToolDef<z.ZodTypeAny>> = {
     status: "Reading survey results",
     input: surveyInput,
     run: getSurveyResults,
+  }),
+  get_qualitative_feedback: tool({
+    description:
+      "What people say in free-text survey answers (e.g. \"what's working well\", \"what needs improvement\"): themes with mention counts per period, by role and business unit, short summaries and anonymised excerpts. Use for why-questions about survey scores and for feedback by group.",
+    status: "Reading survey comments",
+    input: qualitativeInput,
+    run: getQualitativeFeedback,
   }),
   get_performance_entries: tool({
     description: "Quarterly team performance entries: intended outcomes, deliverables, headcount and discovery/delivery/impact RAG grades.",

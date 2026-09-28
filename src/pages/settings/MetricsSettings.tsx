@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Plus, PencilSimple, Trash, Copy } from "@phosphor-icons/react";
+import { Plus, Trash, Copy } from "@phosphor-icons/react";
 import AppShell from "@/components/layout/AppShell";
 import RequireRole from "@/components/auth/RequireRole";
 import { DesignPageHeader } from "@/components/ds/DesignPageHeader";
@@ -12,7 +12,6 @@ import { DesignSideSheet } from "@/components/ds/DesignSideSheet";
 import { DesignDataTable, type DataTableColumn, type SortDirection } from "@/components/ds/DesignDataTable";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { DesignLoader } from "@/components/ds/DesignLoader";
-import { DesignTabs } from "@/components/ds/DesignTabs";
 import { DesignNote } from "@/components/ds/DesignNote";
 import { DesignCheckbox } from "@/components/ds/DesignCheckbox";
 import { useToast } from "@/hooks/use-toast";
@@ -22,17 +21,11 @@ import {
   useDeleteManualMetric,
 
   BREAKDOWN_VIEW_OPTIONS,
+  SCALE_POINTS,
   type BreakdownView,
   type ManualMetric,
 } from "@/hooks/useManualMetrics";
-import {
-  useDeleteMetricGroup,
-  useMetricGroups,
-  useSaveMetricGroup,
-  PERIODICITY_OPTIONS,
-  type MetricGroup,
-  type Periodicity,
-} from "@/hooks/useMetricGroups";
+import { useMetricGroups } from "@/hooks/useMetricGroups";
 import {
   aggregateDataset,
   comparePeriods,
@@ -52,184 +45,6 @@ const aggregationOptions = [
   { value: "latest", label: "Last row entered" },
   { value: "count", label: "Number of rows" },
 ];
-
-/* ─────────── Groups tab ─────────── */
-
-const GroupsTab = () => {
-  const { toast } = useToast();
-  const groups = useMetricGroups();
-  const metrics = useManualMetrics();
-  const saveGroup = useSaveMetricGroup();
-  const deleteGroup = useDeleteMetricGroup();
-
-  const [sheet, setSheet] = React.useState(false);
-  const [draft, setDraft] = React.useState<{
-    id?: string;
-    name: string;
-    description: string;
-    periodicity: Periodicity;
-  }>({
-    name: "",
-    description: "",
-    periodicity: "quarterly",
-  });
-
-  const openNew = () => {
-    setDraft({ name: "", description: "", periodicity: "quarterly" });
-    setSheet(true);
-  };
-
-  const openEdit = (group: MetricGroup) => {
-    setDraft({
-      id: group.id,
-      name: group.name,
-      description: group.description,
-      periodicity: group.periodicity ?? "quarterly",
-    });
-    setSheet(true);
-  };
-
-  const save = async () => {
-    if (!draft.name.trim()) return;
-    try {
-      await saveGroup.mutateAsync({
-        id: draft.id,
-        name: draft.name,
-        description: draft.description,
-        periodicity: draft.periodicity,
-        sort_order: draft.id
-          ? groups.data?.find((g) => g.id === draft.id)?.sort_order ?? 0
-          : groups.data?.length ?? 0,
-      });
-      setSheet(false);
-      toast({ title: draft.id ? "Group updated" : "Group created" });
-    } catch (err) {
-      toast({ title: "Could not save the group", description: String(err), variant: "destructive" });
-    }
-  };
-
-  const countFor = (group: MetricGroup) =>
-    (metrics.data ?? []).filter((m) => m.surface === group.name).length;
-
-  const columns: DataTableColumn<MetricGroup>[] = [
-    { key: "name", header: "Group", width: "1fr", render: (row) => row.name },
-    {
-      key: "description",
-      header: "Description",
-      width: "1.6fr",
-      render: (row) => row.description || "—",
-    },
-    {
-      key: "periodicity",
-      header: "Frequency",
-      width: "0.8fr",
-      render: (row) =>
-        PERIODICITY_OPTIONS.find((o) => o.value === (row.periodicity ?? "quarterly"))?.label ?? "Quarterly",
-    },
-    { key: "metrics", header: "Metrics", width: "0.6fr", render: (row) => String(countFor(row)) },
-    {
-      key: "actions",
-      header: "",
-      width: "0.8fr",
-      render: (row) => (
-        <div className="flex gap-2 justify-end">
-          <DesignButton
-            variant="flat"
-            theme="primary"
-            size="small"
-            icon={<PencilSimple size={16} />}
-            onClick={() => openEdit(row)}
-          >
-            Edit
-          </DesignButton>
-          <DesignButton
-            variant="flat"
-            theme="error"
-            size="small"
-            icon={<Trash size={16} />}
-            onClick={() => {
-              if (!confirm(`Delete the “${row.name}” group?`)) return;
-              deleteGroup.mutate(row.id);
-            }}
-          >
-            Delete
-          </DesignButton>
-        </div>
-      ),
-    },
-  ];
-
-  if (groups.isLoading) return <DesignLoader />;
-
-  return (
-    <>
-      <DesignCard className="p-4">
-        <div className="flex justify-between items-center gap-3">
-          <DesignNote text="Groups are the sections metrics are reported under on the Metrics page." />
-          <DesignButton
-            variant="filled"
-            theme="primary"
-            size="medium"
-            icon={<Plus size={16} />}
-            onClick={openNew}
-          >
-            New group
-          </DesignButton>
-        </div>
-        <DesignSpacer size="small" />
-        {(groups.data ?? []).length === 0 ? (
-          <DesignEmptyState
-            title="No groups yet"
-            body="Create a group such as Impact or Adoption, then assign metrics to it."
-            action={
-              <DesignButton variant="filled" theme="primary" onClick={openNew}>
-                Create first group
-              </DesignButton>
-            }
-          />
-        ) : (
-          <DesignDataTable columns={columns} data={groups.data ?? []} rowKey={(row) => row.id} />
-        )}
-      </DesignCard>
-
-      <DesignSideSheet
-        open={sheet}
-        onOpenChange={setSheet}
-        title={draft.id ? `Edit — ${draft.name}` : "New group"}
-        footer={
-          <div className="flex justify-end gap-2">
-            <DesignButton variant="outlined" theme="primary" onClick={() => setSheet(false)}>
-              Cancel
-            </DesignButton>
-            <DesignButton variant="filled" theme="primary" isLoading={saveGroup.isPending} onClick={save}>
-              Save group
-            </DesignButton>
-          </div>
-        }
-      >
-        <div className="p-4 space-y-4">
-          <DesignInputText
-            label="Name"
-            placeholder="Adoption"
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          />
-          <DesignInputText
-            label="Description"
-            value={draft.description}
-            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-          />
-          <DesignInputSelect
-            label="Benchmark frequency"
-            value={draft.periodicity}
-            onChange={(value) => setDraft({ ...draft, periodicity: value as Periodicity })}
-            options={PERIODICITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-          />
-        </div>
-      </DesignSideSheet>
-    </>
-  );
-};
 
 /* ─────────── Metrics tab ─────────── */
 
@@ -258,6 +73,7 @@ const MetricsTab = () => {
     aggregation: "sum",
     filter_columns: [] as string[],
     breakdown_views: {} as Record<string, BreakdownView>,
+    scale_labels: {} as Record<string, string>,
   };
   const [draft, setDraft] = React.useState(emptyDraft);
   /** Set when the sheet edits an existing metric; null when creating or duplicating. */
@@ -327,6 +143,9 @@ const MetricsTab = () => {
             : Object.fromEntries(
                 draft.filter_columns.map((key) => [key, draft.breakdown_views[key] ?? "table"]),
               ),
+        scale_labels: valueIsRating
+          ? Object.fromEntries(Object.entries(draft.scale_labels).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v))
+          : {},
       });
       setMetricSheet(false);
       setDraft(emptyDraft);
@@ -353,6 +172,7 @@ const MetricsTab = () => {
       aggregation: metric.aggregation,
       filter_columns: Array.isArray(metric.filter_columns) ? [...metric.filter_columns] : [],
       breakdown_views: { ...(metric.breakdown_views ?? {}) } as Record<string, BreakdownView>,
+      scale_labels: { ...(metric.scale_labels ?? {}) },
     });
     setEditingId(metric.id);
     setMetricSheet(true);
@@ -393,6 +213,12 @@ const MetricsTab = () => {
   if (metrics.isLoading) return <DesignLoader />;
 
   const columnOptions = (draftColumns.data ?? []).map((c) => ({ value: c.key, label: c.label }));
+  const valueColumnOptions = (draftColumns.data ?? []).map((c) => ({
+    value: c.key,
+    label: c.kind === "rating" ? `${c.label} (rating 1–5)` : c.label,
+  }));
+  // Score labels only make sense for a 1–5 rating column (set in the dataset's column type).
+  const valueIsRating = (draftColumns.data ?? []).find((c) => c.key === draft.value_column)?.kind === "rating";
   const groupOptions = (groups.data ?? []).map((g) => ({ value: g.name, label: g.name }));
 
   return (
@@ -619,8 +445,25 @@ const MetricsTab = () => {
                 disabled={!draft.dataset_id}
                 value={draft.value_column}
                 onChange={(value_column) => setDraft({ ...draft, value_column })}
-                options={columnOptions}
+                options={valueColumnOptions}
               />
+              {valueIsRating && (
+            <div className="space-y-2">
+              <p className="text-[14px] font-medium text-foreground">What each score means</p>
+              <DesignNote text="Optional. Shown on the metric's card and next to the answer distribution, e.g. 4 = “Somewhat speeds me up”." />
+              {SCALE_POINTS.map((point) => (
+                <DesignInputText
+                  key={point}
+                  size="small"
+                  prefix={<span className="text-[14px] font-medium text-foreground w-4">{point}</span>}
+                  aria-label={`Meaning of ${point}`}
+                  placeholder={point === "1" ? "Lowest, e.g. “Much slower”" : point === "5" ? "Highest, e.g. “Over 40% faster”" : ""}
+                  value={draft.scale_labels[point] ?? ""}
+                  onChange={(e) => setDraft({ ...draft, scale_labels: { ...draft.scale_labels, [point]: e.target.value } })}
+                />
+              ))}
+            </div>
+              )}
               <DesignInputSelect
                 label="Period column"
                 placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
@@ -698,30 +541,17 @@ const MetricsTab = () => {
 
 /* ─────────── Page ─────────── */
 
-const MetricsSettings = () => {
-  const [tab, setTab] = React.useState("metrics");
-
-  return (
-    <RequireRole role="editor">
-      <AppShell>
-        <DesignPageHeader
-          title="Metrics"
-          subtitle="Manage the groups shown on the Metrics page and the metrics reported inside them."
-        />
-        <DesignSpacer size="medium" />
-        <DesignTabs
-          tabs={[
-            { id: "metrics", label: "Metrics" },
-            { id: "groups", label: "Metric groups" },
-          ]}
-          activeTab={tab}
-          onTabChange={setTab}
-        />
-        <DesignSpacer size="medium" />
-        {tab === "groups" ? <GroupsTab /> : <MetricsTab />}
-      </AppShell>
-    </RequireRole>
-  );
-};
+const MetricsSettings = () => (
+  <RequireRole role="editor">
+    <AppShell>
+      <DesignPageHeader
+        title="Quantitative"
+        subtitle="Number metrics read from datasets or live sources, shown in their group on the Metrics page."
+      />
+      <DesignSpacer size="medium" />
+      <MetricsTab />
+    </AppShell>
+  </RequireRole>
+);
 
 export default MetricsSettings;
