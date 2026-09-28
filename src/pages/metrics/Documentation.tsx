@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Users, Eye, Timer, ChartLineUp, ChartBar, UsersThree } from "@phosphor-icons/react";
+import { Users, Eye, Timer, ChartLineUp, ChartBar, UsersThree, ArrowSquareOut } from "@phosphor-icons/react";
 import {
   CartesianGrid,
   Legend,
@@ -48,6 +48,10 @@ interface TopPageRow {
   platform: string;
   title: string;
   path: string;
+  /** Full address of the page, when the snapshot knows its host. */
+  url?: string;
+  /** Title and path together, so the Page column sorts and searches on both. */
+  page: string;
   pageViews: number;
   activeUsers: number;
   previousPageViews?: number;
@@ -56,6 +60,25 @@ interface TopPageRow {
 
 
 const numberFormatter = new Intl.NumberFormat("en-US");
+
+/**
+ * A readable page name from its URL path, for sites that give every page the same title.
+ * Zeroheight paths look like /2b590eb39/p/644213-dialog/b/973172: the slug after the
+ * page id is the name, and a trailing /b/<id> is a tab inside that page.
+ */
+function pageNameFromPath(path: string): string {
+  const segments = path.split(/[?#]/)[0].split("/").filter(Boolean);
+  if (segments.length === 0) return "Home page";
+  const zeroheightPage = segments.indexOf("p");
+  const isZeroheight = zeroheightPage >= 0 && zeroheightPage + 1 < segments.length;
+  const slug = isZeroheight
+    ? segments[zeroheightPage + 1].replace(/^[0-9a-f]{6}-/, "")
+    : segments[segments.length - 1].replace(/\.html?$/, "");
+  const words = decodeURIComponent(slug).replace(/[-_]+/g, " ").trim();
+  if (!words) return path;
+  const name = words.charAt(0).toUpperCase() + words.slice(1);
+  return isZeroheight && segments.includes("b") ? `${name} (tab)` : name;
+}
 
 const percentFormatter = new Intl.NumberFormat("en-US", {
   style: "percent",
@@ -355,7 +378,7 @@ const Documentation = () => {
   const ga4SetupMessage = ga4Error
     ? (ga4Error as Error).message
     : ga4Data?.status === "snapshot_needed"
-      ? ga4Data.details ?? "Run pushGa4Reports in Apps Script to send the first Google Analytics snapshot."
+      ? ga4Data.details ?? "An editor can click Sync Google Analytics to send the first snapshot."
       : undefined;
 
   const ga4Rows: DocumentationPlatformRow[] = React.useMemo(() => {
@@ -384,18 +407,31 @@ const Documentation = () => {
   /** Pages for the selected period; newer snapshots also carry previous-period views. */
   const pageRows: TopPageRow[] = React.useMemo(
     () =>
-      ga4Properties.flatMap((property) =>
-        (property.periods?.[period]?.pages ?? property.topPages ?? []).map((page) => ({
-          id: `${property.id || property.label}-${page.path}`,
-          platform: property.label,
-          title: page.title || page.path,
-          path: page.path,
-          pageViews: page.pageViews,
-          activeUsers: page.activeUsers,
-          previousPageViews: page.previousPageViews,
-          delta: page.pageViews - (page.previousPageViews ?? 0),
-        })),
-      ),
+      ga4Properties.flatMap((property) => {
+        const pages = property.periods?.[period]?.pages ?? property.topPages ?? [];
+        // A title used by several paths is the site-wide title, not the page's own name.
+        const pathsByTitle = new Map<string, Set<string>>();
+        for (const page of pages) {
+          if (!page.title) continue;
+          pathsByTitle.set(page.title, (pathsByTitle.get(page.title) ?? new Set()).add(page.path));
+        }
+        return pages.map((page) => {
+          const title =
+            page.title && (pathsByTitle.get(page.title)?.size ?? 0) <= 1 ? page.title : pageNameFromPath(page.path);
+          return {
+            id: `${property.id || property.label}-${page.path}`,
+            platform: property.label,
+            title,
+            path: page.path,
+            url: page.host ? `https://${page.host}${page.path.startsWith("/") ? "" : "/"}${page.path}` : undefined,
+            page: `${title} ${page.path}`,
+            pageViews: page.pageViews,
+            activeUsers: page.activeUsers,
+            previousPageViews: page.previousPageViews,
+            delta: page.pageViews - (page.previousPageViews ?? 0),
+          };
+        });
+      }),
     [ga4Properties, period],
   );
 
@@ -536,8 +572,39 @@ const Documentation = () => {
     },
   ];
 
+  /** Many docs pages share one site-wide title, so the path underneath tells them apart. */
+  const pageColumn: DataTableColumn<TopPageRow> = {
+    key: "page",
+    header: "Page",
+    sortable: true,
+    width: "2fr",
+    render: (row) => (
+      <span className="flex min-w-0 flex-col">
+        {row.url ? (
+          <a
+            href={row.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-w-0 items-center gap-1 hover:underline"
+            title={`Open ${row.url}`}
+          >
+            <span className="truncate">{row.title}</span>
+            <ArrowSquareOut size={12} className="shrink-0 text-muted-foreground" />
+          </a>
+        ) : (
+          <span className="truncate" title={row.title}>{row.title}</span>
+        )}
+        {row.path !== row.title && (
+          <span className="truncate text-xs text-muted-foreground" title={row.path}>
+            {row.path}
+          </span>
+        )}
+      </span>
+    ),
+  };
+
   const moverColumns: DataTableColumn<TopPageRow>[] = [
-    { key: "title", header: "Page", sortable: true, width: "2fr" },
+    pageColumn,
     { key: "platform", header: "Platform", sortable: true, width: "1fr" },
     {
       key: "previousPageViews",
@@ -568,7 +635,7 @@ const Documentation = () => {
 
 
   const topPageColumns: DataTableColumn<TopPageRow>[] = [
-    { key: "title", header: "Page", sortable: true, width: "2fr" },
+    pageColumn,
     { key: "platform", header: "Platform", sortable: true, width: "1fr" },
     {
       key: "pageViews",
@@ -863,7 +930,7 @@ const Documentation = () => {
                   hideToolbar
                   search={platformSearch}
                   emptyTitle={platformSearch ? "No matching platforms" : "No Google Analytics data yet"}
-                  emptyBody="Run pushGa4Reports in Apps Script to send the first snapshot."
+                  emptyBody="An editor can click Sync Google Analytics to send the first snapshot."
                 />
                 </DesignCard>
                 </section>

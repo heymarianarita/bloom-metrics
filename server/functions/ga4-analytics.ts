@@ -274,7 +274,7 @@ const handler: FnHandler = async (req) => {
     return jsonResponse(
       {
         error: "No GA4 properties configured",
-        details: "Set GA4_PROPERTIES or push a GA4 snapshot from Apps Script.",
+        details: "Set GA4_PROPERTIES, or click Sync Google Analytics on the Documentation page.",
         configured: true,
       },
       400,
@@ -285,7 +285,7 @@ const handler: FnHandler = async (req) => {
     return jsonResponse(
       {
         error: "GA4 data is not available yet",
-        details: "Run pushGa4Reports from Apps Script to send the first GA4 snapshot.",
+        details: "An editor can click Sync Google Analytics on the Documentation page to send the first snapshot.",
         configured: false,
       },
       503,
@@ -325,7 +325,7 @@ const handler: FnHandler = async (req) => {
     return jsonResponse(
       {
         error: "Apps Script is restricted to your company workspace",
-        details: "Use push mode: run pushGa4Reports from Apps Script so the script sends GA4 snapshots to this backend.",
+        details: "An editor can click Sync Google Analytics on the Documentation page to send a snapshot.",
       },
       502,
     );

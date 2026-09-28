@@ -19,6 +19,8 @@ export interface Ga4Totals {
 export interface Ga4TopPage {
   path: string;
   title: string;
+  /** Site host the page was viewed on, e.g. vinted.zeroheight.com (snapshots from before it was added lack it) */
+  host?: string;
   pageViews: number;
   activeUsers: number;
   /** Same page in the previous period — absent on older snapshots. */
