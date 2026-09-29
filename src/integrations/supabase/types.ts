@@ -413,6 +413,7 @@ export type Database = {
           source_key: string
           source_type: string
           surface: string
+          subgroup_id: string | null
           unit: string
           updated_at: string
           value_column: string
@@ -435,6 +436,7 @@ export type Database = {
           source_key?: string
           source_type?: string
           surface?: string
+          subgroup_id?: string | null
           unit?: string
           updated_at?: string
           value_column?: string
@@ -457,6 +459,7 @@ export type Database = {
           source_key?: string
           source_type?: string
           surface?: string
+          subgroup_id?: string | null
           unit?: string
           updated_at?: string
           value_column?: string
@@ -476,6 +479,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          parent_id: string | null
           name: string
           periodicity: string
           slug: string
@@ -486,6 +490,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          parent_id?: string | null
           name: string
           periodicity?: string
           slug: string
@@ -496,6 +501,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          parent_id?: string | null
           name?: string
           periodicity?: string
           slug?: string

@@ -1,18 +1,16 @@
 import * as React from "react";
-import { ArrowClockwise, FloppyDisk, Key } from "@phosphor-icons/react";
+import { ArrowClockwise } from "@phosphor-icons/react";
 import AppShell from "@/components/layout/AppShell";
 import RequireRole from "@/components/auth/RequireRole";
 import { DesignPageHeader } from "@/components/ds/DesignPageHeader";
-import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignInputText } from "@/components/ds/DesignInput";
-import { DesignButton } from "@/components/ds/DesignButton";
-import { DesignBadge } from "@/components/ds/DesignBadge";
-import { DesignDivider } from "@/components/ds/DesignDivider";
 import { DesignLoader } from "@/components/ds/DesignLoader";
 import FigmaLibrariesCard from "@/components/settings/FigmaLibrariesCard";
-import CredentialsCard from "@/components/settings/CredentialsCard";
 import GetDXTeamsCard from "@/components/settings/GetDXTeamsCard";
+import { useRefreshGetDXTeams } from "@/hooks/useRefreshGetDXTeams";
+import { SourceCard, SourceSection, type SourceRun } from "@/components/settings/source/SourceCard";
+import CodeAdoptionSourceCard from "@/components/settings/CodeAdoptionSourceCard";
 import Ga4PropertiesCard from "@/components/settings/Ga4PropertiesCard";
 
 import {
@@ -22,105 +20,73 @@ import {
   useSyncRuns,
 } from "@/hooks/useDataSources";
 import { useToast } from "@/hooks/use-toast";
-import { formatDateTime } from "@/lib/formatDate";
 
-const SourceCard = ({
+/** Atlassian, GetDX, Claude…: credentials plus any plain settings, which save when you leave a field. */
+const GenericSourceCard = ({
   def,
   saved,
   lastRun,
 }: {
   def: (typeof DATA_SOURCE_DEFS)[number];
   saved?: Record<string, unknown>;
-  lastRun?: { status: string; ran_at: string; message: string };
+  lastRun?: SourceRun;
 }) => {
   const { toast } = useToast();
   const save = useSaveDataSourceConfig();
-  const [values, setValues] = React.useState<Record<string, string>>({});
+  const refreshTeams = useRefreshGetDXTeams();
 
-  React.useEffect(() => {
-    setValues(
-      Object.fromEntries(def.fields.map((f) => [f.name, String((saved?.[f.name] as string) ?? "")]))
-    );
-  }, [saved, def.fields]);
-
-  const onSave = async () => {
+  const saveField = async (name: string, value: string) => {
+    if (value === String(saved?.[name] ?? "")) return;
     try {
-      await save.mutateAsync({ source_key: def.key, label: def.label, config: values });
-      toast({ title: "Saved", description: `${def.label} configuration updated.` });
+      await save.mutateAsync({ source_key: def.key, label: def.label, config: { ...saved, [name]: value } });
+      toast({ title: "Saved", description: `${def.label} updated.` });
     } catch (err) {
-      toast({
-        title: "Could not save",
-        description: err instanceof Error ? err.message : "Unknown error",
-        variant: "destructive",
-      });
+      toast({ title: "Could not save", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
     }
   };
 
+  const onSync =
+    def.key === "getdx"
+      ? async () => {
+          try {
+            const r = await refreshTeams.mutateAsync();
+            toast({ title: "Synced", description: `${r.teams.length} groups loaded from GetDX.` });
+          } catch (err) {
+            toast({ title: "Sync failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+          }
+        }
+      : undefined;
+
   return (
-    <DesignCard className="p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-[16px] font-medium text-foreground">{def.label}</h2>
-          </div>
-          <p className="text-[14px] text-muted-foreground mt-1">{def.description}</p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {def.credential && (
-            <DesignBadge theme="muted" styling="light">
-              <Key size={12} /> {def.credential}
-            </DesignBadge>
-          )}
-          {lastRun && (
-            <DesignBadge theme={lastRun.status === "success" ? "success" : "error"} styling="light">
-              {lastRun.status === "success" ? "Last sync OK" : "Last sync failed"}
-            </DesignBadge>
-          )}
-        </div>
-      </div>
-
-      <CredentialsCard sourceKey={def.key} />
-      {def.key === "getdx" && <GetDXTeamsCard />}
-
+    <SourceCard
+      title={def.label}
+      description={def.description}
+      credentialsKey={def.key}
+      lastRun={lastRun}
+      onSync={onSync}
+      syncing={refreshTeams.isPending}
+    >
       {def.fields.length > 0 && (
-        <>
-          <DesignSpacer size="small" />
-          <DesignDivider />
-          <DesignSpacer size="small" />
-          <div className="grid gap-4 md:grid-cols-2">
+        <SourceSection title="Settings">
+          <div className="grid gap-3 md:grid-cols-2">
             {def.fields.map((field) => (
               <DesignInputText
-                key={field.name}
+                key={`${field.name}:${String(saved?.[field.name] ?? "")}`}
                 label={field.label}
                 placeholder={field.placeholder}
                 helperText={field.helper}
-                value={values[field.name] ?? ""}
-                onChange={(e) => setValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
+                defaultValue={String(saved?.[field.name] ?? "")}
+                onBlur={(e) => saveField(field.name, e.target.value.trim())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                }}
               />
             ))}
           </div>
-          <DesignSpacer size="small" />
-          <div className="flex items-center gap-2">
-            <DesignButton
-              variant="filled"
-              theme="primary"
-              size="medium"
-              icon={<FloppyDisk size={16} />}
-              isLoading={save.isPending}
-              onClick={onSave}
-            >
-              Save
-            </DesignButton>
-            {lastRun && (
-              <span className="text-[12px] text-muted-foreground">
-                Last run {formatDateTime(lastRun.ran_at)}
-                {lastRun.message ? ` — ${lastRun.message}` : ""}
-              </span>
-            )}
-          </div>
-        </>
+        </SourceSection>
       )}
-    </DesignCard>
+      {def.key === "getdx" && <GetDXTeamsCard />}
+    </SourceCard>
   );
 };
 
@@ -153,6 +119,12 @@ const DataSourcesSettings = () => {
                   saved={savedByKey.get(def.key) as Record<string, unknown> | undefined}
                   lastRun={lastRunByKey.get(def.key)}
                 />
+              ) : def.key === "code_adoption" ? (
+                <CodeAdoptionSourceCard
+                  key={def.key}
+                  saved={savedByKey.get(def.key) as Record<string, unknown> | undefined}
+                  lastRun={lastRunByKey.get(def.key)}
+                />
               ) : def.key === "ga4_documentation" ? (
                 <Ga4PropertiesCard
                   key={def.key}
@@ -160,7 +132,7 @@ const DataSourcesSettings = () => {
                   lastRun={lastRunByKey.get(def.key)}
                 />
               ) : (
-                <SourceCard
+                <GenericSourceCard
                   key={def.key}
                   def={def}
                   saved={savedByKey.get(def.key) as Record<string, unknown> | undefined}

@@ -305,7 +305,7 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
   const metrics = useManualMetrics();
   const groups = useMetricGroups();
   const periodicity: Periodicity =
-    ((groups.data ?? []).find((g) => g.name === group)?.periodicity as Periodicity) ?? "quarterly";
+    ((groups.data ?? []).find((g) => !g.parent_id && g.name === group)?.periodicity as Periodicity) ?? "quarterly";
   const periodicityLabel =
     PERIODICITY_OPTIONS.find((o) => o.value === periodicity)?.label ?? "Quarterly";
   const [series, setSeries] = React.useState<Record<string, SeriesPoint[]>>({});

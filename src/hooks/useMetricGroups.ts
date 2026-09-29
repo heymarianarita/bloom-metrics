@@ -20,6 +20,8 @@ export const PERIODICITY_OPTIONS: { value: Periodicity; label: string }[] = [
 
 export interface MetricGroup {
   id: string;
+  /** Set on a subgroup: the group it belongs to (one level deep). */
+  parent_id: string | null;
   slug: string;
   name: string;
   description: string;
@@ -29,6 +31,28 @@ export interface MetricGroup {
 
 export const slugifyGroup = (value: string) =>
   value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/** Top-level groups in order, each with its subgroups in order. */
+export const groupTree = (groups: MetricGroup[]) => {
+  const byOrder = (a: MetricGroup, b: MetricGroup) => a.sort_order - b.sort_order || a.name.localeCompare(b.name);
+  return groups
+    .filter((g) => !g.parent_id)
+    .sort(byOrder)
+    .map((group) => ({ group, children: groups.filter((g) => g.parent_id === group.id).sort(byOrder) }));
+};
+
+/** "Adoption", "Adoption › Web", … — for pickers that point something at a group or subgroup. */
+export const groupOptions = (groups: MetricGroup[]) =>
+  groupTree(groups).flatMap(({ group, children }) => [
+    { value: group.id, label: group.name },
+    ...children.map((c) => ({ value: c.id, label: `${group.name} › ${c.name}` })),
+  ]);
+
+/** Where a metric sits: its subgroup if it has one, else the top-level group named in `surface`. */
+export const metricGroupId = (groups: MetricGroup[], metric: { surface: string; subgroup_id?: string | null }) =>
+  metric.subgroup_id && groups.some((g) => g.id === metric.subgroup_id)
+    ? metric.subgroup_id
+    : groups.find((g) => !g.parent_id && g.name === metric.surface)?.id ?? "";
 
 export const useMetricGroups = () =>
   useQuery({
@@ -48,14 +72,21 @@ export const useSaveMetricGroup = () => {
   return useMutation({
     mutationFn: async (group: {
       id?: string;
+      parent_id?: string | null;
       name: string;
       description?: string;
       sort_order?: number;
       periodicity?: Periodicity;
+      /** All groups, so a subgroup's slug can avoid clashing with another group's. */
+      existing?: MetricGroup[];
     }) => {
+      let slug = slugifyGroup(group.name);
+      const parent = group.existing?.find((g) => g.id === group.parent_id);
+      if (parent && group.existing?.some((g) => g.slug === slug && g.id !== group.id)) slug = `${parent.slug}-${slug}`;
       const payload = {
         ...(group.id ? { id: group.id } : {}),
-        slug: slugifyGroup(group.name),
+        parent_id: group.parent_id ?? null,
+        slug,
         name: group.name.trim(),
         description: group.description ?? "",
         sort_order: group.sort_order ?? 0,
@@ -74,9 +105,21 @@ export const useDeleteMetricGroup = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("metric_groups").delete().eq("id", id);
-      if (error) throw new Error(error.message);
+      // Subgroups go with their group; their metrics stay in the top-level group.
+      const { data: children } = await supabase.from("metric_groups").select("id").eq("parent_id", id);
+      for (const groupId of [id, ...((children ?? []) as { id: string }[]).map((c) => c.id)]) {
+        const { error: unlink } = await supabase
+          .from("manual_metrics")
+          .update({ subgroup_id: null } as never)
+          .eq("subgroup_id", groupId);
+        if (unlink) throw new Error(unlink.message);
+        const { error } = await supabase.from("metric_groups").delete().eq("id", groupId);
+        if (error) throw new Error(error.message);
+      }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["metric-groups"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["metric-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["manual-metrics"] });
+    },
   });
 };

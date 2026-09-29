@@ -12,6 +12,7 @@ import { resetInterruptedRuns, runAllSources } from "./qualitative/job.ts";
 import { FUNCTIONS } from "./functions/index.ts";
 import { backfillFigmaSnapshots, captureFigmaSnapshots } from "./functions/figma-snapshot.ts";
 import { getdxTeamsAgeDays, refreshGetdxTeams } from "./functions/getdx-teams.ts";
+import { syncCodeAdoption } from "./functions/code-adoption.ts";
 import { pool } from "./db.ts";
 import { localDevFlag } from "./devmode.ts";
 import type { FnHandler } from "./functions/types.ts";
@@ -132,6 +133,14 @@ cron.schedule(
   { timezone: "UTC" },
 );
 
+// Code adoption: the ds-analyzer reports change weekly; checking daily
+// picks up a new one within a day (runs without a new report cost one GitHub call).
+const syncCode = () =>
+  syncCodeAdoption()
+    .then((r) => console.log("code adoption sync:", JSON.stringify(r.body).slice(0, 300)))
+    .catch((e) => console.error("code adoption sync failed", e instanceof Error ? e.message : e));
+cron.schedule("15 7 * * *", syncCode, { timezone: "UTC" });
+
 app.listen(port, () => {
   console.log(`bloom-metrics listening on :${port}`);
   applyDevAdminPassword()
@@ -139,6 +148,7 @@ app.listen(port, () => {
     .catch((e) => console.error("could not prepare admin sign-in", e));
   // Not with fake Figma data: that must never be stored.
   if (!localDevFlag("FIGMA_FAKE_DATA")) refreshFigmaOnStart();
+  syncCode();
   resetInterruptedRuns().catch((e) => console.error("could not reset qualitative runs", e));
   getdxTeamsAgeDays()
     .then((age) => {

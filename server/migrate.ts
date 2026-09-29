@@ -20,7 +20,63 @@ const EXPORT_FILE = path.join(here, "seed", "lovable-export.sql");
  */
 const ADDED_COLUMNS: { table: string; column: string; definition: string }[] = [
   { table: "manual_metrics", column: "scale_labels", definition: "JSON NOT NULL DEFAULT (JSON_OBJECT()) AFTER `breakdown_views`" },
+  // Subgroups: a group with a parent is a subgroup of it (one level deep).
+  { table: "metric_groups", column: "parent_id", definition: "CHAR(36) NULL AFTER `id`" },
+  // The subgroup a metric sits in; `surface` stays the name of its top-level group.
+  { table: "manual_metrics", column: "subgroup_id", definition: "CHAR(36) NULL AFTER `surface`" },
 ];
+
+/**
+ * One-off: Adoption is split into platform subgroups. The per-platform metrics move
+ * into their subgroup (keeping their URLs, which now open the subgroup), Figma gets
+ * its own subgroup, and the Figma source is pointed at it. (GitHub reports are added,
+ * and pointed at a subgroup, in Settings → Dynamic sources.)
+ */
+const ADOPTION_SUBGROUPS_NAME = "2026-09-29-adoption-subgroups";
+const ADOPTION_SUBGROUPS = [
+  { slug: "figma", name: "Figma", metric: null },
+  { slug: "web", name: "Web", metric: "web" },
+  { slug: "ios", name: "iOS", metric: "ios" },
+  { slug: "android-jetpack-compose", name: "Android (Jetpack Compose)", metric: "android-jetpack-compose" },
+  { slug: "android-xml", name: "Android (XML)", metric: "android-xml" },
+];
+
+async function adoptionSubgroups(conn: PoolConnection) {
+  const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [ADOPTION_SUBGROUPS_NAME]);
+  if ((done as unknown[]).length) return;
+  const [parents] = await conn.query("SELECT id FROM metric_groups WHERE slug = 'adoption' AND parent_id IS NULL");
+  const parentId = (parents as { id: string }[])[0]?.id;
+  if (parentId) {
+    const ids: Record<string, string> = {};
+    for (const [i, g] of ADOPTION_SUBGROUPS.entries()) {
+      await conn.query(
+        "INSERT INTO metric_groups (id, parent_id, slug, name, sort_order) VALUES (UUID(), ?, ?, ?, ?) ON DUPLICATE KEY UPDATE parent_id = VALUES(parent_id)",
+        [parentId, g.slug, g.name, i],
+      );
+      const [rows] = await conn.query("SELECT id FROM metric_groups WHERE slug = ?", [g.slug]);
+      ids[g.slug] = (rows as { id: string }[])[0].id;
+      if (g.metric) {
+        // "Web" inside the Web subgroup becomes "Web components in code" (names must stay unique).
+        await conn.query(
+          "UPDATE manual_metrics SET subgroup_id = ?, name = CONCAT(name, ' components in code'), slug = CONCAT(slug, '-components-in-code') WHERE slug = ? AND surface = 'Adoption'",
+          [ids[g.slug], g.metric],
+        );
+      }
+    }
+    const pointAt = async (sourceKey: string, label: string, patch: (config: Record<string, unknown>) => Record<string, unknown>) => {
+      const [rows] = await conn.query("SELECT config FROM data_source_configs WHERE source_key = ?", [sourceKey]);
+      const raw = (rows as { config: unknown }[])[0]?.config;
+      const config = (typeof raw === "string" ? JSON.parse(raw) : raw ?? {}) as Record<string, unknown>;
+      await conn.query(
+        "INSERT INTO data_source_configs (id, source_key, label, config) VALUES (UUID(), ?, ?, CAST(? AS JSON)) ON DUPLICATE KEY UPDATE config = VALUES(config)",
+        [sourceKey, label, JSON.stringify(patch(config))],
+      );
+    };
+    await pointAt("figma", "Figma component analytics", (c) => ({ ...c, metricGroupId: ids.figma }));
+  }
+  await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [ADOPTION_SUBGROUPS_NAME]);
+  console.log(parentId ? "adoption subgroups created" : "no Adoption group, subgroups skipped");
+}
 
 /** One-off: the Impact survey's answer labels, filled in only where no labels were set yet. */
 const SCALE_LABELS_NAME = "2026-09-28-impact-scale-labels";
@@ -243,6 +299,7 @@ async function main() {
       await markRatingColumns(conn);
       await isoDates(conn);
       await isoDatesAll(conn);
+    await adoptionSubgroups(conn);
       return;
     }
     if (!existsSync(EXPORT_FILE)) {
@@ -283,6 +340,7 @@ async function main() {
     await markRatingColumns(conn);
     await isoDates(conn);
     await isoDatesAll(conn);
+    await adoptionSubgroups(conn);
   } finally {
     conn.release();
     await pool.end();

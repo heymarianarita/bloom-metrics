@@ -19,8 +19,11 @@ export interface DesignInputTextProps
   success?: boolean;
   /** Disabled state */
   disabled?: boolean;
-  /** Size: default (44px) or small (36px) */
-  size?: "default" | "small";
+  /**
+   * Bloom input sizes: default (44px) or compact (36px). This project uses compact
+   * everywhere to save space, so it's the default here. "small" is an old name for compact.
+   */
+  size?: "default" | "compact" | "small";
   /** Leading icon or text */
   prefix?: React.ReactNode;
   /** Trailing icon or text */
@@ -48,7 +51,7 @@ const DesignInputText = React.forwardRef<HTMLInputElement, DesignInputTextProps>
       error = false,
       success = false,
       disabled = false,
-      size = "default",
+      size = "compact",
       prefix,
       suffix,
       ...props
@@ -58,7 +61,7 @@ const DesignInputText = React.forwardRef<HTMLInputElement, DesignInputTextProps>
     const [focused, setFocused] = React.useState(false);
     const resolvedLabel = label || title;
     const resolvedHelper = helperText || note;
-    const isSmall = size === "small";
+    const isCompact = size !== "default";
 
     return (
       <div className={cn("flex flex-col", className)}>
@@ -74,9 +77,9 @@ const DesignInputText = React.forwardRef<HTMLInputElement, DesignInputTextProps>
           className={cn(
             "flex items-center rounded-[6px] border transition-all bg-[var(--background)]",
             // Height
-            isSmall ? "min-h-[36px]" : "min-h-[44px]",
+            isCompact ? "min-h-[36px]" : "min-h-[44px]",
             // Padding
-            isSmall ? "px-3" : "px-3",
+            "px-3",
             // Border color
             error
               ? "border-[var(--error-default)]"
@@ -114,7 +117,7 @@ const DesignInputText = React.forwardRef<HTMLInputElement, DesignInputTextProps>
             }}
             className={cn(
               "flex-1 bg-transparent outline-none min-w-0",
-              isSmall ? "text-[14px] leading-[18px]" : "text-[16px] leading-[22px]",
+              "text-[16px] leading-[22px]",
               "font-normal",
               "text-[var(--input-value)] placeholder:text-[var(--input-placeholder)]",
               "caret-[var(--primary)]",

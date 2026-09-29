@@ -6,7 +6,10 @@ export interface ManualMetric {
   slug: string;
   name: string;
   unit: string;
+  /** Name of the metric's top-level group. */
   surface: string;
+  /** The subgroup it sits in, if any (a metric_groups row whose parent is `surface`). */
+  subgroup_id: string | null;
   description: string;
   sort_order: number;
   archived: boolean;

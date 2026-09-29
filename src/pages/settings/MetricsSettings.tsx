@@ -25,7 +25,7 @@ import {
   type BreakdownView,
   type ManualMetric,
 } from "@/hooks/useManualMetrics";
-import { useMetricGroups } from "@/hooks/useMetricGroups";
+import { groupOptions as toGroupOptions, metricGroupId, useMetricGroups } from "@/hooks/useMetricGroups";
 import {
   aggregateDataset,
   comparePeriods,
@@ -63,6 +63,7 @@ const MetricsTab = () => {
     name: "",
     unit: "",
     surface: "",
+    subgroup_id: "",
     description: "",
     source_type: "dataset",
     source_key: "",
@@ -128,6 +129,7 @@ const MetricsTab = () => {
         slug: slugifyMetric(draft.name),
         unit: draft.unit,
         surface: draft.surface,
+        subgroup_id: draft.subgroup_id || null,
         description: draft.description,
         source_type: draft.source_type as ManualMetric["source_type"],
         source_key: draft.source_type === "dynamic" ? draft.source_key : "",
@@ -162,6 +164,7 @@ const MetricsTab = () => {
       name: metric.name,
       unit: metric.unit,
       surface: metric.surface,
+      subgroup_id: metric.subgroup_id ?? "",
       description: metric.description,
       source_type: metric.source_type ?? "dataset",
       source_key: metric.source_key ?? "",
@@ -219,7 +222,16 @@ const MetricsTab = () => {
   }));
   // Score labels only make sense for a 1–5 rating column (set in the dataset's column type).
   const valueIsRating = (draftColumns.data ?? []).find((c) => c.key === draft.value_column)?.kind === "rating";
-  const groupOptions = (groups.data ?? []).map((g) => ({ value: g.name, label: g.name }));
+  const allGroups = groups.data ?? [];
+  const groupOptions = toGroupOptions(allGroups);
+  const groupLabel = (m: ManualMetric) =>
+    groupOptions.find((o) => o.value === metricGroupId(allGroups, m))?.label ?? m.surface;
+  /** Picking a subgroup files the metric under its parent group too. */
+  const pickGroup = (id: string) => {
+    const picked = allGroups.find((g) => g.id === id);
+    const parent = picked?.parent_id ? allGroups.find((g) => g.id === picked.parent_id) : undefined;
+    setDraft({ ...draft, surface: (parent ?? picked)?.name ?? "", subgroup_id: parent ? id : "" });
+  };
 
   return (
     <>
@@ -245,7 +257,7 @@ const MetricsTab = () => {
                   onChange={setMetricId}
                   options={(metrics.data ?? []).map((m) => ({
                     value: m.id,
-                    label: m.surface ? `${m.surface} · ${m.name}` : m.name,
+                    label: m.surface ? `${groupLabel(m)} · ${m.name}` : m.name,
                   }))}
                 />
               </div>
@@ -377,10 +389,10 @@ const MetricsTab = () => {
           />
           <DesignInputSelect
             label="Group"
-            placeholder={groupOptions.length ? "Pick a group" : "Create a group first"}
+            placeholder={groupOptions.length ? "Pick a group or subgroup" : "Create a group first"}
             disabled={groupOptions.length === 0}
-            value={draft.surface}
-            onChange={(surface) => setDraft({ ...draft, surface })}
+            value={metricGroupId(allGroups, draft)}
+            onChange={pickGroup}
             options={groupOptions}
           />
           <DesignInputText

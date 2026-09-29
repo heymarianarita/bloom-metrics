@@ -2,7 +2,7 @@ import * as React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { Search, X, ChevronDown, Filter, MoreVertical, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Search, X, ChevronDown, ChevronRight, Filter, MoreVertical, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -107,6 +107,16 @@ export interface DesignDataTableProps<T> {
   emptyBody?: string;
   emptyAction?: React.ReactNode;
 
+  /* ── Nesting ── */
+  /**
+   * Child rows of a row, for a nested table (Bloom Table "nested" pattern): a parent gets a
+   * round chevron that shows or hides its children, which sit on a tinted background.
+   * Pagination and sorting apply to top-level rows; a search also matches children.
+   */
+  subRows?: (row: T) => T[] | undefined;
+  /** Start with every parent expanded (default true). */
+  defaultExpanded?: boolean;
+
   /* ── Title ── */
   /** Optional title displayed above the toolbar inside the card */
   title?: string;
@@ -171,6 +181,8 @@ function DesignDataTableInner<T>(
     title,
     titleAction,
     searchInTitle = false,
+    subRows,
+    defaultExpanded = true,
     className,
   }: DesignDataTableProps<T>,
   ref: React.ForwardedRef<HTMLDivElement>
@@ -186,6 +198,11 @@ function DesignDataTableInner<T>(
   const [internalSelected, setInternalSelected] = useState<string[]>([]);
   const [internalToggled, setInternalToggled] = useState<string[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
+  /** Parents the user collapsed (or expanded, when defaultExpanded is false). */
+  const [flipped, setFlipped] = useState<string[]>([]);
+  const isExpanded = (key: string) => flipped.includes(key) !== defaultExpanded;
+  const toggleExpanded = (key: string) =>
+    setFlipped((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
 
   const selected = controlledSelected ?? internalSelected;
   const setSelected = onSelectionChange ?? setInternalSelected;
@@ -244,13 +261,13 @@ function DesignDataTableInner<T>(
   const query = search.trim().toLowerCase();
   const visibleData = useMemo(() => {
     if (!query) return data;
-    return data.filter((row) =>
+    const matches = (row: T) =>
       columns.some((col) => {
         const value = (row as Record<string, unknown>)[col.key];
         return (typeof value === "string" || typeof value === "number") && String(value).toLowerCase().includes(query);
-      }),
-    );
-  }, [data, columns, query]);
+      });
+    return data.filter((row) => matches(row) || (subRows?.(row) ?? []).some(matches));
+  }, [data, columns, query, subRows]);
 
   // A search typed outside the table starts again from the first page.
   React.useEffect(() => setPage(1), [controlledSearch]);
@@ -448,6 +465,14 @@ function DesignDataTableInner<T>(
         <>
           <div className="overflow-x-auto">
           <table className="w-full text-sm table-fixed">
+            {/* Fixed widths (px, rem, %) are applied; "fr" columns share the rest equally. */}
+            <colgroup>
+              {selectable && <col style={{ width: 48 }} />}
+              {columns.map((col) => (
+                <col key={col.key} style={{ width: col.width && !col.width.endsWith("fr") ? col.width : undefined }} />
+              ))}
+              {hasActions && <col style={{ width: 96 }} />}
+            </colgroup>
             {!hideHeader && (
               <thead>
                 <tr
@@ -504,16 +529,40 @@ function DesignDataTableInner<T>(
               </thead>
             )}
             <tbody>
-              {pagedData.map((row, localIdx) => {
-                const globalIdx = (page - 1) * pageSize + localIdx;
-                const key = rowKey(row, globalIdx);
+              {pagedData
+                .flatMap((row, localIdx) => {
+                  const globalIdx = (page - 1) * pageSize + localIdx;
+                  const key = rowKey(row, globalIdx);
+                  const children = subRows?.(row) ?? [];
+                  const parent = { row, globalIdx, key, depth: 0, childCount: children.length };
+                  // While searching, every matching parent shows its children.
+                  if (!children.length || (!query && !isExpanded(key))) return [parent];
+                  return [
+                    parent,
+                    ...children.map((child, i) => ({
+                      row: child,
+                      globalIdx,
+                      key: rowKey(child, i),
+                      depth: 1,
+                      childCount: 0,
+                    })),
+                  ];
+                })
+                .map(({ row, globalIdx, key, depth, childCount }) => {
                 const isSelected = selected.includes(key);
                 const isToggled = toggled.includes(key);
+                const expanded = childCount > 0 && (Boolean(query) || isExpanded(key));
 
                 return (
                   <tr
                     key={key}
-                    className="border-b border-[var(--border)] last:border-b-0 hover:bg-[rgba(0,119,130,0.06)] transition-colors"
+                    className={cn(
+                      "border-b last:border-b-0 hover:bg-[rgba(0,119,130,0.06)] transition-colors",
+                      // Bloom Table, nested: faint row lines, and child rows on a light tint.
+                      subRows ? "border-[rgba(21,25,26,0.03)]" : "border-[var(--border)]",
+                      // Child rows: light tint, with lines as strong as the column dividers.
+                      depth > 0 && "bg-[rgba(21,25,26,0.03)] border-[rgba(21,25,26,0.08)]",
+                    )}
                   >
                     {selectable && (
                       <td className="w-[48px] px-3 py-3 align-top">
@@ -523,7 +572,7 @@ function DesignDataTableInner<T>(
                         />
                       </td>
                     )}
-                    {columns.map((col) => {
+                    {columns.map((col, colIdx) => {
                       const cellContent = col.render
                         ? col.render(row, globalIdx)
                         : (row as Record<string, unknown>)[col.key] != null
@@ -535,17 +584,41 @@ function DesignDataTableInner<T>(
                         ? (cellContent as string)
                         : extractText(cellContent);
                       return (
-                        <td key={col.key} className="px-4 py-3 text-[var(--foreground)] align-top border-l border-[rgba(21,25,26,0.08)] first:border-l-0 overflow-hidden max-w-0">
-                          <DesignTooltip content={tooltipText} side="top">
-                            <div className="min-w-0 [&_p]:truncate [&_span]:truncate truncate">
-                              {cellContent}
+                        <td
+                          key={col.key}
+                          className={cn(
+                            "px-4 py-3 text-[var(--foreground)] border-l border-[rgba(21,25,26,0.08)] first:border-l-0 overflow-hidden max-w-0",
+                            // Nested rows carry a 32px chevron, so their cells line up on the middle.
+                            subRows ? "align-middle" : "align-top",
+                          )}
+                        >
+                          {subRows && colIdx === 0 && childCount > 0 ? (
+                            <div className="flex items-center gap-2 min-w-0 -my-1.5">
+                              <button
+                                type="button"
+                                aria-expanded={expanded}
+                                aria-label={`${expanded ? "Collapse" : "Expand"} ${tooltipText}`}
+                                onClick={() => toggleExpanded(key)}
+                                className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-[var(--muted)] text-[var(--foreground)] hover:brightness-95 active:brightness-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] transition-colors"
+                              >
+                                {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                              </button>
+                              <DesignTooltip content={tooltipText} side="top">
+                                <div className="min-w-0 [&_p]:truncate [&_span]:truncate truncate">{cellContent}</div>
+                              </DesignTooltip>
                             </div>
-                          </DesignTooltip>
+                          ) : (
+                            <DesignTooltip content={tooltipText} side="top">
+                              <div className="min-w-0 [&_p]:truncate [&_span]:truncate truncate">
+                                {cellContent}
+                              </div>
+                            </DesignTooltip>
+                          )}
                         </td>
                       );
                     })}
                     {hasActions && (
-                      <td className="px-4 py-3 align-top border-l border-[rgba(21,25,26,0.08)]">
+                      <td className={cn("px-4 py-3 border-l border-[rgba(21,25,26,0.08)]", subRows ? "align-middle" : "align-top")}>
                         <div className="flex items-center justify-start gap-1">
                           {rowToggle && (
                             <DesignToggle

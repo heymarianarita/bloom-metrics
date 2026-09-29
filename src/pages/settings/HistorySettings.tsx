@@ -34,6 +34,7 @@ const EXPORTABLE = [
   { table: "ai_template_metrics", label: "AI template metrics", mode: "Manual" },
   { table: "ai_template_definitions", label: "AI templates", mode: "Manual" },
   { table: "figma_adoption_snapshots", label: "Figma adoption snapshots", mode: "Dynamic" },
+  { table: "code_adoption_snapshots", label: "Code adoption snapshots", mode: "Dynamic" },
   { table: "ga4_report_snapshots", label: "GA4 report snapshots", mode: "Dynamic" },
   { table: "sync_runs", label: "Sync runs", mode: "Dynamic" },
   { table: "data_source_configs", label: "Data source configuration", mode: "Config" },

@@ -245,6 +245,27 @@ CREATE TABLE IF NOT EXISTS `figma_adoption_snapshots` (
   UNIQUE KEY `figma_adoption_snapshots_file_quarter_key` (`file_key`, `quarter`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Code adoption: one row per ds-analyzer report, i.e. one per weekly scan of a product repo.
+CREATE TABLE IF NOT EXISTS `code_adoption_snapshots` (
+  `id` CHAR(36) NOT NULL DEFAULT (UUID()),
+  `repo` VARCHAR(191) NOT NULL,
+  `source_path` TEXT NOT NULL,
+  `commit_sha` VARCHAR(64),
+  `generated_at` DATETIME(6) NOT NULL,
+  `total_files` INT,
+  `ds_percent` DECIMAL(5,2),
+  `native_percent` DECIMAL(5,2),
+  `tagged_percent` DECIMAL(5,2),
+  `untagged_percent` DECIMAL(5,2),
+  `summary` JSON NOT NULL DEFAULT (JSON_OBJECT()),
+  `domains` JSON NOT NULL DEFAULT (JSON_ARRAY()),
+  `greenhouse_usage` JSON NOT NULL DEFAULT (JSON_ARRAY()),
+  `captured_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `code_adoption_snapshots_repo_generated_key` (`repo`, `generated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Email + password sign-in while the app runs on playground (no Google OAuth client there).
 -- People are identified by their @vinted.com email in `profiles`, which is what Google
 -- sign-in matches on too, so moving to Google later only means dropping these two tables.

@@ -2,8 +2,7 @@ import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CaretRight } from "@phosphor-icons/react";
 import { supabase } from "@/integrations/supabase/client";
-import { DesignSpacer } from "@/components/ds/DesignSpacer";
-import { DesignDivider } from "@/components/ds/DesignDivider";
+import { SourceSection } from "@/components/settings/source/SourceCard";
 import { DesignLoader } from "@/components/ds/DesignLoader";
 import { DesignBadge } from "@/components/ds/DesignBadge";
 import { DesignInfoBanner } from "@/components/ds/DesignInfoBanner";
@@ -114,20 +113,17 @@ const GetDXTeamsCard = () => {
   }, [data]);
 
   return (
-    <>
-      <DesignSpacer size="small" />
-      <DesignDivider />
-      <DesignSpacer size="small" />
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[14px] font-medium text-foreground">User groups</p>
-        {data?.ok && (
+    <SourceSection
+      title="User groups"
+      aside={
+        data?.ok && (
           <div className="flex gap-2">
             <DesignBadge theme="muted" styling="light">{data.teams.length} groups</DesignBadge>
             <DesignBadge theme="muted" styling="light">{levels} levels</DesignBadge>
           </div>
-        )}
-      </div>
-      <DesignSpacer size="small" />
+        )
+      }
+    >
       {isLoading ? (
         <div className="flex justify-center py-6"><DesignLoader /></div>
       ) : error || !data?.ok ? (
@@ -145,7 +141,7 @@ const GetDXTeamsCard = () => {
           </ul>
         </div>
       )}
-    </>
+    </SourceSection>
   );
 };
 

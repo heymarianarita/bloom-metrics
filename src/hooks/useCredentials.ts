@@ -53,6 +53,13 @@ export const CREDENTIAL_DEFS: {
     secret: true,
   },
   {
+    sourceKey: "code_adoption",
+    name: "GITHUB_TOKEN",
+    label: "GitHub token",
+    helper: "github.com → Settings → Developer settings → Fine-grained tokens. Owner vinted, only the repositories below, Contents: read-only.",
+    secret: true,
+  },
+  {
     sourceKey: "anthropic",
     name: "ANTHROPIC_API_KEY",
     label: "Anthropic API key",
