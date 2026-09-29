@@ -216,19 +216,18 @@ const GridCell = ({
 
   const invalidEmail =
     column.kind === "email" && draft.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.trim());
-  // A date picker can only show YYYY-MM-DD and renders anything else (e.g. "3/26/2025") as empty,
-  // so dates written another way are shown and edited as plain text, exactly as stored.
-  const datePicker = column.kind === "date" && (draft.trim() === "" || /^\d{4}-\d{2}-\d{2}$/.test(draft.trim()));
+  // Dates are plain text rather than a native picker, which shows the browser's locale format
+  // (09/29/2026) instead of YYYY-MM-DD. Edits in another format are converted on save.
 
   return (
     <td className={ts.tdEditable}>
       <input
         id={cellId(rowIndex, columnIndex)}
-        type={datePicker ? "date" : column.kind === "email" ? "email" : "text"}
+        type={column.kind === "email" ? "email" : "text"}
         inputMode={column.kind === "number" || column.kind === "rating" ? "decimal" : undefined}
         disabled={readOnly}
         value={draft}
-        placeholder={column.kind === "email" ? "name@vinted.com" : undefined}
+        placeholder={column.kind === "email" ? "name@vinted.com" : column.kind === "date" ? "YYYY-MM-DD" : undefined}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={handleKeyDown}

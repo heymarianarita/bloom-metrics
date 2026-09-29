@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useSyncRuns, type SyncRun } from "@/hooks/useDataSources";
+import { formatDateTime } from "@/lib/formatDate";
 
 interface ChangeLogRow {
   id: string;
@@ -107,7 +108,7 @@ const HistorySettings = () => {
   };
 
   const columns: DataTableColumn<SyncRun>[] = [
-    { key: "ran_at", header: "When", render: (row) => new Date(row.ran_at).toLocaleString() },
+    { key: "ran_at", header: "When", render: (row) => formatDateTime(row.ran_at) },
     { key: "source", header: "Source", render: (row) => row.source_key },
     {
       key: "status",
@@ -124,7 +125,7 @@ const HistorySettings = () => {
   ];
 
   const changeColumns: DataTableColumn<ChangeLogRow>[] = [
-    { key: "changed_at", header: "When", render: (row) => new Date(row.changed_at).toLocaleString() },
+    { key: "changed_at", header: "When", render: (row) => formatDateTime(row.changed_at) },
     { key: "table_name", header: "Data", render: (row) => row.table_name },
     {
       key: "action",

@@ -40,6 +40,7 @@ How to work:
 How to answer:
 - Lead with the answer in one or two sentences, then the supporting numbers.
 - The panel is narrow: keep answers short, use brief bullet lists, and use a Markdown table only for compact comparisons (at most 4 columns).
+- Write dates as YYYY-MM-DD (e.g. 2026-03-05), never "Mar 5" or 5/3/2026.
 - Plain language for designers and PMs; no SQL, no tool names, no internal ids unless asked.`;
 
 const contextSchema = z

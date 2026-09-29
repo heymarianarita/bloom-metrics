@@ -33,6 +33,7 @@ import {
   type Ga4Property,
   type Ga4Totals,
 } from "@/hooks/useGa4Analytics";
+import { formatDateTime } from "@/lib/formatDate";
 
 type DocumentationPlatformRow = Ga4Property & {
   rowTotals?: Ga4Totals;
@@ -85,8 +86,6 @@ const percentFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
-const formatDate = (date?: string) => (date ? new Date(date).toLocaleString() : "—");
-
 const formatDuration = (seconds: number) => {
   if (!Number.isFinite(seconds) || seconds <= 0) return "00:00:00";
   const total = Math.round(seconds);
@@ -95,13 +94,6 @@ const formatDuration = (seconds: number) => {
   const s = total % 60;
   return [h, m, s].map((part) => String(part).padStart(2, "0")).join(":");
 };
-
-const formatDayLabel = (date: string) =>
-  new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
 
 const EMPTY_TOTALS: Ga4Totals = {
   activeUsers: 0,
@@ -370,7 +362,7 @@ const Documentation = () => {
     });
     return Array.from(byDate.values())
       .sort((a, b) => a.date.localeCompare(b.date))
-      .map((point) => ({ ...point, label: formatDayLabel(point.date) }));
+      .map((point) => ({ ...point, label: point.date }));
   }, [ga4Properties, ga4Range.endDate, ga4Range.startDate]);
   const hasDaily = dailySeries.length > 1;
   const chartTickInterval = Math.max(0, Math.floor(dailySeries.length / 8) - 1);
@@ -903,7 +895,7 @@ const Documentation = () => {
           <>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
-                Google Analytics: {ga4Range.startDate} → {ga4Range.endDate} · refreshed {formatDate(ga4Data?.refreshedAt)}
+                Google Analytics: {ga4Range.startDate} → {ga4Range.endDate} · refreshed {formatDateTime(ga4Data?.refreshedAt)}
               </p>
               <div className="flex items-center gap-2">
                 {isGa4Fetching && <DesignBadge theme="muted" styling="light">Refreshing</DesignBadge>}

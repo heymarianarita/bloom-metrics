@@ -3,6 +3,7 @@ import { CalendarBlank } from "@phosphor-icons/react";
 import { DesignInputText } from "@/components/ds/DesignInput";
 import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignButton } from "@/components/ds/DesignButton";
+import { isIsoDate } from "../../../server/shared/dates.ts";
 
 interface FigmaRangeControlsProps {
   startDate: string;
@@ -113,16 +114,18 @@ export const FigmaRangeControls = ({
         <>
           <DesignInputText
             className="w-[160px]"
-            type="date"
             aria-label="From"
+            placeholder="YYYY-MM-DD"
+            inputMode="numeric"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
           />
           <span className="text-[12px] text-muted-foreground">to</span>
           <DesignInputText
             className="w-[160px]"
-            type="date"
             aria-label="To"
+            placeholder="YYYY-MM-DD"
+            inputMode="numeric"
             value={to}
             onChange={(e) => setTo(e.target.value)}
           />
@@ -131,6 +134,7 @@ export const FigmaRangeControls = ({
             theme="primary"
             size="small"
             isLoading={isLoading}
+            disabled={!isIsoDate(from) || !isIsoDate(to) || from > to}
             onClick={() => onApplyRange(from, to)}
           >
             Apply

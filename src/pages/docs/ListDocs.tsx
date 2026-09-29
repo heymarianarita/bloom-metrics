@@ -121,7 +121,7 @@ const ListDocs = () => {
             />
             <DesignCell
               title="Silk Summer Dress"
-              bodyText="Delivered · Feb 25"
+              bodyText="Delivered · 2026-02-25"
               prefix={<DesignImage src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80" ratio="square" scaling="cover" alt="Dress" className="w-12 rounded-lg" />}
               suffix={<DesignBadge theme="success" styling="filled">Delivered</DesignBadge>}
               showChevron clickable

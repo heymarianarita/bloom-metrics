@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { PoolConnection } from "mysql2/promise";
 import { pool } from "./db.ts";
-import { normalizeDateColumn } from "./shared/dates.ts";
+import { looksLikeDates, normalizeDateColumn, toIsoDate } from "./shared/dates.ts";
 
 /**
  * Runs on every start: creates missing tables, then imports the Lovable data
@@ -104,6 +104,72 @@ async function isoDates(conn: PoolConnection) {
   await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [ISO_DATES_NAME]);
 }
 
+/**
+ * One-off, after 2026-09-28-iso-dates: every date stored as text becomes YYYY-MM-DD.
+ * Covers what that pass left out: dates with a time ("3/26/2025 10:15:23"), Text columns
+ * that hold dates (retyped Date) and day periods in computed values. Columns whose order
+ * can't be told stay as they are and are logged, for someone to fix on the dataset page.
+ */
+const ISO_DATES_ALL_NAME = "2026-09-29-iso-dates-all";
+
+async function isoDatesAll(conn: PoolConnection) {
+  const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [ISO_DATES_ALL_NAME]);
+  if ((done as unknown[]).length) return;
+  const [cols] = await conn.query(
+    "SELECT c.id, c.dataset_id, c.`key`, c.kind, d.slug FROM manual_dataset_columns c JOIN manual_datasets d ON d.id = c.dataset_id WHERE c.kind IN ('date', 'text')",
+  );
+  let total = 0;
+  for (const col of cols as { id: string; dataset_id: string; key: string; kind: string; slug: string }[]) {
+    const [rows] = await conn.query("SELECT id, data FROM manual_dataset_rows WHERE dataset_id = ?", [col.dataset_id]);
+    const list = (rows as { id: string; data: unknown }[]).map((r) => {
+      const data = (typeof r.data === "string" ? JSON.parse(r.data) : r.data) as Record<string, unknown>;
+      return { id: r.id, value: data?.[col.key] == null ? "" : String(data[col.key]) };
+    });
+    const values = list.map((r) => r.value);
+    if (col.kind === "text" && !looksLikeDates(values)) continue;
+    const result = normalizeDateColumn(values);
+    if (result.ambiguous) {
+      console.log(`dates in ${col.slug}.${col.key} could be either month-first or day-first; left as they are`);
+      continue;
+    }
+    let changed = 0;
+    for (const [i, row] of list.entries()) {
+      if (result.values[i] === row.value) continue;
+      await conn.query("UPDATE manual_dataset_rows SET data = JSON_SET(data, ?, ?) WHERE id = ?", [
+        `$."${col.key}"`,
+        result.values[i],
+        row.id,
+      ]);
+      changed++;
+    }
+    if (col.kind === "text") {
+      await conn.query("UPDATE manual_dataset_columns SET kind = 'date' WHERE id = ?", [col.id]);
+      console.log(`${col.slug}.${col.key} holds dates: now a Date column`);
+    }
+    if (changed || result.unreadable)
+      console.log(`dates in ${col.slug}.${col.key}: ${changed} rewritten as YYYY-MM-DD${result.unreadable ? `, ${result.unreadable} not readable as dates` : ""}`);
+    total += changed;
+  }
+
+  // Periods that are single days ("3/26/2025") in computed values and summaries.
+  for (const table of ["manual_metric_values", "qualitative_summaries"]) {
+    const [periods] = await conn.query(`SELECT DISTINCT period FROM \`${table}\``);
+    let changed = 0;
+    for (const { period } of periods as { period: string }[]) {
+      const iso = toIsoDate(period);
+      if (!iso || iso === period) continue;
+      // IGNORE: if the ISO period already exists, the old duplicate is left rather than overwriting it.
+      const [res] = await conn.query(`UPDATE IGNORE \`${table}\` SET period = ? WHERE period = ?`, [iso, period]);
+      changed += (res as { affectedRows: number }).affectedRows;
+    }
+    if (changed) console.log(`${table}: ${changed} periods rewritten as YYYY-MM-DD`);
+    total += changed;
+  }
+
+  await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [ISO_DATES_ALL_NAME]);
+  console.log(`iso dates check done: ${total} values rewritten`);
+}
+
 /** One-off: the Impact survey's 1–5 score columns are ratings, not plain numbers. */
 const RATING_COLUMNS_NAME = "2026-09-28-impact-rating-columns";
 
@@ -176,6 +242,7 @@ async function main() {
       await applyScaleLabels(conn);
       await markRatingColumns(conn);
       await isoDates(conn);
+      await isoDatesAll(conn);
       return;
     }
     if (!existsSync(EXPORT_FILE)) {
@@ -215,6 +282,7 @@ async function main() {
     await applyScaleLabels(conn);
     await markRatingColumns(conn);
     await isoDates(conn);
+    await isoDatesAll(conn);
   } finally {
     conn.release();
     await pool.end();

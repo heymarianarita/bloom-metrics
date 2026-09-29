@@ -32,6 +32,16 @@ describe("dates", () => {
     expect(toIsoDate("Mar 26, 2025")).toBe("2025-03-26");
   });
 
+  it("keeps only the day of dates stored with a time", () => {
+    expect(toIsoDate("3/26/2025 10:15:23")).toBe("2025-03-26");
+    expect(toIsoDate("2025-03-26T10:15:00.000Z")).toBe("2025-03-26");
+    expect(toIsoDate("2025-03-26 10:15")).toBe("2025-03-26");
+    expect(toIsoDate("12/2/2024 9:05 PM", "mdy")).toBe("2024-12-02");
+    expect(toIsoDate("Mar 26, 2025, 10:15 AM")).toBe("2025-03-26");
+    expect(inferDateOrder(["26/03/2025 10:15:23"]).order).toBe("dmy");
+    expect(toIsoDate("10:15")).toBeNull();
+  });
+
   it("rejects impossible dates and non-dates", () => {
     expect(toIsoDate("2/30/2025", "mdy")).toBeNull();
     expect(toIsoDate("Marketplace")).toBeNull();
