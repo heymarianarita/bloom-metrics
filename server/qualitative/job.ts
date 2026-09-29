@@ -2,7 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { randomUUID } from "node:crypto";
 import { z } from "zod/v4";
-import { anthropicClient, costOf, FALLBACK, MODEL } from "../ai.ts";
+import { anthropicClient, costOf, FALLBACK, MODEL, TAG_MODEL } from "../ai.ts";
 import { execute, nowMysql, query } from "../db.ts";
 import {
   getSource,
@@ -28,7 +28,7 @@ import { segmentCounts, TREND_PERIOD, type Theme } from "./view.ts";
  */
 
 const TAG_BATCH = 40;
-const PARALLEL = 3;
+const PARALLEL = 6;
 const running = new Set<string>();
 
 type Usage = Anthropic.Beta.BetaUsage;
@@ -45,18 +45,23 @@ class Run {
     system: string;
     prompt: string;
     effort: "low" | "medium" | "high";
+    model?: typeof MODEL | typeof TAG_MODEL;
     maxTokens?: number;
   }): Promise<z.infer<T>> {
-    const res = await this.client.beta.messages.parse({
-      model: MODEL,
-      max_tokens: opts.maxTokens ?? 32_000,
-      system: opts.system,
-      messages: [{ role: "user", content: opts.prompt }],
-      output_config: { effort: opts.effort, format: betaZodOutputFormat(opts.schema) },
-      ...FALLBACK,
-      betas: [...FALLBACK.betas],
-    });
-    this.cost += costOf(res.usage as Usage);
+    const model = opts.model ?? MODEL;
+    // Streamed: the SDK refuses non-streaming requests whose max_tokens could take over 10 minutes.
+    const res = await this.client.beta.messages
+      .stream({
+        model,
+        max_tokens: opts.maxTokens ?? 32_000,
+        system: opts.system,
+        messages: [{ role: "user", content: opts.prompt }],
+        output_config: { effort: opts.effort, format: betaZodOutputFormat(opts.schema) },
+        ...FALLBACK,
+        betas: [...FALLBACK.betas],
+      })
+      .finalMessage();
+    this.cost += costOf(res.usage as Usage, model);
     if (res.stop_reason === "refusal") throw new Error("The AI declined to process these answers.");
     if (res.stop_reason === "max_tokens") throw new Error("The AI response was cut off.");
     if (!res.parsed_output) throw new Error("The AI response didn't match the expected format.");
@@ -139,7 +144,8 @@ async function tagBatch(run: Run, loaded: LoadedSource, question: QualitativeSou
   const keyOf = new Map(themes.map((t, i) => [`T${i + 1}`, t.id]));
   const out = await run.parse({
     schema: tagSchema,
-    effort: "medium",
+    model: TAG_MODEL,
+    effort: "low",
     system: `You code open-ended survey answers against a fixed list of themes. ${DATA_NOTE} Tag only what an answer actually says; an answer can match up to three themes or none.`,
     prompt: [
       `Survey question: "${question.label}"`,
@@ -266,11 +272,11 @@ async function summarizeQuestion(run: Run, loaded: LoadedSource, question: Quali
   const themeName = new Map(themes.map((t) => [t.id, t.name]));
   let written = 0;
 
-  for (const [index, period] of loaded.periods.entries()) {
+  await inParallel([...loaded.periods.entries()], async ([index, period]) => {
     const counts = segmentCounts(loaded, question.column, tags, themes, period);
     const previous = index > 0 ? segmentCounts(loaded, question.column, tags, themes, loaded.periods[index - 1]) : null;
     const withAnswers = counts.filter((c) => c.answered > 0);
-    if (withAnswers.length === 0) continue;
+    if (withAnswers.length === 0) return;
     const answers = loaded.responses
       .filter((r) => r.period === period && r.answers[question.column])
       .map((r) => `[${Object.entries(r.segments).map(([k, v]) => `${k}: ${v}`).join("; ")}] ${r.answers[question.column]}`);
@@ -286,12 +292,12 @@ async function summarizeQuestion(run: Run, loaded: LoadedSource, question: Quali
       answers,
     };
     const hash = sha256(JSON.stringify(input));
-    if (storedHash.get(period) === hash) continue;
+    if (storedHash.get(period) === hash) return;
 
     await run.progress(`Summarising "${question.label}" for ${period}`);
     const out = await run.parse({
       schema: summarySchema,
-      effort: "medium",
+      effort: "low",
       system: `You write the short summaries shown under survey charts on an internal dashboard. ${DATA_NOTE}`,
       prompt: [
         `Question: "${question.label}" · Period: ${period}`,
@@ -324,7 +330,7 @@ async function summarizeQuestion(run: Run, loaded: LoadedSource, question: Quali
       );
       written++;
     }
-  }
+  });
   written += await summarizeTrend(run, loaded, question, themes, tags);
   return written;
 }
@@ -367,7 +373,7 @@ async function summarizeTrend(
   await run.progress(`Summarising how "${question.label}" changed over time`);
   const out = await run.parse({
     schema: trendSchema,
-    effort: "medium",
+    effort: "low",
     system: `You write the short trend summary shown above a chart of survey themes over time on an internal dashboard. ${DATA_NOTE}`,
     prompt: [
       `Question: "${question.label}"`,
@@ -404,12 +410,15 @@ async function execRun(source: QualitativeSource) {
   let tagged = 0;
   let newThemes = 0;
   let summaries = 0;
-  for (const question of source.questions) {
-    const r = await tagQuestion(run, loaded, question);
-    tagged += r.tagged;
-    newThemes += r.newThemes;
-  }
-  for (const question of source.questions) summaries += await summarizeQuestion(run, loaded, question);
+  // Questions run side by side; each one already spreads its own calls over PARALLEL workers.
+  await Promise.all(
+    source.questions.map(async (question) => {
+      const r = await tagQuestion(run, loaded, question);
+      tagged += r.tagged;
+      newThemes += r.newThemes;
+      summaries += await summarizeQuestion(run, loaded, question);
+    }),
+  );
   return [
     `Tagged ${tagged} answer${tagged === 1 ? "" : "s"}`,
     newThemes ? `${newThemes} new theme${newThemes === 1 ? "" : "s"} found` : "",
