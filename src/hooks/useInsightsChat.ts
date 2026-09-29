@@ -5,6 +5,21 @@ export interface ChatMessage {
   content: string;
   /** Set when the answer failed; the message is shown but not sent back as history. */
   error?: boolean;
+  /** For answers: how long it took and the tokens it used (all turns, including tool lookups). */
+  stats?: AnswerStats;
+}
+
+export interface AnswerStats {
+  seconds: number;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/** The answer being worked on: when it started and the tokens used so far. */
+export interface LiveAnswer {
+  startedAt: number;
+  inputTokens: number;
+  outputTokens: number;
 }
 
 /** What the person is looking at, sent with each question so "this" and "here" make sense. */
@@ -22,6 +37,7 @@ export const useInsightsChat = (context: ChatContext) => {
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [status, setStatus] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
+  const [live, setLive] = React.useState<LiveAnswer | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
   const contextRef = React.useRef(context);
   contextRef.current = context;
@@ -43,6 +59,9 @@ export const useInsightsChat = (context: ChatContext) => {
       setMessages((prev) => [...prev, { role: "user", content: text }]);
       setPending(true);
       setStatus("Thinking");
+      const startedAt = Date.now();
+      const tokens = { inputTokens: 0, outputTokens: 0 };
+      setLive({ startedAt, ...tokens });
       const abort = new AbortController();
       abortRef.current = abort;
 
@@ -85,6 +104,10 @@ export const useInsightsChat = (context: ChatContext) => {
                 if (last?.role !== "assistant" || !last.content || last.content.endsWith("\n\n")) return prev;
                 return [...prev.slice(0, -1), { ...last, content: `${last.content}\n\n` }];
               });
+            } else if (event.type === "usage") {
+              tokens.inputTokens = event.inputTokens;
+              tokens.outputTokens = event.outputTokens;
+              setLive({ startedAt, ...tokens });
             } else if (event.type === "error") {
               appendToAnswer(`${event.message}`, true);
             }
@@ -93,8 +116,14 @@ export const useInsightsChat = (context: ChatContext) => {
       } catch (err) {
         if (!abort.signal.aborted) appendToAnswer("The connection was interrupted. Try again.", true);
       } finally {
+        const stats: AnswerStats = { seconds: Math.round((Date.now() - startedAt) / 1000), ...tokens };
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          return last?.role === "assistant" ? [...prev.slice(0, -1), { ...last, stats }] : prev;
+        });
         setPending(false);
         setStatus(null);
+        setLive(null);
         abortRef.current = null;
       }
     },
@@ -107,5 +136,5 @@ export const useInsightsChat = (context: ChatContext) => {
     setMessages([]);
   }, []);
 
-  return { messages, status, pending, ask, stop, reset };
+  return { messages, status, pending, live, ask, stop, reset };
 };

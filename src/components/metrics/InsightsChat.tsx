@@ -32,6 +32,26 @@ const markdown: Components = {
   td: ({ children }) => <td className="border-b border-border py-1 pr-2 tabular-nums">{children}</td>,
 };
 
+const formatTokens = (n: number) => (n < 1000 ? String(n) : `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`);
+
+const formatSeconds = (s: number) => (s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`);
+
+/** "24s · 18.2k tokens (17.1k in, 1.1k out)" */
+const statsLine = (seconds: number, input: number, output: number) =>
+  `${formatSeconds(seconds)}${input + output > 0 ? ` · ${formatTokens(input + output)} tokens (${formatTokens(input)} in, ${formatTokens(output)} out)` : ""}`;
+
+/** Seconds since `startedAt`, updated every second while an answer is being worked on. */
+const useElapsed = (startedAt: number | undefined) => {
+  const [now, setNow] = React.useState(Date.now());
+  React.useEffect(() => {
+    if (!startedAt) return;
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [startedAt]);
+  return startedAt ? Math.max(0, Math.round((now - startedAt) / 1000)) : 0;
+};
+
 interface InsightsChatProps {
   chat: ReturnType<typeof useInsightsChat>;
   suggestions: string[];
@@ -42,7 +62,8 @@ export const InsightsChat = ({ chat, suggestions }: InsightsChatProps) => {
   const { user, loading } = useSession();
   const [draft, setDraft] = React.useState("");
   const scrollRef = React.useRef<HTMLDivElement>(null);
-  const { messages, status, pending, ask, stop, reset } = chat;
+  const { messages, status, pending, live, ask, stop, reset } = chat;
+  const elapsed = useElapsed(live?.startedAt);
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -104,13 +125,19 @@ export const InsightsChat = ({ chat, suggestions }: InsightsChatProps) => {
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdown}>
                 {m.content}
               </ReactMarkdown>
+              {m.stats && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground/80 tabular-nums">
+                  {statsLine(m.stats.seconds, m.stats.inputTokens, m.stats.outputTokens)}
+                </p>
+              )}
             </div>
           ),
         )}
-        {status && (
-          <p className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
-            <Sparkle size={14} weight="fill" className="text-primary" />
-            {status}…
+        {live && (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Sparkle size={14} weight="fill" className="text-primary animate-pulse" />
+            <span className={status ? "animate-pulse" : ""}>{status ?? "Writing"}…</span>
+            <span className="tabular-nums">{statsLine(elapsed, live.inputTokens, live.outputTokens)}</span>
           </p>
         )}
       </div>
