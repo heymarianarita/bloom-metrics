@@ -1,7 +1,6 @@
 import * as React from "react";
 import { CheckCircle, FloppyDisk, Key, Trash } from "@phosphor-icons/react";
 import { DesignCard } from "@/components/ds/DesignCard";
-import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignDivider } from "@/components/ds/DesignDivider";
 import { DesignInputText } from "@/components/ds/DesignInput";
 import { DesignButton } from "@/components/ds/DesignButton";
@@ -14,6 +13,7 @@ import {
   useSetCredential,
 } from "@/hooks/useCredentials";
 import { formatDate, formatDateTime } from "@/lib/formatDate";
+import { SECTION_GAP } from "@/components/settings/source/SourceCard";
 
 /** Admin-only card for storing integration tokens used by the backend. */
 const CredentialsCard = ({ sourceKey }: { sourceKey: string }) => {
@@ -64,9 +64,7 @@ const CredentialsCard = ({ sourceKey }: { sourceKey: string }) => {
 
   return (
     <>
-      <DesignSpacer size="small" />
-      <DesignDivider />
-      <DesignSpacer size="small" />
+      <DesignDivider margin={SECTION_GAP} />
       <div className="flex items-center gap-2">
         <Key size={14} className="text-muted-foreground" />
         <h3 className="text-[14px] font-medium text-foreground">Credentials</h3>
@@ -74,8 +72,7 @@ const CredentialsCard = ({ sourceKey }: { sourceKey: string }) => {
       <p className="text-[12px] text-muted-foreground mt-1">
         Stored securely. Values can never be read back — save a new one to replace it.
       </p>
-      <DesignSpacer size="small" />
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 mt-2">
         {defs.map((def) => {
           const saved = statusByName.get(def.name);
           return (
@@ -122,12 +119,12 @@ const CredentialsCard = ({ sourceKey }: { sourceKey: string }) => {
                   </DesignButton>
                 </div>
               ) : (
+                <>
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
                     <DesignInputText
                       type={def.secret ? "password" : "text"}
                       placeholder={saved ? "Enter a new value to replace" : "Paste value"}
-                      helperText={def.helper}
                       value={values[def.name] ?? ""}
                       onChange={(e) =>
                         setValues((prev) => ({ ...prev, [def.name]: e.target.value }))
@@ -158,6 +155,9 @@ const CredentialsCard = ({ sourceKey }: { sourceKey: string }) => {
                     </DesignButton>
                   )}
                 </div>
+                {/* Under the row, so the field and its buttons line up. */}
+                <p className="-mt-1 text-[12px] leading-[16px] text-[var(--input-title)]">{def.helper}</p>
+                </>
               )}
             </div>
           );

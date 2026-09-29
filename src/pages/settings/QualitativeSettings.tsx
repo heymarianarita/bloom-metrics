@@ -331,7 +331,7 @@ const QualitativeTab = () => {
             placeholder="Pick a group"
             value={draft.group_name}
             onChange={(group_name) => setDraft({ ...draft, group_name })}
-            options={(groups.data ?? []).map((g) => ({ value: g.name, label: g.name }))}
+            options={(groups.data ?? []).filter((g) => !g.parent_id).map((g) => ({ value: g.name, label: g.name }))}
           />
           <DesignInputText
             label="Description"

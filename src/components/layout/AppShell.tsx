@@ -46,6 +46,7 @@ import vintedIconRounded from "@/assets/vinted-icon-rounded.svg";
 import { signOut, useCanEdit, useMyRole, useSession } from "@/hooks/useAuth";
 import { ga4PropertySlug, useGa4Analytics } from "@/hooks/useGa4Analytics";
 import { useManualMetrics } from "@/hooks/useManualMetrics";
+import { groupTree, useMetricGroups } from "@/hooks/useMetricGroups";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAiTemplateDatasetRows } from "@/hooks/useAiTemplateMetrics";
@@ -85,7 +86,6 @@ export const metricsNavItems: NavItem[] = [
     icon: PuzzlePiece,
     children: [
       { label: "Overview", path: "/metrics/adoption" },
-      { label: "Figma", path: "/metrics/adoption/design" },
       { label: "AI prototyping", path: "/metrics/adoption/ai-prototyping" },
     ],
   },
@@ -174,10 +174,19 @@ const AppShell = ({ children }: AppShellProps) => {
       path: `/metrics/documentation/${ga4PropertySlug(property)}`,
     }));
 
-  // Adoption gets one sub-tab per metric configured in Settings → Metrics, named exactly as there.
+  // Adoption gets one sub-tab per subgroup (Settings → Metric groups), then one per metric
+  // filed directly under Adoption, named exactly as in Settings.
   const { data: allMetrics } = useManualMetrics();
+  const { data: allGroups } = useMetricGroups();
+  const adoptionGroup = (allGroups ?? []).find((g) => !g.parent_id && g.slug === "adoption");
+  const adoptionSubgroups = adoptionGroup
+    ? (groupTree(allGroups ?? []).find((t) => t.group.id === adoptionGroup.id)?.children ?? [])
+    : [];
   const adoptionMetrics = (allMetrics ?? []).filter(
-    (metric) => !metric.archived && metric.surface === "Adoption",
+    (metric) =>
+      !metric.archived &&
+      metric.surface === "Adoption" &&
+      !adoptionSubgroups.some((g) => g.id === metric.subgroup_id),
   );
   // Hide sidebar entries whose dataset has no rows yet.
   const adoptionDatasetIds = Array.from(
@@ -224,9 +233,10 @@ const AppShell = ({ children }: AppShellProps) => {
       return {
         ...item,
         children: [
-          ...base.slice(0, 2),
+          ...base.slice(0, 1),
+          ...adoptionSubgroups.map((g) => ({ label: g.name, path: `/metrics/adoption/${g.slug}` })),
           ...adoptionChildren,
-          ...base.slice(2).filter((c) => !(hideAi && c.path === "/metrics/adoption/ai-prototyping")),
+          ...base.slice(1).filter((c) => !(hideAi && c.path === "/metrics/adoption/ai-prototyping")),
         ],
       };
     }

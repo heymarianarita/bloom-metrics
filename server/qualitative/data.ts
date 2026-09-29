@@ -83,7 +83,7 @@ export async function sourcesForGroup(groupName: string) {
 }
 
 async function periodicityOf(groupName: string): Promise<Periodicity> {
-  const rows = await query<{ periodicity: string }>("SELECT periodicity FROM metric_groups WHERE name = ?", [groupName]);
+  const rows = await query<{ periodicity: string }>("SELECT periodicity FROM metric_groups WHERE name = ? AND parent_id IS NULL", [groupName]);
   return (rows[0]?.periodicity as Periodicity) ?? "quarterly";
 }
 

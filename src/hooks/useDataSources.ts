@@ -47,6 +47,14 @@ export const DATA_SOURCE_DEFS: {
     fields: [],
   },
   {
+    key: "code_adoption",
+    label: "Code adoption (GitHub)",
+    description: "Bloom usage in product repos, from the weekly ds-analyzer reports. Checked daily.",
+    mode: "dynamic",
+    credential: "GITHUB_TOKEN",
+    fields: [],
+  },
+  {
     key: "atlassian_goals",
     label: "Atlassian goals",
     description: "Source for OKRs — goals, progress and delivery tracking.",

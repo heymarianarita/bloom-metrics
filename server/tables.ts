@@ -54,7 +54,7 @@ export const TABLES: Record<string, TableDef> = {
     insertByAnyUser: true,
   },
   metric_groups: {
-    columns: ["id", "slug", "name", "description", "sort_order", "periodicity", ...ts],
+    columns: ["id", "parent_id", "slug", "name", "description", "sort_order", "periodicity", ...ts],
     read: "public",
     write: "editor",
     updatedAt: true,
@@ -84,7 +84,7 @@ export const TABLES: Record<string, TableDef> = {
   },
   manual_metrics: {
     columns: [
-      "id", "slug", "name", "unit", "surface", "description", "sort_order", "archived",
+      "id", "slug", "name", "unit", "surface", "subgroup_id", "description", "sort_order", "archived",
       "dataset_id", "value_column", "period_column", "aggregation", "source_type",
       "source_key", "source_field", "filter_columns", "breakdown_views", "scale_labels", ...ts,
     ],
@@ -161,6 +161,15 @@ export const TABLES: Record<string, TableDef> = {
       "detach_rate", "components", "captured_at", "created_at",
     ],
     json: ["components"],
+    read: "none",
+    write: "none",
+  },
+  code_adoption_snapshots: {
+    columns: [
+      "id", "repo", "source_path", "commit_sha", "generated_at", "total_files", "ds_percent", "native_percent",
+      "tagged_percent", "untagged_percent", "summary", "domains", "greenhouse_usage", "captured_at", "created_at",
+    ],
+    json: ["summary", "domains", "greenhouse_usage"],
     read: "none",
     write: "none",
   },

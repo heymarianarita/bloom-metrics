@@ -24,17 +24,19 @@ import {
   type FigmaComponentRow,
 } from "@/hooks/useFigmaAnalytics";
 import { useFigmaHistory } from "@/hooks/useFigmaHistory";
+import CodeAdoptionPanel, { type CodeAdoptionContext } from "@/components/code/CodeAdoptionPanel";
+import { useMetricGroups } from "@/hooks/useMetricGroups";
+import { useDataSourceConfigs } from "@/hooks/useDataSources";
+import { useCodeAdoption } from "@/hooks/useCodeAdoption";
 import MetricGroupPanel from "@/components/metrics/MetricGroupPanel";
 import { useManualMetrics, type ManualMetric } from "@/hooks/useManualMetrics";
 import { InsightsPanel, metricInsights, seriesForChat, type Insight, type MetricSeries } from "@/components/metrics/InsightsPanel";
 
-/** Fixed tabs; every other sub-tab is one metric configured in Settings → Metrics. */
-const TOUCHPOINTS = [
-  { id: "overview", label: "Overview" },
-  { id: "design", label: "Figma" },
-] as const;
-
-type TouchpointId = (typeof TOUCHPOINTS)[number]["id"];
+/**
+ * Sub-tabs: Overview, then one per Adoption subgroup (Settings → Metric groups), then one
+ * per metric filed directly under Adoption. A subgroup shows the view of every dynamic
+ * source pointed at it (Figma, GitHub code reports), followed by its own metrics.
+ */
 
 const numberFormat = (value: number | null | undefined) =>
   value === null || value === undefined ? "—" : value.toLocaleString();
@@ -71,10 +73,28 @@ const Adoption = () => {
   const { pathname } = useLocation();
   const slug = pathname.split("/")[3] ?? "overview";
   const metrics = useManualMetrics();
-  const metricTab = (metrics.data ?? []).find(
-    (metric) => !metric.archived && metric.surface === "Adoption" && metric.slug === slug,
-  );
-  const touchpoint = (TOUCHPOINTS.some((t) => t.id === slug) ? slug : "overview") as TouchpointId;
+  const groups = useMetricGroups();
+  const configs = useDataSourceConfigs();
+  const adoptionGroup = (groups.data ?? []).find((g) => !g.parent_id && g.slug === "adoption");
+  const subgroups = (groups.data ?? []).filter((g) => adoptionGroup && g.parent_id === adoptionGroup.id);
+  const figmaGroupId = (configs.data ?? []).find((c) => c.source_key === "figma")?.config?.metricGroupId as string | undefined;
+  // Old links: /design was the fixed Figma tab.
+  const subgroup = subgroups.find((g) => g.slug === slug) ?? (slug === "design" ? subgroups.find((g) => g.id === figmaGroupId) : undefined);
+  const metricTab = subgroup
+    ? undefined
+    : (metrics.data ?? []).find(
+        (metric) =>
+          !metric.archived &&
+          metric.surface === "Adoption" &&
+          metric.slug === slug &&
+          !subgroups.some((g) => g.id === metric.subgroup_id),
+      );
+  const isOverview = !subgroup && !metricTab;
+  const codeAdoption = useCodeAdoption();
+  const codeTargeted = Boolean(subgroup && codeAdoption.data?.reports?.some((r) => r.metricGroupId === subgroup.id));
+  const subgroupMetrics = subgroup
+    ? (metrics.data ?? []).filter((m) => !m.archived && m.subgroup_id === subgroup.id)
+    : [];
   const [fileKey, setFileKey] = React.useState(getStoredFigmaFileKey);
   const [range, setRange] = React.useState(() => {
     const q = quarterToDate();
@@ -100,6 +120,7 @@ const Adoption = () => {
   const navigate = useNavigate();
   const [metricSeries, setMetricSeries] = React.useState<MetricSeries>([]);
   React.useEffect(() => setMetricSeries([]), [slug]);
+  const [codeContext, setCodeContext] = React.useState<CodeAdoptionContext>({ insights: [], view: {} });
   const { data, isLoading, isFetching, error, refetch } = useFigmaAnalytics(fileKey, range);
   const history = useFigmaHistory(fileKey);
   const compareQuery = useFigmaAnalytics(fileKey, {
@@ -213,10 +234,15 @@ const Adoption = () => {
     return out;
   }, [data, totals, visibleComponents, history.data]);
 
-  const isDesign = !metricTab && touchpoint === "design";
+  const isDesign = Boolean(subgroup && figmaGroupId && subgroup.id === figmaGroupId);
+  const isCode = Boolean(subgroup && codeContext.insights.length + Object.keys(codeContext.view).length > 0);
   const insights = React.useMemo(
-    () => (isDesign ? figmaInsights : metricInsights(metricSeries)),
-    [isDesign, figmaInsights, metricSeries],
+    () => [
+      ...(isDesign ? figmaInsights : []),
+      ...(isCode ? codeContext.insights : []),
+      ...(subgroup && !subgroupMetrics.length ? [] : metricInsights(metricSeries)),
+    ],
+    [isDesign, isCode, figmaInsights, codeContext.insights, metricSeries, subgroup, subgroupMetrics.length],
   );
 
   /** What the Design view shows, for the Insights chat (live Figma numbers for the selected range). */
@@ -296,13 +322,15 @@ const Adoption = () => {
         </div>
       )}
 
-      {!metricTab && touchpoint === "overview" && (
+      {isOverview && (
         <div className="p-5">
           <MetricGroupPanel group="Adoption" onSeriesChange={setMetricSeries} />
         </div>
       )}
 
-      {touchpoint === "design" && (
+      {subgroup && <CodeAdoptionPanel metricGroupId={subgroup.id} onContextChange={setCodeContext} />}
+
+      {isDesign && (
         <>
           <div className="px-5 pt-5 pb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
             <FigmaRangeControls
@@ -437,31 +465,72 @@ const Adoption = () => {
           )}
         </>
       )}
+
+      {subgroup && subgroupMetrics.length > 0 && (
+        <div className="p-5">
+          <MetricGroupPanel
+            group="Adoption"
+            match={(metric) => metric.subgroup_id === subgroup.id}
+            emptyTitle={`No data for ${subgroup.name} yet`}
+            onSeriesChange={setMetricSeries}
+          />
+        </div>
+      )}
+
+      {subgroup && !isDesign && !codeTargeted && subgroupMetrics.length === 0 && (
+        <div className="p-5">
+          <DesignEmptyState
+            icon={<PuzzlePiece size={40} />}
+            title={`Nothing in ${subgroup.name} yet`}
+            body="Point a metric at this subgroup in Settings → Metrics, or a dynamic source (Figma, a GitHub report) in Settings → Dynamic sources."
+          />
+        </div>
+      )}
     </DesignCard>
   );
 
   /* ── Secondary panel — data insights ───────────────────────────── */
   const insightsPanel = (
     <InsightsPanel
-      subject={metricTab?.name ?? (touchpoint === "design" ? "Figma" : "Adoption")}
+      subject={metricTab?.name ?? subgroup?.name ?? "Adoption"}
       insights={insights}
-      emptyText="Insights appear once this touchpoint has data to analyse."
+      emptyText="Insights appear once this tab has data to analyse."
       chat={{
-        page: isDesign
-          ? "Metrics › Adoption › Design (Figma library adoption)"
-          : `Metrics › Adoption › ${metricTab?.name ?? touchpoint}`,
-        view: isDesign ? figmaChatView : { metrics: seriesForChat(metricSeries) },
+        page: `Metrics › Adoption › ${metricTab?.name ?? subgroup?.name ?? "Overview"}${
+          isDesign ? " (Figma library adoption)" : isCode ? " (Bloom usage in code, from weekly ds-analyzer scans)" : ""
+        }`,
+        view: {
+          ...(isDesign ? { figma: figmaChatView } : {}),
+          ...(isCode ? { code: codeContext.view } : {}),
+          ...(!subgroup || subgroupMetrics.length ? { metrics: seriesForChat(metricSeries) } : {}),
+        },
         suggestions: isDesign
           ? [
               "Summarise Figma adoption this quarter for a status update",
               "Which components are detached most, and is it getting better?",
               "Compare all libraries over the last four quarters",
             ]
-          : undefined,
+          : isCode
+            ? [
+                "Summarise Bloom adoption in code for a status update",
+                "Which teams should we help migrate to Bloom first?",
+                "How has the Bloom share changed over time?",
+              ]
+            : undefined,
       }}
       className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)]"
       footer={
-        isDesign && (
+        isCode ? (
+          <div className="mt-auto pt-4">
+            <div className="p-3 rounded-[6px] bg-[var(--spacing-bg)]">
+              <p className="text-sm font-medium text-foreground">Weekly scans from GitHub</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                ds-analyzer reports, checked every morning. Shares count UI elements, with Bloom compositions
+                counted as Bloom.
+              </p>
+            </div>
+          </div>
+        ) : isDesign && (
           <div className="mt-auto pt-4 space-y-3">
             <div className="p-3 rounded-[6px] bg-[var(--spacing-bg)]">
               <p className="text-sm font-medium text-foreground">Snapshots every 1st and 15th</p>

@@ -1,12 +1,13 @@
 import * as React from "react";
-import { ArrowDown, ArrowUp, ChartLineUp, Plus, Trash } from "@phosphor-icons/react";
-import { DesignCard } from "@/components/ds/DesignCard";
-import { DesignSpacer } from "@/components/ds/DesignSpacer";
-import { DesignDivider } from "@/components/ds/DesignDivider";
-import { DesignBadge } from "@/components/ds/DesignBadge";
+import { ArrowDown, ArrowUp, ChartLineUp, Trash } from "@phosphor-icons/react";
 import { DesignButton } from "@/components/ds/DesignButton";
-import { DesignInputText } from "@/components/ds/DesignInput";
-import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
+import {
+  SourceAddField,
+  SourceCard,
+  SourceList,
+  SourceListItem,
+  type SourceRun,
+} from "@/components/settings/source/SourceCard";
 import { useSaveDataSourceConfig } from "@/hooks/useDataSources";
 import { fetchGa4PropertyLabels, fetchGa4PropertyName } from "@/hooks/useGa4Analytics";
 import { useToast } from "@/hooks/use-toast";
@@ -21,7 +22,7 @@ const pendingName = (id: string) => `Property ${id}`;
 
 interface Ga4PropertiesCardProps {
   saved?: Record<string, unknown>;
-  lastRun?: { status: string; ran_at: string; message: string };
+  lastRun?: SourceRun;
 }
 
 /** Manages Google Analytics properties one at a time. Names come from Google Analytics. */
@@ -30,7 +31,6 @@ const Ga4PropertiesCard = ({ saved, lastRun }: Ga4PropertiesCardProps) => {
   const queryClient = useQueryClient();
   const save = useSaveDataSourceConfig();
   const [properties, setProperties] = React.useState<PropertyEntry[]>([]);
-  const [newId, setNewId] = React.useState("");
   const [busy, setBusy] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -46,7 +46,7 @@ const Ga4PropertiesCard = ({ saved, lastRun }: Ga4PropertiesCardProps) => {
     await save.mutateAsync({
       source_key: "ga4_documentation",
       label: "GA4 documentation traffic",
-      config: { properties: next },
+      config: { ...saved, properties: next },
     });
     setProperties(next);
     queryClient.invalidateQueries({ queryKey: ["ga4-analytics"] });
@@ -70,12 +70,12 @@ const Ga4PropertiesCard = ({ saved, lastRun }: Ga4PropertiesCardProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties]);
 
-  const addProperty = async () => {
-    const id = newId.trim().replace(/[^0-9]/g, "");
-    if (!id) return;
+  const addProperty = async (value: string) => {
+    const id = value.replace(/[^0-9]/g, "");
+    if (!id) return false;
     if (properties.some((p) => p.id === id)) {
       toast({ title: "Already added", description: "That property is on the list." });
-      return;
+      return false;
     }
     setBusy("add");
     try {
@@ -86,22 +86,22 @@ const Ga4PropertiesCard = ({ saved, lastRun }: Ga4PropertiesCardProps) => {
         name = null;
       }
       await persist([...properties, { id, name: name ?? pendingName(id) }]);
-      setNewId("");
       toast({
         title: "Property added",
         description: name ?? "The name will appear once this property sends data.",
       });
+      return true;
     } catch (err) {
       toast({
         title: "Could not add that property",
         description: err instanceof Error ? err.message : "Unknown error",
         variant: "destructive",
       });
+      return false;
     } finally {
       setBusy(null);
     }
   };
-
 
   const moveProperty = async (index: number, direction: -1 | 1) => {
     const target = index + direction;
@@ -126,43 +126,25 @@ const Ga4PropertiesCard = ({ saved, lastRun }: Ga4PropertiesCardProps) => {
   };
 
   return (
-    <DesignCard className="p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-[16px] font-medium text-foreground">GA4 documentation traffic</h2>
-          <p className="text-[14px] text-muted-foreground mt-1">
-            Add one property at a time. Names are read straight from Google Analytics.
-          </p>
-        </div>
-        {lastRun && (
-          <DesignBadge theme={lastRun.status === "success" ? "success" : "error"} styling="light">
-            {lastRun.status === "success" ? "Last sync OK" : "Last sync failed"}
-          </DesignBadge>
-        )}
-      </div>
-
-      <DesignSpacer size="small" />
-      <DesignDivider />
-      <DesignSpacer size="small" />
-
-      {properties.length === 0 ? (
-        <DesignEmptyState
-          icon={<ChartLineUp size={40} />}
-          title="No properties yet"
-          body="Paste a Google Analytics property ID below to start tracking it."
-        />
-      ) : (
-        <ul className="flex flex-col">
-          {properties.map((property, index) => (
-            <li
-              key={property.id}
-              className="flex items-center justify-between gap-4 py-3 border-b border-border last:border-b-0"
-            >
-              <div className="min-w-0">
-                <p className="text-[16px] text-foreground truncate">{property.name}</p>
-                <p className="text-[12px] text-muted-foreground truncate">{property.id}</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
+    <SourceCard
+      title="GA4 documentation traffic"
+      description="Documentation site usage. Each property gets its own Documentation tab; names are read straight from Google Analytics."
+      lastRun={lastRun}
+    >
+      <SourceList
+        empty={{
+          icon: <ChartLineUp size={40} />,
+          title: "No properties yet",
+          body: "Paste a Google Analytics property ID below to start tracking it.",
+        }}
+      >
+        {properties.map((property, index) => (
+          <SourceListItem
+            key={property.id}
+            title={property.name}
+            subtitle={property.id}
+            actions={
+              <>
                 <DesignButton
                   variant="flat"
                   theme="muted"
@@ -190,40 +172,20 @@ const Ga4PropertiesCard = ({ saved, lastRun }: Ga4PropertiesCardProps) => {
                 >
                   Remove
                 </DesignButton>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <DesignSpacer size="small" />
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-        <div className="flex-1">
-          <DesignInputText
-            label="Add a property"
-            placeholder="Google Analytics property ID, e.g. 401234567"
-            helperText="Found in Google Analytics under Admin → Property settings."
-            value={newId}
-            onChange={(e) => setNewId(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") addProperty();
-            }}
+              </>
+            }
           />
-        </div>
-        <div className="sm:mt-[22px]">
-          <DesignButton
-            variant="filled"
-            theme="primary"
-            size="medium"
-            icon={<Plus size={16} />}
-            isLoading={busy === "add"}
-            onClick={addProperty}
-          >
-            Add
-          </DesignButton>
-        </div>
-      </div>
-    </DesignCard>
+        ))}
+      </SourceList>
+
+      <SourceAddField
+        label="Add a property"
+        placeholder="Google Analytics property ID, e.g. 401234567"
+        helperText="Found in Google Analytics under Admin → Property settings."
+        busy={busy === "add"}
+        onAdd={addProperty}
+      />
+    </SourceCard>
   );
 };
 

@@ -58,11 +58,14 @@ const filtersSchema = z
 
 const listSources = async () => {
   const [groups, metrics, datasets, columns, counts, figma, ga4, templates, perfQuarters] = await Promise.all([
-    query("SELECT name, slug, periodicity, description FROM metric_groups ORDER BY sort_order"),
+    query(
+      "SELECT g.name, g.slug, g.periodicity, g.description, p.name AS subgroup_of FROM metric_groups g LEFT JOIN metric_groups p ON p.id = g.parent_id ORDER BY g.sort_order",
+    ),
     query<Record<string, any>>(
-      `SELECT slug, name, unit, surface, description, dataset_id, value_column, period_column, aggregation,
-              source_type, source_key, source_field, filter_columns
-         FROM manual_metrics WHERE archived = 0 ORDER BY surface, sort_order`,
+      `SELECT m.slug, m.name, m.unit, m.surface, s.name AS subgroup, m.description, m.dataset_id, m.value_column,
+              m.period_column, m.aggregation, m.source_type, m.source_key, m.source_field, m.filter_columns
+         FROM manual_metrics m LEFT JOIN metric_groups s ON s.id = m.subgroup_id
+        WHERE m.archived = 0 ORDER BY m.surface, m.sort_order`,
     ),
     query<{ id: string; slug: string; name: string; description: string }>(
       "SELECT id, slug, name, description FROM manual_datasets WHERE archived = 0 ORDER BY sort_order",

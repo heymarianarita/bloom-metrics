@@ -29,8 +29,12 @@ export interface DesignInputSelectProps {
   error?: boolean;
   /** Disabled state — gray background, no interaction */
   disabled?: boolean;
-  /** Size variant: default (44px), medium (36px), or small (32px) */
-  size?: "default" | "medium" | "small";
+  /**
+   * Bloom input sizes: default (44px) or compact (36px). This project uses compact
+   * everywhere to save space, so it's the default here. "medium" and "small" are old
+   * names for compact.
+   */
+  size?: "default" | "compact" | "medium" | "small";
   /** Text configuration: placeholder (default) or filled (dark bg) */
   style?: "placeholder" | "filled";
   /** Leading icon */
@@ -61,7 +65,7 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
       note,
       error = false,
       disabled = false,
-      size = "default",
+      size = "compact",
       style = "placeholder",
       icon,
     },
@@ -77,8 +81,8 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
     const resolvedHelper = helperText || note;
     const hasValue = !!selectedOption;
     const isFilled = style === "filled";
-    const isSmall = size === "small";
-    const isMedium = size === "medium";
+    // Only the two Bloom sizes exist: anything but "default" is compact (36px).
+    const isCompact = size !== "default";
 
     // Close dropdown on outside click
     React.useEffect(() => {
@@ -138,9 +142,9 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
             className={cn(
               "w-full flex items-center justify-between rounded-[6px] transition-all outline-none cursor-pointer",
               // Padding
-              isSmall ? "px-3 py-1" : isMedium ? "px-3 py-1.5" : "px-3 py-2.5",
+              isCompact ? "px-3 py-1.5" : "px-3 py-2.5",
               // Height
-              isSmall ? "min-h-[32px]" : isMedium ? "min-h-[36px]" : "min-h-[44px]",
+              isCompact ? "min-h-[36px]" : "min-h-[44px]",
               // Background
               disabled
                 ? "bg-[var(--greyscale-5)] cursor-not-allowed"
@@ -174,7 +178,7 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
             <span
               className={cn(
                 "flex-1 text-left truncate",
-                isSmall ? "text-[14px] leading-[18px]" : "text-[16px] leading-[22px]",
+                "text-[16px] leading-[22px]",
                 "font-normal",
                 disabled
                   ? "text-[var(--greyscale-3)]"
@@ -219,9 +223,7 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
                     onClick={() => handleSelect(option.value)}
                     className={cn(
                       "w-full text-left px-3 flex items-center gap-2 transition-colors cursor-pointer",
-                      isSmall
-                        ? "py-1.5 text-[14px] leading-[18px]"
-                        : "py-2 text-[16px] leading-[22px]",
+                      "py-2 text-[16px] leading-[22px]",
                       "font-normal",
                       "hover:bg-[var(--surface-hover)] active:bg-[var(--surface-active)]",
                       isSelected

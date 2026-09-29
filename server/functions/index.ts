@@ -1,4 +1,5 @@
 import type { FnHandler } from "./types.ts";
+import codeAdoption from "./code-adoption.ts";
 import figmaAnalytics from "./figma-analytics.ts";
 import figmaFileName from "./figma-file-name.ts";
 import figmaSnapshot from "./figma-snapshot.ts";
@@ -10,6 +11,7 @@ import qualitative from "./qualitative.ts";
 import sheetsAnalytics from "./sheets-analytics.ts";
 
 export const FUNCTIONS: Record<string, FnHandler> = {
+  "code-adoption": codeAdoption,
   "figma-analytics": figmaAnalytics,
   "figma-file-name": figmaFileName,
   "figma-snapshot": figmaSnapshot,
