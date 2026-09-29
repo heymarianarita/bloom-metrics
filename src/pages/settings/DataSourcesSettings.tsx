@@ -22,6 +22,7 @@ import {
   useSyncRuns,
 } from "@/hooks/useDataSources";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateTime } from "@/lib/formatDate";
 
 const SourceCard = ({
   def,
@@ -112,7 +113,7 @@ const SourceCard = ({
             </DesignButton>
             {lastRun && (
               <span className="text-[12px] text-muted-foreground">
-                Last run {new Date(lastRun.ran_at).toLocaleString()}
+                Last run {formatDateTime(lastRun.ran_at)}
                 {lastRun.message ? ` — ${lastRun.message}` : ""}
               </span>
             )}

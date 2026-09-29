@@ -13,6 +13,7 @@ import {
   useDeleteCredential,
   useSetCredential,
 } from "@/hooks/useCredentials";
+import { formatDate, formatDateTime } from "@/lib/formatDate";
 
 /** Admin-only card for storing integration tokens used by the backend. */
 const CredentialsCard = ({ sourceKey }: { sourceKey: string }) => {
@@ -87,7 +88,7 @@ const CredentialsCard = ({ sourceKey }: { sourceKey: string }) => {
                   </DesignBadge>
                 ) : saved ? (
                   <DesignBadge theme="success" styling="light">
-                    <CheckCircle size={12} /> Set {new Date(saved.updated_at).toLocaleDateString()}
+                    <CheckCircle size={12} /> Set {formatDate(saved.updated_at)}
                   </DesignBadge>
                 ) : (
                   <DesignBadge theme="muted" styling="light">
@@ -100,7 +101,7 @@ const CredentialsCard = ({ sourceKey }: { sourceKey: string }) => {
                   <span className="text-[12px] text-muted-foreground">
                     {saved.readable === false
                       ? "Saved with an old encryption key and can't be read. Replace it with the current value."
-                      : `Saved and hidden. Updated ${new Date(saved.updated_at).toLocaleString()}.`}
+                      : `Saved and hidden. Updated ${formatDateTime(saved.updated_at)}.`}
                   </span>
                   <DesignButton
                     variant="outlined"

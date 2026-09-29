@@ -15,6 +15,7 @@ import { DesignButton } from "@/components/ds/DesignButton";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { X } from "@phosphor-icons/react";
 import { useJiraGoals, type JiraGoal, type JiraGoalMetric } from "@/hooks/useJiraGoals";
+import { formatDate } from "@/lib/formatDate";
 
 /** Atlassian Goals status labels and colours. */
 const STATUS_THEME: Record<string, "success" | "primary" | "error" | "muted" | "highlight"> = {
@@ -160,8 +161,6 @@ const dotFor = (status?: string) =>
         ? "bg-destructive"
         : "bg-muted-foreground";
 
-const shortDate = (v: string) =>
-  new Date(`${dayOf(v)}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
 const metricMeta = (m: { start: number | null; target: number | null }) =>
   m.start == null && m.target == null ? undefined : `Baseline ${fmt(m.start)} · Target ${fmt(m.target)}`;
@@ -209,7 +208,7 @@ const ObjectiveBlock = ({ node, onOpen, selected }: { node: ObjectiveNode; index
           {subGoals.map((g) => (
             <KrRow
               key={g.id}
-              name={g.endDate ? `${g.name} by ${shortDate(g.endDate)}` : g.name}
+              name={g.endDate ? `${g.name} by ${formatDate(dayOf(g.endDate))}` : g.name}
               meta={g.metrics[0] ? metricMeta(g.metrics[0]) : undefined}
               progress={g.progress}
             />
@@ -220,8 +219,6 @@ const ObjectiveBlock = ({ node, onOpen, selected }: { node: ObjectiveNode; index
   );
 };
 
-const longDate = (v?: string) =>
-  v ? new Date(v.length <= 10 ? `${v}T00:00:00` : v).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
 
 const PanelSection = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div className="flex flex-col gap-2">
@@ -269,12 +266,12 @@ const ObjectivePanel = ({ node, onClose }: { node: ObjectiveNode | null; onClose
             </div>
           </div>
           <div className="grid grid-cols-2 gap-6">
-            <PanelSection label="Start date">{longDate(goal.plannedStart ?? goal.startDate)}</PanelSection>
-            <PanelSection label="Due date">{longDate(goal.endDate)}</PanelSection>
+            <PanelSection label="Start date">{formatDate(goal.plannedStart ?? goal.startDate)}</PanelSection>
+            <PanelSection label="Due date">{formatDate(goal.endDate)}</PanelSection>
             <div className="col-span-2"><PanelSection label="Last update on Atlassian">
               {goal.lastUpdate ? (
                 <div className="flex items-center gap-2 whitespace-nowrap">
-                  <span>{longDate(goal.lastUpdate)}</span>
+                  <span>{formatDate(goal.lastUpdate)}</span>
                   {goal.url && (
                     <a href={`${goal.url.replace(/\/(about|updates)?\/?$/, "")}/updates`} target="_blank" rel="noreferrer" className="group inline-flex items-center gap-1 text-primary">
                       Read update

@@ -15,6 +15,12 @@ const YEAR_FIRST = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/;
 /** 3/26/2025, 26.03.2025, 26-03-25: year last. */
 const YEAR_LAST = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})$/;
 
+/** A time after the date (form timestamps, exports): "3/26/2025 10:15:23", "2025-03-26T10:15:00Z". */
+const TIME_SUFFIX = /(?:[T\s]+|,\s*)\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?\s*(?:[AP]M)?\s*(?:Z|[+-]\d{2}:?\d{2}|UTC|GMT)?$/i;
+
+/** The date part only: a date stored with a time keeps just the day. */
+const withoutTime = (value: string) => value.trim().replace(TIME_SUFFIX, "");
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 const valid = (y: number, m: number, d: number) => {
@@ -32,7 +38,7 @@ export function inferDateOrder(values: string[]): { order: DateOrder | null; con
   let mdy = false;
   let dmy = false;
   for (const raw of values) {
-    const m = raw.trim().match(YEAR_LAST);
+    const m = withoutTime(raw).match(YEAR_LAST);
     if (!m) continue;
     const [first, second] = [Number(m[1]), Number(m[2])];
     if (first > 12 && second <= 12) dmy = true;
@@ -47,7 +53,7 @@ export function inferDateOrder(values: string[]): { order: DateOrder | null; con
  * `order` is the column's order (from inferDateOrder or chosen by the person importing).
  */
 export function toIsoDate(raw: string, order: DateOrder | null = null): string | null {
-  const value = raw.trim();
+  const value = withoutTime(raw);
   if (!value) return null;
   if (ISO.test(value)) return value;
 
@@ -101,7 +107,7 @@ export function normalizeDateColumn(values: string[], order?: DateOrder | null):
     const iso = toIsoDate(value, use);
     if (!iso) {
       unreadable++;
-      if (!use && YEAR_LAST.test(value)) ambiguous = true;
+      if (!use && YEAR_LAST.test(withoutTime(value))) ambiguous = true;
       return raw;
     }
     if (iso !== value) converted++;
@@ -115,6 +121,6 @@ export const looksLikeDates = (values: string[]) => {
   const filled = values.map((v) => v.trim()).filter(Boolean);
   if (filled.length === 0) return false;
   const inferred = inferDateOrder(filled).order;
-  const dates = filled.filter((v) => toIsoDate(v, inferred) || YEAR_LAST.test(v)).length;
+  const dates = filled.filter((v) => toIsoDate(v, inferred) || YEAR_LAST.test(withoutTime(v))).length;
   return dates / filled.length >= 0.9;
 };

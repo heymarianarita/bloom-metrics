@@ -76,7 +76,7 @@ const BadgeDocs = () => {
           />
           <DesignCell
             title="Broken headphones"
-            subtitle="Order #10105 · Feb 28"
+            subtitle="Order #10105 · 2026-02-28"
             suffix={<DesignBadge theme="error" styling="filled">Refunded</DesignBadge>}
           />
         </div>
