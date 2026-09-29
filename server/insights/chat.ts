@@ -11,6 +11,7 @@ import { runTool, toolDefinitions, toolStatus } from "./tools.ts";
  * POST /api/insights/chat streams Server-Sent Events:
  *   {type:"status", text}  a tool is running ("Reading Figma history")
  *   {type:"text", text}    a chunk of the answer (Markdown)
+ *   {type:"usage", inputTokens, outputTokens}  running token totals for this answer
  *   {type:"done"}          the answer is complete
  *   {type:"error", message}
  *
@@ -117,6 +118,8 @@ async function chat(req: Request, res: Response) {
 
   const tools = toolDefinitions();
   let jsonRetries = 0;
+  // Tokens across every turn of this answer; input includes cached prompt tokens.
+  const usage = { input: 0, output: 0 };
 
   try {
     for (let turn = 0; turn < MAX_TURNS; turn++) {
@@ -140,6 +143,10 @@ async function chat(req: Request, res: Response) {
       try {
         message = await stream.finalMessage();
         jsonRetries = 0;
+        const u = message.usage;
+        usage.input += u.input_tokens + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
+        usage.output += u.output_tokens;
+        send({ type: "usage", inputTokens: usage.input, outputTokens: usage.output });
       } catch (err) {
         // With eager input streaming a tool input can arrive unparseable: re-issue the turn.
         if (err instanceof Anthropic.APIError || abort.signal.aborted || jsonRetries++ >= 2) throw err;
