@@ -12,7 +12,7 @@ import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignChip } from "@/components/ds/DesignChip";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignTooltip } from "@/components/ds/DesignTooltip";
-import { hasScaleLabels, scaleLabelFor, SCALE_POINTS, useManualMetrics, type ManualMetric } from "@/hooks/useManualMetrics";
+import { byTabOrder, hasScaleLabels, scaleLabelFor, SCALE_POINTS, useManualMetrics, type ManualMetric } from "@/hooks/useManualMetrics";
 import {
   aggregateDataset,
   comparePeriods,
@@ -27,6 +27,7 @@ import { useMetricGroups, PERIODICITY_OPTIONS, type Periodicity } from "@/hooks/
 import { bucketSeries, type SeriesPoint } from "@/lib/periodBuckets";
 import { bucketPeriod } from "../../../server/shared/periods.ts";
 import { QualitativeSection } from "@/components/metrics/QualitativeSection";
+import { useQualitativeSources } from "@/hooks/useQualitative";
 import { LINE_COLORS } from "@/lib/chartColors";
 import {
   CartesianGrid,
@@ -238,10 +239,12 @@ const MetricStat = ({
   const currentIndex =
     filters.period === ALL ? 0 : points.findIndex((point) => point.period === filters.period);
   const latest = currentIndex >= 0 ? points[currentIndex] : undefined;
-  const previous =
+  const candidate =
     filters.compare === PREVIOUS
       ? points[(currentIndex >= 0 ? currentIndex : 0) + 1]
       : points.find((point) => point.period === filters.compare);
+  // Comparing a period with itself says nothing (e.g. a live value with a single reading).
+  const previous = candidate && candidate.period !== latest?.period ? candidate : undefined;
 
   const delta =
     latest && previous ? Number((latest.value - previous.value).toFixed(1)) : undefined;
@@ -297,12 +300,22 @@ interface MetricGroupPanelProps {
   onSeriesChange?: (series: { metric: ManualMetric; points: SeriesPoint[] }[]) => void;
   /** Shows the survey response count in the filter row (survey-based groups only). */
   showResponses?: boolean;
+  /** Shows the group's qualitative insights under the numbers (off on sub-tabs). */
+  showQualitative?: boolean;
 }
 
 /** Shows every metric configured under a metric group, with period and segment filters. */
-const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showResponses = false }: MetricGroupPanelProps) => {
+const MetricGroupPanel = ({
+  group,
+  match,
+  emptyTitle,
+  onSeriesChange,
+  showResponses = false,
+  showQualitative = true,
+}: MetricGroupPanelProps) => {
   const navigate = useNavigate();
   const metrics = useManualMetrics();
+  const qualitative = useQualitativeSources();
   const groups = useMetricGroups();
   const periodicity: Periodicity =
     ((groups.data ?? []).find((g) => !g.parent_id && g.name === group)?.periodicity as Periodicity) ?? "quarterly";
@@ -341,10 +354,8 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
   const groupMetrics = (metrics.data ?? []).filter(
     (metric) => !metric.archived && metric.surface === group && (!match || match(metric)),
   );
-  // Adoption cards are one per platform, so list them alphabetically (Android…, iOS, Web).
-  if (group === "Adoption") {
-    groupMetrics.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-  }
+  // In the order set in Settings → Metrics (alphabetical until arranged there).
+  groupMetrics.sort(byTabOrder);
 
   // Other metrics in the same group that can be laid over the trend chart.
   const comparableMetrics = (metrics.data ?? []).filter(
@@ -431,12 +442,16 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
   }
 
   if (groupMetrics.length === 0) {
+    // A tab can hold only qualitative insights: show those instead of the empty state.
+    if (showQualitative && (qualitative.data ?? []).some((q) => q.group_name === group && q.enabled !== false)) {
+      return <QualitativeSection group={group} period={ALL} compare={PREVIOUS} segmentFilters={{}} />;
+    }
     return (
       <DesignCard>
         <DesignEmptyState
           icon={<ChartBar size={40} />}
           title={emptyTitle ?? `No metrics in ${group} yet`}
-          body="Add metrics to this group in Settings → Metrics → Quantitative."
+          body="Add numbers or qualitative insights to this tab in Settings → Metrics."
           action={
             <DesignButton
               variant="outlined"
@@ -635,12 +650,14 @@ const MetricGroupPanel = ({ group, match, emptyTitle, onSeriesChange, showRespon
         ))
       )}
 
+      {showQualitative && (
       <QualitativeSection
         group={group}
         period={filters.period}
         compare={filters.compare}
         segmentFilters={Object.fromEntries(Object.entries(filters.segments).filter(([, value]) => value && value !== ALL))}
       />
+      )}
     </div>
   );
 };

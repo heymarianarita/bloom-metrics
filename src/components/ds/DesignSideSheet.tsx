@@ -66,7 +66,7 @@ const DesignSideSheet = ({
 
         {/* Footer */}
         {footer && (
-          <div className="px-4 h-[85px] flex items-center justify-end gap-3 shrink-0 border-t border-[var(--border)]">
+          <div className="px-4 h-[85px] flex items-center justify-end gap-3 shrink-0 border-t border-[var(--border)] [&_button]:whitespace-nowrap">
             {footer}
           </div>
         )}

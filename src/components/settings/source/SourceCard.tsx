@@ -10,6 +10,7 @@ import CredentialsCard from "@/components/settings/CredentialsCard";
 import MetricGroupPicker from "@/components/settings/MetricGroupPicker";
 import { CREDENTIAL_DEFS, useCredentialStatus } from "@/hooks/useCredentials";
 import { formatDateTime } from "@/lib/formatDate";
+import type { SortableRowProps } from "@/components/settings/SortableList";
 
 /**
  * The one layout every dynamic source uses (Settings → Dynamic sources), top to bottom:
@@ -191,19 +192,25 @@ export const SourceListItem = ({
   title,
   subtitle,
   actions,
+  sortable,
   children,
 }: {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
+  /** From a SortableList: makes the row draggable by a grip handle on its left. */
+  sortable?: SortableRowProps;
   /** The item's settings, rendered under the row while it's open. */
   children?: React.ReactNode;
 }) => (
-  <li className="border-b border-border last:border-b-0">
+  <li ref={sortable?.ref} style={sortable?.style} className="border-b border-border last:border-b-0">
     <div className="flex items-center justify-between gap-4 py-3">
-      <div className="min-w-0">
-        <p className="text-[16px] text-foreground truncate">{title}</p>
-        {subtitle && <p className="text-[12px] text-muted-foreground truncate">{subtitle}</p>}
+      <div className="min-w-0 flex-1 flex items-center gap-2">
+        {sortable?.handle}
+        <div className="min-w-0">
+          <p className="text-[16px] text-foreground truncate">{title}</p>
+          {subtitle && <p className="text-[12px] text-muted-foreground truncate">{subtitle}</p>}
+        </div>
       </div>
       {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
     </div>

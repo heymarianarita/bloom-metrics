@@ -33,7 +33,7 @@ import { useManualMetrics, type ManualMetric } from "@/hooks/useManualMetrics";
 import { InsightsPanel, metricInsights, seriesForChat, type Insight, type MetricSeries } from "@/components/metrics/InsightsPanel";
 
 /**
- * Sub-tabs: Overview, then one per Adoption subgroup (Settings → Metric groups), then one
+ * Sub-tabs: Overview, then one per Adoption subgroup (Settings → Metrics), then one
  * per metric filed directly under Adoption. A subgroup shows the view of every dynamic
  * source pointed at it (Figma, GitHub code reports), followed by its own metrics.
  */

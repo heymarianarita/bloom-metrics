@@ -1,567 +1,543 @@
 import * as React from "react";
-import { Plus, Trash, Copy } from "@phosphor-icons/react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  ArrowSquareOut,
+  BookOpenText,
+  Copy,
+  GearSix,
+  Plus,
+  PencilSimple,
+  PuzzlePiece,
+  SquaresFour,
+  TrendUp,
+  type Icon as PhosphorIcon,
+} from "@phosphor-icons/react";
 import AppShell from "@/components/layout/AppShell";
 import RequireRole from "@/components/auth/RequireRole";
 import { DesignPageHeader } from "@/components/ds/DesignPageHeader";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignButton } from "@/components/ds/DesignButton";
-import { DesignInputText } from "@/components/ds/DesignInput";
-import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
-import { DesignSideSheet } from "@/components/ds/DesignSideSheet";
-import { DesignDataTable, type DataTableColumn, type SortDirection } from "@/components/ds/DesignDataTable";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { DesignLoader } from "@/components/ds/DesignLoader";
 import { DesignNote } from "@/components/ds/DesignNote";
-import { DesignCheckbox } from "@/components/ds/DesignCheckbox";
+import { SourceSection, SourceListItem } from "@/components/settings/source/SourceCard";
+import { SortableList } from "@/components/settings/SortableList";
+import NumberBlockSheet from "@/components/settings/metrics/NumberBlockSheet";
+import QualitativeBlockSheet, { StatusBadge } from "@/components/settings/metrics/QualitativeBlockSheet";
+import TabSheet from "@/components/settings/metrics/TabSheet";
 import { useToast } from "@/hooks/use-toast";
+import { byTabOrder, useManualMetrics, type ManualMetric } from "@/hooks/useManualMetrics";
 import {
-  useManualMetrics,
-  useSaveManualMetric,
-  useDeleteManualMetric,
+  groupTree,
+  metricGroupId,
+  slugifyGroup,
+  useMetricGroups,
+  useReorder,
+  PERIODICITY_OPTIONS,
+  type MetricGroup,
+} from "@/hooks/useMetricGroups";
+import { aggregateDataset, comparePeriods, useDatasetRows, useManualDatasets } from "@/hooks/useManualDatasets";
+import { useDynamicMetricSeries, useDynamicSourceLabel } from "@/hooks/useDynamicMetricSeries";
+import { useQualitativeSources, type QualitativeSource } from "@/hooks/useQualitative";
+import { useDataSourceConfigs } from "@/hooks/useDataSources";
+import { findDynamicField } from "@/lib/dynamicMetricSources";
+import { canHaveSubTabs, isBuiltInTab, tabIsShown, tabPath } from "@/lib/metricTabs";
 
-  BREAKDOWN_VIEW_OPTIONS,
-  SCALE_POINTS,
-  type BreakdownView,
-  type ManualMetric,
-} from "@/hooks/useManualMetrics";
-import { groupOptions as toGroupOptions, metricGroupId, useMetricGroups } from "@/hooks/useMetricGroups";
-import {
-  aggregateDataset,
-  comparePeriods,
-  useDatasetColumns,
-  useDatasetRows,
-  useManualDatasets,
-} from "@/hooks/useManualDatasets";
-import { useDynamicMetricSeries } from "@/hooks/useDynamicMetricSeries";
-import { DYNAMIC_METRIC_SOURCES, findDynamicField, findDynamicSource } from "@/lib/dynamicMetricSources";
+const TAB_ICONS: Record<string, PhosphorIcon> = {
+  impact: TrendUp,
+  adoption: PuzzlePiece,
+  documentation: BookOpenText,
+};
 
-const slugifyMetric = (value: string) =>
-  value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const formatValue = (value: number, unit: string) => {
+  const rounded = Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return unit ? `${rounded}${unit === "%" ? "%" : ` ${unit}`}` : rounded;
+};
 
-const aggregationOptions = [
-  { value: "sum", label: "Total of all rows" },
-  { value: "avg", label: "Average of rows" },
-  { value: "latest", label: "Last row entered" },
-  { value: "count", label: "Number of rows" },
-];
-
-/* ─────────── Metrics tab ─────────── */
-
-const MetricsTab = () => {
-  const { toast } = useToast();
-  const metrics = useManualMetrics();
+/** Where a Number block reads from, and its latest value. */
+const NumberSummary = ({ metric }: { metric: ManualMetric }) => {
   const datasets = useManualDatasets();
-  const groups = useMetricGroups();
-  const saveMetric = useSaveManualMetric();
-  const deleteMetric = useDeleteManualMetric();
+  const isDynamic = metric.source_type === "dynamic";
+  const rows = useDatasetRows(!isDynamic ? metric.dataset_id ?? undefined : undefined);
+  const dynamic = useDynamicMetricSeries(isDynamic ? metric.source_key : undefined, isDynamic ? metric.source_field : undefined);
+  const sourceLabel = useDynamicSourceLabel(metric.source_key ?? "");
 
+  const points = isDynamic
+    ? dynamic.points
+    : metric.dataset_id && metric.value_column && metric.period_column
+      ? aggregateDataset(rows.data ?? [], metric)
+      : [];
+  const latest = [...points].sort((a, b) => comparePeriods(b.period, a.period))[0];
 
-  const [metricId, setMetricId] = React.useState("");
-  const [metricSheet, setMetricSheet] = React.useState(false);
-  const emptyDraft = {
-    name: "",
-    unit: "",
-    surface: "",
-    subgroup_id: "",
-    description: "",
-    source_type: "dataset",
-    source_key: "",
-    source_field: "",
-    dataset_id: "",
-    value_column: "",
-    period_column: "",
-    aggregation: "sum",
-    filter_columns: [] as string[],
-    breakdown_views: {} as Record<string, BreakdownView>,
-    scale_labels: {} as Record<string, string>,
-  };
-  const [draft, setDraft] = React.useState(emptyDraft);
-  /** Set when the sheet edits an existing metric; null when creating or duplicating. */
-  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const from = isDynamic
+    ? `${sourceLabel} · ${findDynamicField(metric.source_key, metric.source_field)?.label ?? metric.source_field}`
+    : metric.dataset_id
+      ? `${datasets.data?.find((d) => d.id === metric.dataset_id)?.name ?? "Dataset"} · ${metric.value_column || "no column"}`
+      : "Not linked to any data yet";
+  const value = latest
+    ? `${formatValue(latest.value, metric.unit)} in ${latest.period}`
+    : dynamic.isLoading || rows.isLoading
+      ? "Loading…"
+      : "No values yet";
+  return <>{`${from} · ${value}`}</>;
+};
 
+/** Every block on one tab, in order, with what's managed elsewhere listed below. */
+const TabBlocks = ({ tab, all }: { tab: MetricGroup; all: MetricGroup[] }) => {
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const metrics = useManualMetrics();
+  const qualitative = useQualitativeSources();
+  const datasets = useManualDatasets();
+  const configs = useDataSourceConfigs();
+  const reorderMetrics = useReorder("manual_metrics");
+  const reorderQualitative = useReorder("qualitative_sources");
 
-  React.useEffect(() => {
-    if (!metricId && metrics.data?.length) setMetricId(metrics.data[0].id);
-  }, [metrics.data, metricId]);
+  const [numberSheet, setNumberSheet] = React.useState<{ metric: ManualMetric | null; duplicate?: boolean } | null>(null);
+  const [qualitativeSheet, setQualitativeSheet] = React.useState<{ source: QualitativeSource | null } | null>(null);
 
-  const activeMetric = metrics.data?.find((m) => m.id === metricId);
-  const isDynamic = activeMetric?.source_type === "dynamic";
-  const activeRows = useDatasetRows(!isDynamic ? activeMetric?.dataset_id ?? undefined : undefined);
-  const draftColumns = useDatasetColumns(draft.dataset_id || undefined);
-  const dynamicSeries = useDynamicMetricSeries(
-    isDynamic ? activeMetric?.source_key : undefined,
-    isDynamic ? activeMetric?.source_field : undefined,
-  );
+  const topLevel = !tab.parent_id;
+  const numbers = (metrics.data ?? [])
+    .filter((m) => !m.archived && metricGroupId(all, m) === tab.id)
+    .sort(byTabOrder);
+  const insights = topLevel ? (qualitative.data ?? []).filter((q) => q.group_name === tab.name) : [];
 
-  const results = React.useMemo(() => {
-    if (isDynamic) return dynamicSeries.points;
-    if (!activeMetric?.dataset_id) return [];
-    return aggregateDataset(activeRows.data ?? [], {
-      value_column: activeMetric.value_column,
-      period_column: activeMetric.period_column,
-      aggregation: activeMetric.aggregation,
-    });
-  }, [activeMetric, activeRows.data, isDynamic, dynamicSeries.points]);
-
-  const [sort, setSort] = React.useState<{ key: string; direction: SortDirection }>({
-    key: "period",
-    direction: "desc",
-  });
-
-  const sortedResults = React.useMemo(() => {
-    if (!sort.direction) return results;
-    const factor = sort.direction === "asc" ? 1 : -1;
-    return [...results].sort((a, b) => {
-      if (sort.key === "period") return factor * comparePeriods(a.period, b.period);
-      if (sort.key === "value") return factor * (a.value - b.value);
-      if (sort.key === "rows") return factor * (a.rows - b.rows);
-      return 0;
-    });
-  }, [results, sort]);
-
-  const save = async () => {
-    if (!draft.name.trim()) return;
+  const saveOrder = (save: (ids: string[]) => Promise<void>) => async (ids: string[]) => {
     try {
-      await saveMetric.mutateAsync({
-        ...(editingId ? { id: editingId } : {}),
-        name: draft.name,
-        slug: slugifyMetric(draft.name),
-        unit: draft.unit,
-        surface: draft.surface,
-        subgroup_id: draft.subgroup_id || null,
-        description: draft.description,
-        source_type: draft.source_type as ManualMetric["source_type"],
-        source_key: draft.source_type === "dynamic" ? draft.source_key : "",
-        source_field: draft.source_type === "dynamic" ? draft.source_field : "",
-        dataset_id: draft.source_type === "dynamic" ? null : draft.dataset_id || null,
-        value_column: draft.source_type === "dynamic" ? "" : draft.value_column,
-        period_column: draft.source_type === "dynamic" ? "" : draft.period_column,
-        aggregation: draft.aggregation as ManualMetric["aggregation"],
-        filter_columns: draft.source_type === "dynamic" ? [] : draft.filter_columns,
-        breakdown_views:
-          draft.source_type === "dynamic"
-            ? {}
-            : Object.fromEntries(
-                draft.filter_columns.map((key) => [key, draft.breakdown_views[key] ?? "table"]),
-              ),
-        scale_labels: valueIsRating
-          ? Object.fromEntries(Object.entries(draft.scale_labels).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v))
-          : {},
-      });
-      setMetricSheet(false);
-      setDraft(emptyDraft);
-      setEditingId(null);
-      toast({ title: "Metric saved" });
-
+      await save(ids);
     } catch (err) {
-      toast({ title: "Could not save metric", description: String(err), variant: "destructive" });
+      toast({ title: "Could not reorder", description: String(err), variant: "destructive" });
+      throw err;
     }
   };
 
-  const editMetric = (metric: ManualMetric) => {
-    setDraft({
-      name: metric.name,
-      unit: metric.unit,
-      surface: metric.surface,
-      subgroup_id: metric.subgroup_id ?? "",
-      description: metric.description,
-      source_type: metric.source_type ?? "dataset",
-      source_key: metric.source_key ?? "",
-      source_field: metric.source_field ?? "",
-      dataset_id: metric.dataset_id ?? "",
-      value_column: metric.value_column,
-      period_column: metric.period_column,
-      aggregation: metric.aggregation,
-      filter_columns: Array.isArray(metric.filter_columns) ? [...metric.filter_columns] : [],
-      breakdown_views: { ...(metric.breakdown_views ?? {}) } as Record<string, BreakdownView>,
-      scale_labels: { ...(metric.scale_labels ?? {}) },
-    });
-    setEditingId(metric.id);
-    setMetricSheet(true);
-  };
-
-  const duplicateMetric = (metric: ManualMetric) => {
-    editMetric(metric);
-    setEditingId(null);
-    setDraft((d) => ({ ...d, name: `${metric.name} (copy)` }));
-  };
-
-
-  const removeMetric = async (metric: ManualMetric) => {
-    if (!window.confirm(`Delete "${metric.name}"? This also removes its recorded values.`)) return;
-    try {
-      await deleteMetric.mutateAsync(metric.id);
-      setMetricId("");
-      toast({ title: "Metric deleted" });
-    } catch (err) {
-      toast({ title: "Could not delete metric", description: String(err), variant: "destructive" });
-    }
-  };
-
-
-  const resultColumns: DataTableColumn<{ period: string; value: number; rows: number }>[] = [
-    { key: "period", header: "Period", sortable: true, render: (row) => row.period },
-    {
-      key: "value",
-      header: "Value",
-      render: (row) =>
-        `${Number(row.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}${
-          activeMetric?.unit ? ` ${activeMetric.unit}` : ""
-        }`,
-    },
-    { key: "rows", header: "Rows used", render: (row) => String(row.rows) },
+  // Placed from Settings → Dynamic sources for now ("Shown in").
+  const config = (key: string) =>
+    ((configs.data ?? []).find((c) => c.source_key === key)?.config ?? {}) as Record<string, unknown>;
+  const figmaHere = config("figma").metricGroupId === tab.id;
+  const figmaLibraries = Array.isArray(config("figma").libraries) ? (config("figma").libraries as unknown[]).length : 0;
+  const reportsHere = (
+    Array.isArray(config("code_adoption").reports)
+      ? (config("code_adoption").reports as { path?: string; metricGroupId?: string | null }[])
+      : []
+  ).filter((r) => r.metricGroupId === tab.id);
+  const ga4Properties =
+    tab.slug === "documentation" && Array.isArray(config("ga4_documentation").properties)
+      ? (config("ga4_documentation").properties as { id: string; name?: string }[])
+      : [];
+  const panels = [
+    ...(figmaHere
+      ? [
+          {
+            key: "figma",
+            title: "Figma component analytics",
+            subtitle: `Component tables and adoption for ${figmaLibraries} ${figmaLibraries === 1 ? "library" : "libraries"}`,
+          },
+        ]
+      : []),
+    ...reportsHere.map((r) => {
+      const repo = (r.path?.split("/").pop() ?? "").replace(/(-report)?\.json$/, "");
+      return { key: `code:${r.path}`, title: `Code adoption · ${repo}`, subtitle: "Bloom usage by team, from the weekly GitHub report" };
+    }),
+    ...ga4Properties.map((p) => ({
+      key: `ga4:${p.id}`,
+      title: `Google Analytics · ${p.name || p.id}`,
+      subtitle: "Traffic and top pages, as its own sub-tab",
+    })),
   ];
-
-  if (metrics.isLoading) return <DesignLoader />;
-
-  const columnOptions = (draftColumns.data ?? []).map((c) => ({ value: c.key, label: c.label }));
-  const valueColumnOptions = (draftColumns.data ?? []).map((c) => ({
-    value: c.key,
-    label: c.kind === "rating" ? `${c.label} (rating 1–5)` : c.label,
-  }));
-  // Score labels only make sense for a 1–5 rating column (set in the dataset's column type).
-  const valueIsRating = (draftColumns.data ?? []).find((c) => c.key === draft.value_column)?.kind === "rating";
-  const allGroups = groups.data ?? [];
-  const groupOptions = toGroupOptions(allGroups);
-  const groupLabel = (m: ManualMetric) =>
-    groupOptions.find((o) => o.value === metricGroupId(allGroups, m))?.label ?? m.surface;
-  /** Picking a subgroup files the metric under its parent group too. */
-  const pickGroup = (id: string) => {
-    const picked = allGroups.find((g) => g.id === id);
-    const parent = picked?.parent_id ? allGroups.find((g) => g.id === picked.parent_id) : undefined;
-    setDraft({ ...draft, surface: (parent ?? picked)?.name ?? "", subgroup_id: parent ? id : "" });
-  };
 
   return (
     <>
-      <DesignCard className="p-4">
-        {(metrics.data ?? []).length === 0 ? (
-          <DesignEmptyState
-            title="No metrics yet"
-            body="Create a dataset first, enter its rows, then define a metric that reads one of its columns."
-            action={
-              <DesignButton variant="filled" theme="primary" onClick={() => { setEditingId(null); setDraft(emptyDraft); setMetricSheet(true); }}>
-                Add first metric
-              </DesignButton>
-            }
-          />
-        ) : (
-          <>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="w-[280px]">
-                <DesignInputSelect
-                  label="Metric"
-                  size="medium"
-                  value={metricId}
-                  onChange={setMetricId}
-                  options={(metrics.data ?? []).map((m) => ({
-                    value: m.id,
-                    label: m.surface ? `${groupLabel(m)} · ${m.name}` : m.name,
-                  }))}
-                />
-              </div>
-              <DesignButton
-                variant="outlined"
-                theme="primary"
-                size="medium"
-                disabled={!activeMetric}
-                onClick={() => activeMetric && editMetric(activeMetric)}
-              >
-                Configure metric
-              </DesignButton>
-              <DesignButton
-                variant="outlined"
-                theme="primary"
-                size="medium"
-                icon={<Copy size={16} />}
-                disabled={!activeMetric}
-                onClick={() => activeMetric && duplicateMetric(activeMetric)}
-              >
-                Duplicate
-              </DesignButton>
-              <DesignButton
-                variant="outlined"
-                theme="error"
-                size="medium"
-                icon={<Trash size={16} />}
-                disabled={!activeMetric}
-                isLoading={deleteMetric.isPending}
-                onClick={() => activeMetric && removeMetric(activeMetric)}
-              >
-                Delete
-              </DesignButton>
-
-              <DesignButton
-                variant="filled"
-                theme="primary"
-                size="medium"
-                icon={<Plus size={16} />}
-                onClick={() => {
-                  setEditingId(null);
-                  setDraft(emptyDraft);
-                  setMetricSheet(true);
-                }}
-
-              >
-                New metric
-              </DesignButton>
-            </div>
-
-            <DesignSpacer size="small" />
-
-            {isDynamic && !dynamicSeries.configured ? (
-              <DesignEmptyState
-                title="Source not connected yet"
-                body="Connect this source in Settings → Dynamic sources, then its values will show here."
-              />
-            ) : isDynamic && dynamicSeries.points.length === 0 && !dynamicSeries.isLoading ? (
-              <DesignEmptyState
-                title="No values returned yet"
-                body="The connected source has not returned data for this value."
-              />
-            ) : !isDynamic && !activeMetric?.dataset_id ? (
-              <DesignEmptyState
-                title="Not linked to a dataset"
-                body="Use “Configure metric” to pick the dataset, the column holding the value and how rows are combined."
-              />
-            ) : !isDynamic && (!activeMetric?.value_column || !activeMetric?.period_column) ? (
-              <DesignEmptyState
-                title="Columns not chosen yet"
-                body="Pick the value column and the period column in “Configure metric”."
-              />
-            ) : (
-              <>
-                <DesignNote
-                  text={
-                    isDynamic
-                      ? `Reading “${
-                          findDynamicField(activeMetric?.source_key ?? "", activeMetric?.source_field ?? "")?.label ??
-                          activeMetric?.source_field
-                        }” live from ${findDynamicSource(activeMetric?.source_key ?? "")?.label ?? "the connected source"}`
-                      : `Reading “${activeMetric?.value_column}” per “${activeMetric?.period_column}” from ${
-                          datasets.data?.find((d) => d.id === activeMetric?.dataset_id)?.name ?? "the dataset"
-                        } · ${aggregationOptions.find((o) => o.value === activeMetric?.aggregation)?.label}`
-                  }
-                />
-                <DesignSpacer size="small" />
-                <DesignDataTable
-                  columns={resultColumns}
-                  data={sortedResults}
-                  rowKey={(row) => row.period}
-                  searchPlaceholder="Search periods"
-                  sortKey={sort.key}
-                  sortDirection={sort.direction}
-                  onSortChange={(key, direction) => setSort({ key, direction })}
-                />
-              </>
-            )}
-          </>
-        )}
-      </DesignCard>
-
-      <DesignSideSheet
-        open={metricSheet}
-        onOpenChange={setMetricSheet}
-        title={draft.name ? `Configure — ${draft.name}` : "New metric"}
-        footer={
-          <div className="flex justify-end gap-2">
-            <DesignButton variant="outlined" theme="primary" onClick={() => setMetricSheet(false)}>
-              Cancel
-            </DesignButton>
-            <DesignButton variant="filled" theme="primary" isLoading={saveMetric.isPending} onClick={save}>
-              Save metric
-            </DesignButton>
-          </div>
+      <SourceSection
+        title="Numbers"
+        description="Stat cards, in this order, with their trend and breakdowns below them."
+        aside={
+          <DesignButton
+            variant="flat"
+            theme="primary"
+            size="small"
+            icon={<Plus size={16} />}
+            onClick={() => setNumberSheet({ metric: null })}
+          >
+            Add number
+          </DesignButton>
         }
       >
-        <div className="p-4 space-y-4">
-          <DesignInputText
-            label="Name"
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          />
-          <DesignInputText
-            label="Unit"
-            placeholder="%, count, hours"
-            value={draft.unit}
-            onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
-          />
-          <DesignInputSelect
-            label="Group"
-            placeholder={groupOptions.length ? "Pick a group or subgroup" : "Create a group first"}
-            disabled={groupOptions.length === 0}
-            value={metricGroupId(allGroups, draft)}
-            onChange={pickGroup}
-            options={groupOptions}
-          />
-          <DesignInputText
-            label="Description"
-            value={draft.description}
-            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-          />
-          <DesignInputSelect
-            label="Where the data comes from"
-            value={draft.source_type}
-            onChange={(source_type) =>
-              setDraft({
-                ...draft,
-                source_type,
-                dataset_id: "",
-                value_column: "",
-                period_column: "",
-                source_key: "",
-                source_field: "",
-              })
-            }
-            options={[
-              { value: "dataset", label: "A dataset entered here" },
-              { value: "dynamic", label: "A connected live source" },
-            ]}
-          />
-
-          {draft.source_type === "dynamic" ? (
-            <>
-              <DesignInputSelect
-                label="Live source"
-                placeholder="Pick a source"
-                value={draft.source_key}
-                onChange={(source_key) => setDraft({ ...draft, source_key, source_field: "" })}
-                options={DYNAMIC_METRIC_SOURCES.map((s) => ({ value: s.key, label: s.label }))}
+        {metrics.isLoading ? (
+          <DesignLoader />
+        ) : numbers.length === 0 ? (
+          <p className="text-[14px] text-muted-foreground">No numbers on this tab yet.</p>
+        ) : (
+          <ul className="flex flex-col">
+            <SortableList
+              items={numbers}
+              getId={(m) => m.id}
+              getLabel={(m) => m.name}
+              onReorder={saveOrder(reorderMetrics.mutateAsync)}
+            >
+              {(metric, row) => (
+              <SourceListItem
+                key={metric.id}
+                sortable={row}
+                title={metric.name}
+                subtitle={<NumberSummary metric={metric} />}
+                actions={
+                  <>
+                    <DesignButton
+                      variant="flat"
+                      theme="muted"
+                      size="small"
+                      aria-label={`Duplicate ${metric.name}`}
+                      icon={<Copy size={16} />}
+                      onClick={() => setNumberSheet({ metric, duplicate: true })}
+                    />
+                    <DesignButton
+                      variant="flat"
+                      theme="muted"
+                      size="small"
+                      icon={<GearSix size={16} />}
+                      onClick={() => setNumberSheet({ metric })}
+                    >
+                      Configure
+                    </DesignButton>
+                  </>
+                }
               />
-              <DesignInputSelect
-                label="Value"
-                placeholder={draft.source_key ? "Pick a value" : "Pick a source first"}
-                disabled={!draft.source_key}
-                value={draft.source_field}
-                onChange={(source_field) => setDraft({ ...draft, source_field })}
-                options={(findDynamicSource(draft.source_key)?.fields ?? []).map((f) => ({
-                  value: f.key,
-                  label: f.label,
-                }))}
-              />
-              <DesignNote text="Live values refresh automatically from the connected source — nothing to type in." />
-            </>
-          ) : (
-            <>
-              <DesignInputSelect
-                label="Dataset"
-                placeholder="Pick a dataset"
-                value={draft.dataset_id}
-                onChange={(dataset_id) => setDraft({ ...draft, dataset_id, value_column: "", period_column: "" })}
-                options={(datasets.data ?? []).map((d) => ({ value: d.id, label: d.name }))}
-              />
-              <DesignInputSelect
-                label="Value column"
-                placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
-                disabled={!draft.dataset_id}
-                value={draft.value_column}
-                onChange={(value_column) => setDraft({ ...draft, value_column })}
-                options={valueColumnOptions}
-              />
-              {valueIsRating && (
-            <div className="space-y-2">
-              <p className="text-[14px] font-medium text-foreground">What each score means</p>
-              <DesignNote text="Optional. Shown on the metric's card and next to the answer distribution, e.g. 4 = “Somewhat speeds me up”." />
-              {SCALE_POINTS.map((point) => (
-                <DesignInputText
-                  key={point}
-                  size="small"
-                  prefix={<span className="text-[14px] font-medium text-foreground w-4">{point}</span>}
-                  aria-label={`Meaning of ${point}`}
-                  placeholder={point === "1" ? "Lowest, e.g. “Much slower”" : point === "5" ? "Highest, e.g. “Over 40% faster”" : ""}
-                  value={draft.scale_labels[point] ?? ""}
-                  onChange={(e) => setDraft({ ...draft, scale_labels: { ...draft.scale_labels, [point]: e.target.value } })}
-                />
-              ))}
-            </div>
               )}
-              <DesignInputSelect
-                label="Period column"
-                placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
-                disabled={!draft.dataset_id}
-                value={draft.period_column}
-                onChange={(period_column) => setDraft({ ...draft, period_column })}
-                options={columnOptions}
-              />
-              <DesignInputSelect
-                label="Combine rows by"
-                value={draft.aggregation}
-                onChange={(aggregation) => setDraft({ ...draft, aggregation })}
-                options={aggregationOptions}
-              />
+            </SortableList>
+          </ul>
+        )}
+      </SourceSection>
 
-              <div className="space-y-2">
-                <p className="text-[14px] font-medium text-foreground">Columns usable as filters</p>
-                <DesignNote text="Pick the columns people can filter this metric by on the Metrics page, such as Role or Business unit, and how each breakdown is shown." />
-                {!draft.dataset_id ? (
-                  <p className="text-[14px] text-muted-foreground">Pick a dataset first.</p>
-                ) : columnOptions.length === 0 ? (
-                  <p className="text-[14px] text-muted-foreground">This dataset has no columns yet.</p>
-                ) : (
-                  <div className="space-y-3 pt-1">
-                    {columnOptions.map((option) => {
-                      const checked = draft.filter_columns.includes(option.value);
-                      return (
-                        <div key={option.value} className="space-y-2">
-                          <label className="flex items-center gap-3 cursor-pointer">
-                            <DesignCheckbox
-                              checked={checked}
-                              onCheckedChange={(next) =>
-                                setDraft((prev) => ({
-                                  ...prev,
-                                  filter_columns: next
-                                    ? [...prev.filter_columns, option.value]
-                                    : prev.filter_columns.filter((key) => key !== option.value),
-                                  breakdown_views: next
-                                    ? { ...prev.breakdown_views, [option.value]: prev.breakdown_views[option.value] ?? "table" }
-                                    : prev.breakdown_views,
-                                }))
-                              }
-                            />
-                            <span className="text-[14px] text-foreground">{option.label}</span>
-                          </label>
-                          {checked && (
-                            <div className="pl-8">
-                              <DesignInputSelect
-                                size="small"
-                                className="w-[260px]"
-                                value={draft.breakdown_views[option.value] ?? "table"}
-                                onChange={(view) =>
-                                  setDraft((prev) => ({
-                                    ...prev,
-                                    breakdown_views: { ...prev.breakdown_views, [option.value]: view as BreakdownView },
-                                  }))
-                                }
-                                options={BREAKDOWN_VIEW_OPTIONS}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </DesignSideSheet>
+      <SourceSection
+        title="Qualitative insights"
+        description={
+          topLevel
+            ? "Themes found in free-text answers, shown under the numbers."
+            : "Qualitative insights show on top-level tabs only, for now."
+        }
+        aside={
+          topLevel && (
+            <DesignButton
+              variant="flat"
+              theme="primary"
+              size="small"
+              icon={<Plus size={16} />}
+              onClick={() => setQualitativeSheet({ source: null })}
+            >
+              Add insight
+            </DesignButton>
+          )
+        }
+      >
+        {!topLevel ? null : insights.length === 0 ? (
+          <p className="text-[14px] text-muted-foreground">No qualitative insights on this tab yet.</p>
+        ) : (
+          <ul className="flex flex-col">
+            <SortableList
+              items={insights}
+              getId={(q) => q.id}
+              getLabel={(q) => q.name}
+              onReorder={saveOrder(reorderQualitative.mutateAsync)}
+            >
+              {(source, row) => (
+              <SourceListItem
+                key={source.id}
+                sortable={row}
+                title={source.name}
+                subtitle={`Summarising “${source.text_column}” from ${
+                  datasets.data?.find((d) => d.id === source.dataset_id)?.name ?? "a dataset"
+                }${source.breakdowns.length ? `, by ${source.breakdowns.map((b) => b.label.toLowerCase()).join(" and ")}` : ""}`}
+                actions={
+                  <>
+                    <StatusBadge status={source.run_status} />
+                    <DesignButton
+                      variant="flat"
+                      theme="muted"
+                      size="small"
+                      icon={<GearSix size={16} />}
+                      onClick={() => setQualitativeSheet({ source })}
+                    >
+                      Configure
+                    </DesignButton>
+                  </>
+                }
+              />
+              )}
+            </SortableList>
+          </ul>
+        )}
+      </SourceSection>
+
+      {panels.length > 0 && (
+        <SourceSection
+          title="Source panels"
+          description="Richer views that come with a live source. Placed from Settings → Dynamic sources for now."
+          aside={
+            <DesignButton
+              variant="flat"
+              theme="muted"
+              size="small"
+              icon={<ArrowSquareOut size={16} />}
+              onClick={() => navigate("/settings/data-sources")}
+            >
+              Dynamic sources
+            </DesignButton>
+          }
+        >
+          <ul className="flex flex-col">
+            {panels.map((panel) => (
+              <SourceListItem key={panel.key} title={panel.title} subtitle={panel.subtitle} />
+            ))}
+          </ul>
+        </SourceSection>
+      )}
+
+      <NumberBlockSheet
+        open={Boolean(numberSheet)}
+        onOpenChange={(open) => !open && setNumberSheet(null)}
+        metric={numberSheet?.metric ?? null}
+        duplicate={numberSheet?.duplicate}
+        tabId={tab.id}
+        sortOrder={numbers.length}
+      />
+      <QualitativeBlockSheet
+        open={Boolean(qualitativeSheet)}
+        onOpenChange={(open) => !open && setQualitativeSheet(null)}
+        source={qualitativeSheet?.source ?? null}
+        tabName={tab.name}
+        sortOrder={insights.length}
+      />
     </>
   );
 };
 
-/* ─────────── Page ─────────── */
+/** The tabs of the Metrics section, as a tree mirroring its menu. Drag to reorder. */
+const TabTree = ({
+  all,
+  selectedId,
+  onSelect,
+  onAdd,
+  onReorder,
+  counts,
+}: {
+  all: MetricGroup[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  onAdd: () => void;
+  onReorder: (ids: string[]) => Promise<void>;
+  counts: (group: MetricGroup) => number;
+}) => {
+  const rowClass = (selected: boolean, child = false) =>
+    `flex items-center gap-3 px-3 ${child ? "py-1.5" : "py-2"} rounded-[6px] text-sm transition-colors w-full text-left min-w-0 ${
+      selected
+        ? "text-[var(--primary-extra-dark)] font-medium bg-[rgba(0,119,130,0.08)]"
+        : "text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]"
+    }`;
+  const count = (group: MetricGroup) => (
+    <span className="text-[12px] text-muted-foreground font-normal">{counts(group) || ""}</span>
+  );
+  const tree = groupTree(all);
+  return (
+    <DesignCard className="p-2">
+      <p className="px-3 pt-2 pb-1 text-[12px] text-muted-foreground">Metrics tabs</p>
+      <div className="flex flex-col gap-0.5">
+        <SortableList items={tree} getId={(t) => t.group.id} getLabel={(t) => t.group.name} onReorder={onReorder}>
+          {({ group, children }, row) => {
+            const Icon = TAB_ICONS[group.slug] ?? SquaresFour;
+            return (
+              <div key={group.id} ref={row.ref} style={row.style} className="rounded-[6px]">
+                <div className="flex items-center gap-0.5">
+                  {row.handle}
+                  <button type="button" className={rowClass(group.id === selectedId)} onClick={() => onSelect(group.id)}>
+                    <Icon size={16} className="shrink-0" />
+                    <span className="flex-1 truncate">{group.name}</span>
+                    {count(group)}
+                  </button>
+                </div>
+                {children.length > 0 && (
+                  <div className="ml-[43px] mt-0.5 mb-1 flex flex-col gap-0.5 border-l border-border pl-1">
+                    <SortableList items={children} getId={(c) => c.id} getLabel={(c) => c.name} onReorder={onReorder}>
+                      {(child, childRow) => (
+                        <div key={child.id} ref={childRow.ref} style={childRow.style} className="flex items-center gap-0.5 rounded-[6px]">
+                          {childRow.handle}
+                          <button
+                            type="button"
+                            className={rowClass(child.id === selectedId, true)}
+                            onClick={() => onSelect(child.id)}
+                          >
+                            <span className="flex-1 truncate">{child.name}</span>
+                            {count(child)}
+                          </button>
+                        </div>
+                      )}
+                    </SortableList>
+                  </div>
+                )}
+              </div>
+            );
+          }}
+        </SortableList>
+        <button type="button" className={`${rowClass(false)} pl-[37px]`} onClick={onAdd}>
+          <Plus size={16} className="shrink-0" />
+          <span className="flex-1">Add tab</span>
+        </button>
+      </div>
+    </DesignCard>
+  );
+};
+
+const MetricsConfigurator = () => {
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const groups = useMetricGroups();
+  const metrics = useManualMetrics();
+  const qualitative = useQualitativeSources();
+  const reorderTabs = useReorder("metric_groups");
+  const { toast } = useToast();
+  const all = React.useMemo(() => groups.data ?? [], [groups.data]);
+  const [tabSheet, setTabSheet] = React.useState<{ group: MetricGroup | null; parentId?: string } | null>(null);
+
+  // The selected tab is kept in the URL (?tab=<slug>) so it survives a reload and can be linked.
+  const selected = all.find((g) => g.slug === params.get("tab")) ?? groupTree(all)[0]?.group;
+  const select = (id: string) => {
+    const slug = all.find((g) => g.id === id)?.slug;
+    if (slug) setParams({ tab: slug }, { replace: true });
+  };
+
+  const counts = (group: MetricGroup) =>
+    (metrics.data ?? []).filter((m) => !m.archived && metricGroupId(all, m) === group.id).length +
+    (group.parent_id ? 0 : (qualitative.data ?? []).filter((q) => q.group_name === group.name).length);
+
+  const reorder = async (ids: string[]) => {
+    try {
+      await reorderTabs.mutateAsync(ids);
+    } catch (err) {
+      toast({ title: "Could not reorder", description: String(err), variant: "destructive" });
+      throw err;
+    }
+  };
+
+  const parent = selected?.parent_id ? all.find((g) => g.id === selected.parent_id) : undefined;
+  const periodicity = PERIODICITY_OPTIONS.find((o) => o.value === (parent ?? selected)?.periodicity)?.label ?? "Quarterly";
+
+  return (
+    <>
+      {groups.isLoading ? (
+        <DesignLoader />
+      ) : all.length === 0 ? (
+        <DesignCard className="p-4">
+          <DesignEmptyState
+            title="Set up your first tab"
+            body="Each tab is an item in the Metrics menu, such as Impact or Adoption. Add numbers and qualitative insights to it."
+            action={
+              <DesignButton variant="filled" theme="primary" onClick={() => setTabSheet({ group: null })}>
+                Add tab
+              </DesignButton>
+            }
+          />
+        </DesignCard>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-4 items-start max-w-[1200px]">
+          <TabTree
+            all={all}
+            selectedId={selected?.id ?? ""}
+            onSelect={select}
+            onAdd={() => setTabSheet({ group: null })}
+            onReorder={reorder}
+            counts={counts}
+          />
+          {selected && (
+            <DesignCard className="p-4 min-w-0">
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+                <div className="min-w-[200px] flex-1">
+                  <div className="flex items-center gap-1">
+                    <h2 className="text-[16px] font-medium text-foreground">
+                      {parent ? `${parent.name} › ${selected.name}` : selected.name}
+                    </h2>
+                    <DesignButton
+                      variant="flat"
+                      theme="muted"
+                      size="small"
+                      className="min-h-[28px] h-7 w-7 px-0"
+                      aria-label={`Edit ${selected.name}`}
+                      title="Edit name, description and frequency"
+                      icon={<PencilSimple size={16} />}
+                      onClick={() => setTabSheet({ group: selected })}
+                    />
+                  </div>
+                  <p className="text-[14px] text-muted-foreground mt-1">
+                    {[selected.description, `${periodicity} periods`].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {!selected.parent_id && canHaveSubTabs(selected.slug) && (
+                    <DesignButton
+                      variant="outlined"
+                      theme="muted"
+                      size="small"
+                      icon={<Plus size={16} />}
+                      onClick={() => setTabSheet({ group: null, parentId: selected.id })}
+                    >
+                      Sub-tab
+                    </DesignButton>
+                  )}
+                  {tabIsShown(selected, all) && (
+                    <DesignButton
+                      variant="outlined"
+                      theme="primary"
+                      size="small"
+                      icon={<ArrowSquareOut size={16} />}
+                      onClick={() => navigate(tabPath(selected, all))}
+                    >
+                      Open tab
+                    </DesignButton>
+                  )}
+                </div>
+              </div>
+              {!tabIsShown(selected, all) && (
+                <>
+                  <DesignSpacer size="small" />
+                  <DesignNote text={`The ${parent?.name} page doesn't show sub-tabs yet, so this one isn't visible on the Metrics side.`} />
+                </>
+              )}
+              {!isBuiltInTab((parent ?? selected).slug) && !selected.parent_id && (
+                <>
+                  <DesignSpacer size="small" />
+                  <DesignNote text="Uses the standard tab layout: stat cards, trend chart, breakdowns, then qualitative insights." />
+                </>
+              )}
+              <TabBlocks key={selected.id} tab={selected} all={all} />
+            </DesignCard>
+          )}
+        </div>
+      )}
+
+      <TabSheet
+        open={Boolean(tabSheet)}
+        onOpenChange={(open) => !open && setTabSheet(null)}
+        group={tabSheet?.group ?? null}
+        parentId={tabSheet?.parentId}
+        onSaved={(name) => {
+          // Select a newly created tab once the list refreshes.
+          if (!tabSheet?.group) setParams({ tab: slugifyGroup(name) }, { replace: true });
+        }}
+        onDeleted={() => setParams({}, { replace: true })}
+      />
+    </>
+  );
+};
 
 const MetricsSettings = () => (
   <RequireRole role="editor">
     <AppShell>
       <DesignPageHeader
-        title="Quantitative"
-        subtitle="Number metrics read from datasets or live sources, shown in their group on the Metrics page."
+        title="Metrics"
+        subtitle="Set up the tabs of the Metrics section and what each one shows: numbers from datasets or live sources, and qualitative insights."
       />
       <DesignSpacer size="medium" />
-      <MetricsTab />
+      <MetricsConfigurator />
     </AppShell>
   </RequireRole>
 );

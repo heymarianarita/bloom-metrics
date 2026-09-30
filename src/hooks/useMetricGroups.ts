@@ -96,8 +96,43 @@ export const useSaveMetricGroup = () => {
         .from("metric_groups")
         .upsert(payload as never, { onConflict: "slug" });
       if (error) throw new Error(error.message);
+      // Metrics and qualitative insights point at a top-level group by name: follow a rename.
+      const before = group.existing?.find((g) => g.id === group.id);
+      if (before && !before.parent_id && before.name !== payload.name) {
+        const { error: metricsError } = await supabase
+          .from("manual_metrics")
+          .update({ surface: payload.name } as never)
+          .eq("surface", before.name);
+        if (metricsError) throw new Error(metricsError.message);
+        const { error: qualitativeError } = await supabase
+          .from("qualitative_sources")
+          .update({ group_name: payload.name } as never)
+          .eq("group_name", before.name);
+        if (qualitativeError) throw new Error(qualitativeError.message);
+      }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["metric-groups"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["metric-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["manual-metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["qualitative-sources"] });
+    },
+  });
+};
+
+/** Saves a new order for sibling tabs (or any rows of `table`): position = index. */
+export const reorderRows = async (table: "metric_groups" | "manual_metrics" | "qualitative_sources", ids: string[]) => {
+  for (const [index, id] of ids.entries()) {
+    const { error } = await supabase.from(table).update({ sort_order: index } as never).eq("id", id);
+    if (error) throw new Error(error.message);
+  }
+};
+
+export const useReorder = (table: "metric_groups" | "manual_metrics" | "qualitative_sources") => {
+  const queryClient = useQueryClient();
+  const key = { metric_groups: "metric-groups", manual_metrics: "manual-metrics", qualitative_sources: "qualitative-sources" }[table];
+  return useMutation({
+    mutationFn: (ids: string[]) => reorderRows(table, ids),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [key] }),
   });
 };
 

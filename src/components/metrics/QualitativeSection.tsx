@@ -264,7 +264,7 @@ const GroupView = ({
   );
 };
 
-/** Qualitative metrics configured for a metric group (Settings → Metrics → Qualitative). */
+/** Qualitative metrics configured for a metric group (Settings → Metrics). */
 export const QualitativeSection = ({
   group,
   period,
