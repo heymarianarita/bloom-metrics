@@ -832,7 +832,7 @@ const ManualMetricsSettings = () => (
     <AppShell>
       <DesignPageHeader
         title="Datasets"
-        subtitle="Enter your data here. Metrics that read from these columns are configured in Settings → Metrics → Quantitative."
+        subtitle="Enter your data here. Metrics that read from these columns are placed on tabs in Settings → Metrics."
       />
       <DesignSpacer size="medium" />
       <DatasetsTab />

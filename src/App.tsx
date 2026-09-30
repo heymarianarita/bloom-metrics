@@ -9,6 +9,7 @@ import Adoption from "./pages/metrics/Adoption";
 import AiPrototypingPage from "./pages/metrics/adoption/AiPrototypingPage";
 import Documentation from "./pages/metrics/Documentation";
 import Impact from "./pages/metrics/Impact";
+import GroupPage from "./pages/metrics/GroupPage";
 import OKRs from "./pages/okrs/OKRs";
 import Performance from "./pages/performance/Performance";
 import Auth from "./pages/Auth";
@@ -17,8 +18,6 @@ import DataSourcesSettings from "./pages/settings/DataSourcesSettings";
 import PerformanceSettings from "./pages/settings/PerformanceSettings";
 import ManualMetricsSettings from "./pages/settings/ManualMetricsSettings";
 import MetricsSettings from "./pages/settings/MetricsSettings";
-import QualitativeSettings from "./pages/settings/QualitativeSettings";
-import MetricGroupsSettings from "./pages/settings/MetricGroupsSettings";
 import HistorySettings from "./pages/settings/HistorySettings";
 import ComponentsSettings from "./pages/settings/ComponentsSettings";
 import UsersSettings from "./pages/settings/UsersSettings";
@@ -62,14 +61,17 @@ const App = () => (
           <Route path="/metrics/adoption/:touchpoint" element={<Adoption />} />
           <Route path="/metrics/documentation" element={<Documentation />} />
           <Route path="/metrics/documentation/:propertySlug" element={<Documentation />} />
+          <Route path="/metrics/:groupSlug" element={<GroupPage />} />
+          <Route path="/metrics/:groupSlug/:subSlug" element={<GroupPage />} />
           <Route path="/performance" element={<Performance />} />
           <Route path="/settings" element={<Navigate to="/settings/data-sources" replace />} />
           <Route path="/settings/data-sources" element={<DataSourcesSettings />} />
           <Route path="/settings/performance" element={<PerformanceSettings />} />
           <Route path="/settings/manual-metrics" element={<ManualMetricsSettings />} />
           <Route path="/settings/metrics" element={<MetricsSettings />} />
-          <Route path="/settings/qualitative" element={<QualitativeSettings />} />
-          <Route path="/settings/metric-groups" element={<MetricGroupsSettings />} />
+          {/* Quantitative, Qualitative and Metric groups are now one page. */}
+          <Route path="/settings/qualitative" element={<Navigate to="/settings/metrics" replace />} />
+          <Route path="/settings/metric-groups" element={<Navigate to="/settings/metrics" replace />} />
           <Route path="/settings/components" element={<ComponentsSettings />} />
           <Route path="/settings/history" element={<HistorySettings />} />
           <Route path="/settings/users" element={<UsersSettings />} />

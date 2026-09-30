@@ -40,6 +40,7 @@ import {
   Cube,
   ClockCounterClockwise,
   UsersThree,
+  SquaresFour,
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
 import vintedIconRounded from "@/assets/vinted-icon-rounded.svg";
@@ -47,6 +48,7 @@ import { signOut, useCanEdit, useMyRole, useSession } from "@/hooks/useAuth";
 import { ga4PropertySlug, useGa4Analytics } from "@/hooks/useGa4Analytics";
 import { useManualMetrics } from "@/hooks/useManualMetrics";
 import { groupTree, useMetricGroups } from "@/hooks/useMetricGroups";
+import { isBuiltInTab } from "@/lib/metricTabs";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAiTemplateDatasetRows } from "@/hooks/useAiTemplateMetrics";
@@ -106,11 +108,6 @@ export const settingsNavItems: NavItem[] = [
     label: "Metrics",
     path: "/settings/metrics",
     icon: ChartLineUp,
-    children: [
-      { label: "Quantitative", path: "/settings/metrics" },
-      { label: "Qualitative", path: "/settings/qualitative" },
-      { label: "Metric groups", path: "/settings/metric-groups" },
-    ],
   },
   { label: "Components", path: "/settings/components", icon: Cube },
   { label: "Performance", path: "/settings/performance", icon: Table },
@@ -174,7 +171,7 @@ const AppShell = ({ children }: AppShellProps) => {
       path: `/metrics/documentation/${ga4PropertySlug(property)}`,
     }));
 
-  // Adoption gets one sub-tab per subgroup (Settings → Metric groups), then one per metric
+  // Adoption gets one sub-tab per subgroup (Settings → Metrics), then one per metric
   // filed directly under Adoption, named exactly as in Settings.
   const { data: allMetrics } = useManualMetrics();
   const { data: allGroups } = useMetricGroups();
@@ -221,7 +218,7 @@ const AppShell = ({ children }: AppShellProps) => {
     )
     .map((metric) => ({ label: metric.name, path: `/metrics/adoption/${metric.slug}` }));
 
-  const metricsItems = metricsNavItems.map((item) => {
+  const builtInItems = metricsNavItems.map((item) => {
     if (item.path === "/metrics/documentation" && documentationChildren.length) {
       return {
         ...item,
@@ -242,6 +239,28 @@ const AppShell = ({ children }: AppShellProps) => {
     }
     return item;
   });
+
+  // The menu follows the tabs set up in Settings → Metrics, in their order. Tabs with a page of
+  // their own keep it; any other tab gets the standard page, with one sub-tab per subgroup.
+  const tree = groupTree(allGroups ?? []);
+  const builtInFor = (slug: string) => builtInItems.find((item) => item.path === `/metrics/${slug}`);
+  const metricsItems: NavItem[] = [
+    ...tree.map(({ group, children }): NavItem => {
+      const builtIn = isBuiltInTab(group.slug) ? builtInFor(group.slug) : undefined;
+      if (builtIn) return { ...builtIn, label: group.name };
+      const path = `/metrics/${group.slug}`;
+      return {
+        label: group.name,
+        path,
+        icon: SquaresFour,
+        children: children.length
+          ? [{ label: "Overview", path }, ...children.map((c) => ({ label: c.name, path: `${path}/${c.slug}` }))]
+          : undefined,
+      };
+    }),
+    // Built-in pages not (yet) set up as a tab stay in the menu.
+    ...builtInItems.filter((item) => !tree.some(({ group }) => item.path === `/metrics/${group.slug}`)),
+  ];
 
   const navItems = inSettings
     ? isAdmin

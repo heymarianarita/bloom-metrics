@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ArrowDown, ArrowUp, ChartLineUp, Trash } from "@phosphor-icons/react";
+import { ChartLineUp, Trash } from "@phosphor-icons/react";
 import { DesignButton } from "@/components/ds/DesignButton";
 import {
   SourceAddField,
@@ -8,6 +8,7 @@ import {
   SourceListItem,
   type SourceRun,
 } from "@/components/settings/source/SourceCard";
+import { SortableList } from "@/components/settings/SortableList";
 import { useSaveDataSourceConfig } from "@/hooks/useDataSources";
 import { fetchGa4PropertyLabels, fetchGa4PropertyName } from "@/hooks/useGa4Analytics";
 import { useToast } from "@/hooks/use-toast";
@@ -103,18 +104,11 @@ const Ga4PropertiesCard = ({ saved, lastRun }: Ga4PropertiesCardProps) => {
     }
   };
 
-  const moveProperty = async (index: number, direction: -1 | 1) => {
-    const target = index + direction;
-    if (target < 0 || target >= properties.length) return;
-    const next = [...properties];
-    [next[index], next[target]] = [next[target], next[index]];
-    setBusy(properties[index].id);
-    try {
-      await persist(next);
-    } finally {
-      setBusy(null);
-    }
-  };
+  const reorderProperties = (ids: string[]) =>
+    persist(ids.map((id) => properties.find((p) => p.id === id)!)).catch((err) => {
+      toast({ title: "Could not reorder", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+      throw err;
+    });
 
   const removeProperty = async (id: string) => {
     setBusy(id);
@@ -138,44 +132,35 @@ const Ga4PropertiesCard = ({ saved, lastRun }: Ga4PropertiesCardProps) => {
           body: "Paste a Google Analytics property ID below to start tracking it.",
         }}
       >
-        {properties.map((property, index) => (
-          <SourceListItem
-            key={property.id}
-            title={property.name}
-            subtitle={property.id}
-            actions={
-              <>
-                <DesignButton
-                  variant="flat"
-                  theme="muted"
-                  size="small"
-                  aria-label={`Move ${property.name} up`}
-                  icon={<ArrowUp size={16} />}
-                  disabled={index === 0 || busy !== null}
-                  onClick={() => moveProperty(index, -1)}
-                />
-                <DesignButton
-                  variant="flat"
-                  theme="muted"
-                  size="small"
-                  aria-label={`Move ${property.name} down`}
-                  icon={<ArrowDown size={16} />}
-                  disabled={index === properties.length - 1 || busy !== null}
-                  onClick={() => moveProperty(index, 1)}
-                />
-                <DesignButton
-                  variant="flat"
-                  theme="error"
-                  size="small"
-                  icon={<Trash size={16} />}
-                  onClick={() => removeProperty(property.id)}
-                >
-                  Remove
-                </DesignButton>
-              </>
-            }
-          />
-        ))}
+        {properties.length > 0 && (
+          <SortableList
+            items={properties}
+            getId={(p) => p.id}
+            getLabel={(p) => p.name}
+            disabled={busy !== null}
+            onReorder={reorderProperties}
+          >
+            {(property, row) => (
+              <SourceListItem
+                key={property.id}
+                sortable={row}
+                title={property.name}
+                subtitle={property.id}
+                actions={
+                  <DesignButton
+                    variant="flat"
+                    theme="error"
+                    size="small"
+                    icon={<Trash size={16} />}
+                    onClick={() => removeProperty(property.id)}
+                  >
+                    Remove
+                  </DesignButton>
+                }
+              />
+            )}
+          </SortableList>
+        )}
       </SourceList>
 
       <SourceAddField

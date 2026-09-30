@@ -29,6 +29,10 @@ export interface ManualMetric {
   scale_labels: Record<string, string>;
 }
 
+/** Order of metrics on a tab: as arranged in Settings → Metrics, ties broken by name. */
+export const byTabOrder = (a: Pick<ManualMetric, "sort_order" | "name">, b: Pick<ManualMetric, "sort_order" | "name">) =>
+  (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+
 /** The scores a rating-scale metric can take. */
 export const SCALE_POINTS = ["1", "2", "3", "4", "5"] as const;
 
