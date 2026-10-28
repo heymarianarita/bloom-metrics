@@ -2,6 +2,7 @@ import * as React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowSquareOut,
+  ChartBar,
   BookOpenText,
   Copy,
   GearSix,
@@ -26,6 +27,14 @@ import { SortableList } from "@/components/settings/SortableList";
 import NumberBlockSheet from "@/components/settings/metrics/NumberBlockSheet";
 import QualitativeBlockSheet, { StatusBadge } from "@/components/settings/metrics/QualitativeBlockSheet";
 import TabSheet from "@/components/settings/metrics/TabSheet";
+import CodeAdoptionChartsSheet from "@/components/settings/metrics/CodeAdoptionChartsSheet";
+import {
+  codeAdoptionChartsOf,
+  reportRepo,
+  GREENHOUSE_CHART_OPTIONS,
+  TEAMS_CHART_OPTIONS,
+  TREND_CHART_OPTIONS,
+} from "../../../server/shared/codeAdoptionCharts.ts";
 import { useToast } from "@/hooks/use-toast";
 import { byTabOrder, useManualMetrics, type ManualMetric } from "@/hooks/useManualMetrics";
 import {
@@ -95,6 +104,7 @@ const TabBlocks = ({ tab, all }: { tab: MetricGroup; all: MetricGroup[] }) => {
   const reorderQualitative = useReorder("qualitative_sources");
 
   const [numberSheet, setNumberSheet] = React.useState<{ metric: ManualMetric | null; duplicate?: boolean } | null>(null);
+  const [chartsSheet, setChartsSheet] = React.useState<string | null>(null);
   const [qualitativeSheet, setQualitativeSheet] = React.useState<{ source: QualitativeSource | null } | null>(null);
 
   const topLevel = !tab.parent_id;
@@ -119,7 +129,7 @@ const TabBlocks = ({ tab, all }: { tab: MetricGroup; all: MetricGroup[] }) => {
   const figmaLibraries = Array.isArray(config("figma").libraries) ? (config("figma").libraries as unknown[]).length : 0;
   const reportsHere = (
     Array.isArray(config("code_adoption").reports)
-      ? (config("code_adoption").reports as { path?: string; metricGroupId?: string | null }[])
+      ? (config("code_adoption").reports as { path?: string; metricGroupId?: string | null; charts?: unknown }[])
       : []
   ).filter((r) => r.metricGroupId === tab.id);
   const ga4Properties =
@@ -137,8 +147,15 @@ const TabBlocks = ({ tab, all }: { tab: MetricGroup; all: MetricGroup[] }) => {
         ]
       : []),
     ...reportsHere.map((r) => {
-      const repo = (r.path?.split("/").pop() ?? "").replace(/(-report)?\.json$/, "");
-      return { key: `code:${r.path}`, title: `Code adoption · ${repo}`, subtitle: "Bloom usage by team, from the weekly GitHub report" };
+      const charts = codeAdoptionChartsOf(r.charts);
+      const label = (options: { value: string; label: string }[], value: string) =>
+        options.find((o) => o.value === value)?.label.toLowerCase() ?? value;
+      return {
+        key: `code:${r.path}`,
+        title: `Code adoption · ${reportRepo(r.path ?? "")}`,
+        subtitle: `Over time: ${label(TREND_CHART_OPTIONS, charts.trend)} · Teams: ${label(TEAMS_CHART_OPTIONS, charts.teams)} · Greenhouse: ${label(GREENHOUSE_CHART_OPTIONS, charts.greenhouse)}`,
+        reportPath: r.path ?? null,
+      };
     }),
     ...ga4Properties.map((p) => ({
       key: `ga4:${p.id}`,
@@ -288,12 +305,34 @@ const TabBlocks = ({ tab, all }: { tab: MetricGroup; all: MetricGroup[] }) => {
         >
           <ul className="flex flex-col">
             {panels.map((panel) => (
-              <SourceListItem key={panel.key} title={panel.title} subtitle={panel.subtitle} />
+              <SourceListItem
+                key={panel.key}
+                title={panel.title}
+                subtitle={panel.subtitle}
+                actions={
+                  "reportPath" in panel && panel.reportPath ? (
+                    <DesignButton
+                      variant="flat"
+                      theme="muted"
+                      size="small"
+                      icon={<ChartBar size={16} />}
+                      onClick={() => setChartsSheet(panel.reportPath)}
+                    >
+                      Charts
+                    </DesignButton>
+                  ) : undefined
+                }
+              />
             ))}
           </ul>
         </SourceSection>
       )}
 
+      <CodeAdoptionChartsSheet
+        open={Boolean(chartsSheet)}
+        onOpenChange={(open) => !open && setChartsSheet(null)}
+        reportPath={chartsSheet}
+      />
       <NumberBlockSheet
         open={Boolean(numberSheet)}
         onOpenChange={(open) => !open && setNumberSheet(null)}

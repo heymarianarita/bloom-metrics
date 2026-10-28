@@ -9,7 +9,8 @@ const api = `http://localhost:${process.env.API_PORT ?? 8080}`;
 export default defineConfig(() => ({
   server: {
     host: "::",
-    port: 5173,
+    // The preview tools pass a free port in PORT when 5173 is taken.
+    port: Number(process.env.PORT) || 5173,
     hmr: {
       overlay: false,
     },

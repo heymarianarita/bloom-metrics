@@ -1,7 +1,20 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { Code } from "@phosphor-icons/react";
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { DesignStatGroup } from "@/components/ds/DesignStatGroup";
 import { DesignStatCard } from "@/components/ds/DesignStatCard";
 import { DesignDataTable, type DataTableColumn } from "@/components/ds/DesignDataTable";
@@ -19,6 +32,7 @@ import {
 } from "@/hooks/useCodeAdoption";
 import { LINE_COLORS } from "@/lib/chartColors";
 import { formatDate, formatDateTime } from "@/lib/formatDate";
+import { DEFAULT_CODE_ADOPTION_CHARTS, type TrendChart } from "../../../server/shared/codeAdoptionCharts.ts";
 
 /** The four shares every ds-analyzer report splits UI elements into; they add up to 100%. */
 const SHARES = [
@@ -136,6 +150,134 @@ const sortRows = <T extends Record<string, unknown>>(rows: T[], key: string, dir
   });
 };
 
+const tooltipStyle = { borderRadius: 6, border: "1px solid var(--border)", fontSize: 12 };
+const percentAxis = {
+  tick: { fontSize: 12 },
+  stroke: "var(--muted-foreground)",
+  domain: [0, 100] as [number, number],
+  // Shares add up to 100%; rounding in a report must not stretch the axis past it.
+  allowDataOverflow: true,
+  tickFormatter: (v: number) => `${v}%`,
+};
+
+/** The four shares per weekly scan, as a line, stacked area or 100% stacked bar chart. */
+const TrendChartView = ({ kind, data }: { kind: TrendChart; data: Record<string, string | number | null>[] }) => (
+  <ResponsiveContainer width="100%" height="100%">
+    {kind === "area" ? (
+      <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+        <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
+        <YAxis {...percentAxis} width={44} />
+        <Tooltip formatter={(v: number) => pct(v)} contentStyle={tooltipStyle} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        {SHARES.map((s, i) => (
+          <Area
+            key={s.key}
+            type="monotone"
+            dataKey={s.label}
+            stackId="shares"
+            stroke={LINE_COLORS[i % LINE_COLORS.length]}
+            fill={LINE_COLORS[i % LINE_COLORS.length]}
+            fillOpacity={0.35}
+            strokeWidth={2}
+          />
+        ))}
+      </AreaChart>
+    ) : kind === "stacked_bar" ? (
+      <BarChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+        <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
+        <YAxis {...percentAxis} width={44} />
+        <Tooltip formatter={(v: number) => pct(v)} contentStyle={tooltipStyle} cursor={{ fill: "var(--border)", opacity: 0.4 }} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        {SHARES.map((s, i) => (
+          <Bar key={s.key} dataKey={s.label} stackId="shares" fill={LINE_COLORS[i % LINE_COLORS.length]} maxBarSize={48} />
+        ))}
+      </BarChart>
+    ) : (
+      <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+        <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
+        <YAxis {...percentAxis} width={44} />
+        <Tooltip formatter={(v: number) => pct(v)} contentStyle={tooltipStyle} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        {SHARES.map((s, i) => (
+          <Line
+            key={s.key}
+            type="monotone"
+            dataKey={s.label}
+            stroke={LINE_COLORS[i % LINE_COLORS.length]}
+            strokeWidth={3}
+            dot={{ r: 4, strokeWidth: 2, fill: "var(--background)" }}
+            activeDot={{ r: 6, strokeWidth: 2, fill: "var(--background)" }}
+            connectNulls
+          />
+        ))}
+      </LineChart>
+    )}
+  </ResponsiveContainer>
+);
+
+/** Bars shown at most in the team and Greenhouse charts; the tables list everything. */
+const MAX_BARS = 15;
+const BAR_ROW = 28;
+
+/** Each team's split of UI elements as one 100% stacked bar, biggest teams first. */
+const TeamsChartView = ({ repo, rows }: { repo: CodeAdoptionRepo; rows: TeamRow[] }) => {
+  const byDomain = new Map((repo.latest?.domains ?? []).map((d) => [d.domain, d]));
+  const data = [...rows]
+    .sort((a, b) => b.files - a.files)
+    .slice(0, MAX_BARS)
+    .map((r) => {
+      const d = byDomain.get(r.key);
+      return { team: r.team, ...Object.fromEntries(SHARES.map((s) => [s.label, d?.[s.domainKey] ?? null])) };
+    });
+  if (data.length === 0) return null;
+  return (
+    <div style={{ height: data.length * BAR_ROW + 72 }} className="w-full rounded-[6px] border border-border p-4">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }} barCategoryGap={6}>
+          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
+          <XAxis type="number" {...percentAxis} />
+          <YAxis type="category" dataKey="team" width={140} tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" interval={0} />
+          <Tooltip formatter={(v: number) => pct(v)} contentStyle={tooltipStyle} cursor={{ fill: "var(--border)", opacity: 0.4 }} />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          {SHARES.map((s, i) => (
+            <Bar key={s.key} dataKey={s.label} stackId="shares" fill={LINE_COLORS[i % LINE_COLORS.length]} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+/** Usages per Greenhouse component, most used first. */
+const GreenhouseChartView = ({ rows }: { rows: { name: string; count: number }[] }) => {
+  const data = [...rows].sort((a, b) => b.count - a.count).slice(0, MAX_BARS);
+  if (data.length === 0) return null;
+  return (
+    <div style={{ height: data.length * BAR_ROW + 48 }} className="w-full rounded-[6px] border border-border p-4">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }} barCategoryGap={6}>
+          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
+          <XAxis type="number" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" allowDecimals={false} />
+          <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" interval={0} />
+          <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--border)", opacity: 0.4 }} />
+          <Bar dataKey="count" name="Usages" fill={LINE_COLORS[0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+/** A section heading with a short note on the right, as used above each chart. */
+const SectionTitle = ({ title, note }: { title: string; note?: string }) => (
+  <div className="flex items-baseline justify-between gap-3">
+    <p className="text-[16px] font-medium text-foreground">{title}</p>
+    {note && <p className="text-[12px] text-muted-foreground">{note}</p>}
+  </div>
+);
+
 /** Code adoption for the product repos whose report is pointed at `metricGroupId`; nothing when none is. */
 const CodeAdoptionPanel = ({
   metricGroupId,
@@ -178,6 +320,7 @@ const CodeAdoptionPanel = ({
   }, [repo]);
   const [ghSort, setGhSort] = React.useState<{ key: string; dir: "asc" | "desc" | null }>({ key: "count", dir: "desc" });
 
+  const charts = repo?.charts ?? DEFAULT_CODE_ADOPTION_CHARTS;
   const chartData = snaps.map((s) => ({
     period: formatDate(s.generated_at),
     ...Object.fromEntries(SHARES.map((sh) => [sh.label, s[sh.key]])),
@@ -335,75 +478,79 @@ const CodeAdoptionPanel = ({
             })}
           </DesignStatGroup>
 
-          <section className="px-5 pb-3 pt-2">
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="text-[16px] font-medium text-foreground">Evolution over time</p>
-              <p className="text-[12px] text-muted-foreground">Share of UI elements, one point per weekly scan</p>
-            </div>
-            <DesignSpacer size="small" />
-            <div className="h-[256px] w-full rounded-[6px] border border-border p-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
-                  <YAxis tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" width={44} domain={[0, 100]} tickFormatter={(v: number) => `${v}%`} />
-                  <Tooltip
-                    formatter={(v: number) => pct(v)}
-                    contentStyle={{ borderRadius: 6, border: "1px solid var(--border)", fontSize: 12 }}
+          {charts.trend !== "hidden" && (
+            <section className="px-5 pb-3 pt-2">
+              <SectionTitle title="Evolution over time" note="Share of UI elements, one point per weekly scan" />
+              <DesignSpacer size="small" />
+              <div className="h-[256px] w-full rounded-[6px] border border-border p-4">
+                <TrendChartView kind={charts.trend} data={chartData} />
+              </div>
+            </section>
+          )}
+
+          {(charts.teams === "stacked_bar" || charts.teams === "both") && (
+            <section className="px-5 pb-3 pt-2">
+              <SectionTitle
+                title="Adoption by team"
+                note={rows.length > MAX_BARS ? `The ${MAX_BARS} teams with most files` : "Share of UI elements per team"}
+              />
+              <DesignSpacer size="small" />
+              <TeamsChartView repo={repo} rows={rows} />
+            </section>
+          )}
+
+          {(charts.teams === "table" || charts.teams === "both") && (
+            <DesignDataTable
+              title={charts.teams === "both" ? "Teams" : "Adoption by team"}
+              searchInTitle
+              columns={teamColumns}
+              data={sortRows(active.rows, sort.key, sort.dir)}
+              tabs={views.map((v) => ({ id: v.id, label: v.label, count: v.rows.length }))}
+              activeTab={active.id}
+              onTabChange={setView}
+              sortKey={sort.key}
+              sortDirection={sort.dir}
+              onSortChange={(key, dir) => setSort({ key, dir })}
+              rowKey={(r) => r.key}
+              searchPlaceholder="Search teams"
+              pageSize={10}
+              totalResultsLabel={`${active.rows.length} teams`}
+              emptyTitle="No teams found"
+              emptyBody="No teams match this view."
+            />
+          )}
+
+          {charts.greenhouse === "bar" && (
+            <section className="px-5 pb-3 pt-4">
+              <SectionTitle
+                title="Greenhouse components"
+                    note={greenhouseRows.length > MAX_BARS ? `The ${MAX_BARS} most used` : "Usages in the latest scan"}
                   />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {SHARES.map((s, i) => (
-                    <Line
-                      key={s.key}
-                      type="monotone"
-                      dataKey={s.label}
-                      stroke={LINE_COLORS[i % LINE_COLORS.length]}
-                      strokeWidth={3}
-                      dot={{ r: 4, strokeWidth: 2, fill: "var(--background)" }}
-                      activeDot={{ r: 6, strokeWidth: 2, fill: "var(--background)" }}
-                      connectNulls
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
+                  <DesignSpacer size="small" />
+                  <GreenhouseChartView rows={greenhouseRows} />
+                </section>
+              )}
 
-          <DesignDataTable
-            title="Adoption by team"
-            searchInTitle
-            columns={teamColumns}
-            data={sortRows(active.rows, sort.key, sort.dir)}
-            tabs={views.map((v) => ({ id: v.id, label: v.label, count: v.rows.length }))}
-            activeTab={active.id}
-            onTabChange={setView}
-            sortKey={sort.key}
-            sortDirection={sort.dir}
-            onSortChange={(key, dir) => setSort({ key, dir })}
-            rowKey={(r) => r.key}
-            searchPlaceholder="Search teams"
-            pageSize={10}
-            totalResultsLabel={`${active.rows.length} teams`}
-            emptyTitle="No teams found"
-            emptyBody="No teams match this view."
-          />
-
-          <DesignSpacer size="medium" />
-          <DesignDataTable
-            title="Greenhouse components"
-            searchInTitle
-            columns={ghColumns}
-            data={sortRows(greenhouseRows, ghSort.key, ghSort.dir)}
-            sortKey={ghSort.key}
-            sortDirection={ghSort.dir}
-            onSortChange={(key, dir) => setGhSort({ key, dir })}
-            rowKey={(r) => r.key}
-            searchPlaceholder="Search components"
-            pageSize={10}
-            totalResultsLabel={`${greenhouseRows.length} components`}
-            emptyTitle="No Greenhouse components"
-            emptyBody="This report lists no Greenhouse components."
-          />
+              {charts.greenhouse === "table" && (
+                <>
+                  <DesignSpacer size="medium" />
+                  <DesignDataTable
+                    title="Greenhouse components"
+                searchInTitle
+                columns={ghColumns}
+                data={sortRows(greenhouseRows, ghSort.key, ghSort.dir)}
+                sortKey={ghSort.key}
+                sortDirection={ghSort.dir}
+                onSortChange={(key, dir) => setGhSort({ key, dir })}
+                rowKey={(r) => r.key}
+                searchPlaceholder="Search components"
+                pageSize={10}
+                totalResultsLabel={`${greenhouseRows.length} components`}
+                emptyTitle="No Greenhouse components"
+                emptyBody="This report lists no Greenhouse components."
+              />
+            </>
+          )}
         </>
       )}
     </>
