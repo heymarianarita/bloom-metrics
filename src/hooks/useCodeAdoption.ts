@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { CodeAdoptionCharts } from "../../server/shared/codeAdoptionCharts.ts";
 
 type Elements = { ds: number; greenhouse: number; native: number; untagged: number };
 
@@ -45,6 +46,8 @@ export interface CodeAdoptionRepo {
   /** GitHub repository the report file lives in, and the metric (sub)group it's shown in. */
   repository: string | null;
   metricGroupId: string | null;
+  /** How its panel is drawn (Settings → Metrics). */
+  charts: CodeAdoptionCharts;
   snapshots: CodeAdoptionSnapshot[];
   latest: CodeAdoptionDetail | null;
   previous: CodeAdoptionDetail | null;
@@ -63,6 +66,7 @@ export interface CodeReportSource {
   branch: string;
   path: string;
   metricGroupId: string | null;
+  charts?: CodeAdoptionCharts;
 }
 
 export const useCodeAdoption = () =>

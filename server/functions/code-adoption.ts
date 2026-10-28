@@ -4,6 +4,7 @@ import { canEdit } from "../auth.ts";
 import { getCredential } from "../credentials.ts";
 import { execute, nowMysql, query, toIso, toMysqlDatetime } from "../db.ts";
 import { localDevFlag } from "../devmode.ts";
+import { codeAdoptionChartsOf, type CodeAdoptionCharts } from "../shared/codeAdoptionCharts.ts";
 import { authenticateCronRequest } from "./cron-auth.ts";
 import type { FnHandler, FnResponse } from "./types.ts";
 
@@ -20,8 +21,9 @@ import type { FnHandler, FnResponse } from "./types.ts";
  *
  * Settings → Dynamic sources → "Code adoption":
  *   GITHUB_TOKEN (credential) — fine-grained token, Contents: read-only on every repository used
- *   config.reports            — [{repository, branch, path, metricGroupId}], one per product repo;
- *                               metricGroupId is the metric (sub)group whose page shows it
+ *   config.reports            — [{repository, branch, path, metricGroupId, charts}], one per product repo;
+ *                               metricGroupId is the metric (sub)group whose page shows it, charts
+ *                               how its panel is drawn (Settings → Metrics)
  *
  * Local development only: CODE_ADOPTION_LOCAL_FILE=/path/to/report.json syncs from disk.
  */
@@ -33,7 +35,13 @@ const MAX_FETCHES_PER_RUN = 60;
 const json = (body: unknown, status = 200): FnResponse => ({ status, body });
 
 /** One report file, the repository it lives in, and the metric (sub)group it's shown in. */
-export interface ReportSource { repository: string; branch: string; path: string; metricGroupId: string | null }
+export interface ReportSource {
+  repository: string;
+  branch: string;
+  path: string;
+  metricGroupId: string | null;
+  charts: CodeAdoptionCharts;
+}
 
 const DEFAULT_BRANCH = "master";
 
@@ -52,6 +60,7 @@ async function readReports(): Promise<ReportSource[]> {
       branch: String(r?.branch ?? "").trim() || DEFAULT_BRANCH,
       path: String(r?.path ?? "").trim().replace(/^\//, ""),
       metricGroupId: r?.metricGroupId ? String(r.metricGroupId) : null,
+      charts: codeAdoptionChartsOf(r?.charts),
     }))
     .filter((r) => r.repository && r.path);
 }
@@ -330,6 +339,7 @@ const handler: FnHandler = async (req) => {
           ...r,
           repository: groupOf.get(r.repo)?.repository ?? null,
           metricGroupId: groupOf.get(r.repo)?.metricGroupId ?? null,
+          charts: groupOf.get(r.repo)?.charts ?? codeAdoptionChartsOf(null),
         })),
       });
     } catch (e) {

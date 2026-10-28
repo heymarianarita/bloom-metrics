@@ -62,6 +62,7 @@ const CodeAdoptionSourceCard = ({
       raw
         .filter((r) => r.path)
         .map((r) => ({
+          ...r,
           repository: r.repository ?? "",
           branch: r.branch || DEFAULT_BRANCH,
           path: r.path ?? "",
