@@ -317,7 +317,22 @@ async function readHistory() {
   return out;
 }
 
+/** One scan's per-team and Greenhouse breakdown, for a page showing a period other than the latest. */
+async function readScan(repo: string, generatedAt: string) {
+  const at = toMysqlDatetime(generatedAt);
+  if (!at) return null;
+  const row = (await query<SnapshotRow>(
+    "SELECT generated_at, domains, greenhouse_usage FROM code_adoption_snapshots WHERE repo = ? AND generated_at = ?",
+    [repo, at],
+  ))[0];
+  return row ? { generated_at: toIso(row.generated_at), domains: row.domains, greenhouse: row.greenhouse_usage } : null;
+}
+
 const handler: FnHandler = async (req) => {
+  if (req.method === "GET" && req.query.get("repo") && req.query.get("scan")) {
+    const scan = await readScan(req.query.get("repo")!, req.query.get("scan")!);
+    return scan ? json(scan) : json({ error: "Scan not found" }, 404);
+  }
   if (req.method === "GET") {
     try {
       const [repos, lastRun, token, reports] = await Promise.all([

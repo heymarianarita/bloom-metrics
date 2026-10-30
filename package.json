@@ -15,7 +15,8 @@
     "migrate": "tsx server/migrate.ts",
     "start": "tsx server/migrate.ts && tsx server/index.ts",
     "typecheck:server": "tsc -p tsconfig.server.json",
-    "db:dev": "node scripts/dev-db.mjs"
+    "db:dev": "node scripts/dev-db.mjs",
+    "db:load": "tsx --env-file-if-exists=.env scripts/load-snapshot.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

@@ -12,10 +12,12 @@ import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { DesignButton } from "@/components/ds/DesignButton";
 import { useNavigate } from "react-router-dom";
-import MetricGroupPanel from "@/components/metrics/MetricGroupPanel";
+import ViewBlocks from "@/components/metrics/ViewBlocks";
+import { useMetricGroups } from "@/hooks/useMetricGroups";
 import { useSheetsAnalytics, type SurveyMetrics } from "@/hooks/useSheetsAnalytics";
 import { cn } from "@/lib/utils";
 import { InsightsPanel, metricInsights, seriesForChat, type MetricSeries } from "@/components/metrics/InsightsPanel";
+import { EditViewButton } from "@/components/metrics/EditViewButton";
 
 type MetricKey = keyof SurveyMetrics;
 
@@ -43,6 +45,8 @@ const Impact = () => {
   const { data, isLoading, isFetching, error, refetch } = useSheetsAnalytics();
   const [selectedQuarter, setSelectedQuarter] = React.useState<string | null>(null);
   const [metricSeries, setMetricSeries] = React.useState<MetricSeries>([]);
+  const groups = useMetricGroups();
+  const impactView = (groups.data ?? []).find((g) => !g.parent_id && g.slug === "impact");
   const insights = React.useMemo(() => metricInsights(metricSeries), [metricSeries]);
 
   const quarters = data?.quarters ?? [];
@@ -95,6 +99,7 @@ const Impact = () => {
     <AppShell>
       <div className="w-full max-w-[1440px] mx-auto">
         <DesignPageHeader
+          primaryAction={<EditViewButton tabSlug="impact" />}
           title="Impact"
           subtitle={
             activeQuarter
@@ -122,8 +127,10 @@ const Impact = () => {
         <DesignSpacer size="medium" />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-[12px] items-start">
-          <DesignCard variant="default" className="lg:col-span-2 min-w-0 p-5">
-            <MetricGroupPanel group="Impact" showResponses onSeriesChange={setMetricSeries} />
+          <DesignCard variant="default" className="lg:col-span-2 min-w-0">
+            {impactView && (
+              <ViewBlocks view={impactView} groups={groups.data ?? []} showResponses onSeriesChange={setMetricSeries} />
+            )}
           </DesignCard>
           <InsightsPanel
             subject="Impact"

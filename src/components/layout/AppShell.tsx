@@ -38,6 +38,7 @@ import {
   Sliders,
   ChartLineUp,
   Cube,
+  Target,
   ClockCounterClockwise,
   UsersThree,
   SquaresFour,
@@ -108,7 +109,12 @@ export const settingsNavItems: NavItem[] = [
     label: "Metrics",
     path: "/settings/metrics",
     icon: ChartLineUp,
+    children: [
+      { label: "All metrics", path: "/settings/metrics" },
+      { label: "Views", path: "/settings/views" },
+    ],
   },
+  { label: "OKRs", path: "/settings/okrs", icon: Target },
   { label: "Components", path: "/settings/components", icon: Cube },
   { label: "Performance", path: "/settings/performance", icon: Table },
   { label: "Data history", path: "/settings/history", icon: ClockCounterClockwise },
@@ -171,7 +177,7 @@ const AppShell = ({ children }: AppShellProps) => {
       path: `/metrics/documentation/${ga4PropertySlug(property)}`,
     }));
 
-  // Adoption gets one sub-tab per subgroup (Settings → Metrics), then one per metric
+  // Adoption gets one sub-tab per subgroup (Metrics → All metrics), then one per metric
   // filed directly under Adoption, named exactly as in Settings.
   const { data: allMetrics } = useManualMetrics();
   const { data: allGroups } = useMetricGroups();
@@ -240,7 +246,7 @@ const AppShell = ({ children }: AppShellProps) => {
     return item;
   });
 
-  // The menu follows the tabs set up in Settings → Metrics, in their order. Tabs with a page of
+  // The menu follows the tabs set up in Metrics → All metrics, in their order. Tabs with a page of
   // their own keep it; any other tab gets the standard page, with one sub-tab per subgroup.
   const tree = groupTree(allGroups ?? []);
   const builtInFor = (slug: string) => builtInItems.find((item) => item.path === `/metrics/${slug}`);
@@ -377,10 +383,14 @@ const AppShell = ({ children }: AppShellProps) => {
               <div className={`flex flex-col gap-0.5 ${collapsed ? "items-center" : ""}`}>
                 {navItems.map((item) => {
                   const ItemIcon = item.icon;
+                  // A parent is active on any of its children's pages too, even when their paths differ.
+                  const childActive = Boolean(item.children?.some((child) => pathname.startsWith(child.path)));
                   return (
                   <div key={item.path} className={collapsed ? "" : "w-full"}>
                   <NavLink to={item.path} end={!item.children}>
-                    {({ isActive }) =>
+                    {({ isActive: pathActive }) => {
+                      const isActive = pathActive || childActive;
+                      return (
                       collapsed ? (
                         <DesignTooltip content={item.label} side="right">
                           <span
@@ -406,8 +416,8 @@ const AppShell = ({ children }: AppShellProps) => {
                           <ItemIcon size={16} className="shrink-0" />
                           <span className="flex-1">{item.label}</span>
                         </span>
-                      )
-                    }
+                      ));
+                    }}
                   </NavLink>
                   {!collapsed &&
                     item.children &&

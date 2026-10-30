@@ -9,7 +9,6 @@ import {
   useDeleteMetricGroup,
   useMetricGroups,
   useSaveMetricGroup,
-  PERIODICITY_OPTIONS,
   type MetricGroup,
   type Periodicity,
 } from "@/hooks/useMetricGroups";
@@ -155,13 +154,6 @@ const TabSheet = ({
           label="Description"
           value={draft.description}
           onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-        />
-        <DesignInputSelect
-          label="Benchmark frequency"
-          helperText="How values are grouped into periods on this tab."
-          value={draft.periodicity}
-          onChange={(value) => setDraft({ ...draft, periodicity: value as Periodicity })}
-          options={PERIODICITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
         />
       </div>
     </DesignSideSheet>

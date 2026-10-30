@@ -1,4 +1,5 @@
 import { tableStyles as ts } from "@/components/ds/tableStyles";
+import { useSectionHeading } from "@/components/metrics/sectionHeading";
 import * as React from "react";
 import { DesignLoader } from "@/components/ds/DesignLoader";
 import { useQueries } from "@tanstack/react-query";
@@ -193,7 +194,7 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity }: Props) => {
           <section key={aspect.label} className="pt-2">
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-[16px] font-medium text-foreground">
-                {group} per {aspect.label.toLowerCase()}
+                <BreakdownHeading fallback={`${group} per ${aspect.label.toLowerCase()}`} />
               </p>
               <p className="text-[12px] text-muted-foreground">
                 {filters.period === ALL ? "Latest period" : filters.period}
@@ -298,3 +299,6 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity }: Props) => {
 };
 
 export default MergedBreakdowns;
+
+/** The breakdown's heading, or the view section's own title. */
+const BreakdownHeading = ({ fallback }: { fallback: string }) => <>{useSectionHeading(fallback)}</>;

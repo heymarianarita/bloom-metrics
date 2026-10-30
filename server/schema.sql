@@ -367,6 +367,46 @@ CREATE TABLE IF NOT EXISTS `qualitative_summaries` (
   CONSTRAINT `qualitative_summaries_source_fk` FOREIGN KEY (`source_id`) REFERENCES `qualitative_sources` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- The layout of each Metrics view (a metric_groups row): rows top to bottom, each split into
+-- columns ("1", "1-1", "1-1-1", "1-1-1-1", "2-1", "1-2" — relative widths), one widget per column.
+CREATE TABLE IF NOT EXISTS `view_rows` (
+  `id` CHAR(36) NOT NULL DEFAULT (UUID()),
+  `view_id` CHAR(36) NOT NULL,
+  `layout` VARCHAR(32) NOT NULL DEFAULT '1',
+  `sort_order` INT NOT NULL DEFAULT 0,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `view_rows_view_idx` (`view_id`, `sort_order`),
+  CONSTRAINT `view_rows_view_fk` FOREIGN KEY (`view_id`) REFERENCES `metric_groups` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- The widgets in a view's rows: one metric (or a few) shown one way. Metrics are defined once
+-- (Metrics → All metrics) and shown in any number of widgets and views (Metrics → Views).
+CREATE TABLE IF NOT EXISTS `view_items` (
+  `id` CHAR(36) NOT NULL DEFAULT (UUID()),
+  `view_id` CHAR(36) NOT NULL,
+  `row_id` CHAR(36) NULL,
+  -- Column of its row, from 0.
+  `slot` INT NOT NULL DEFAULT 0,
+  -- card | trend | breakdown | distribution (ref = manual_metrics.id; options.metrics for several),
+  -- themes (ref = qualitative_sources.id), code (ref = report path, section = shares|trend|teams|
+  -- greenhouse), figma, text (options.text, options.style = heading|note).
+  `kind` VARCHAR(32) NOT NULL,
+  `ref` VARCHAR(512) NOT NULL DEFAULT '',
+  `section` VARCHAR(64) NOT NULL DEFAULT '',
+  `hidden` TINYINT(1) NOT NULL DEFAULT 0,
+  `sort_order` INT NOT NULL DEFAULT 0,
+  -- How it's drawn: {metrics, chart, column, view, text, style}, by kind.
+  `options` JSON NOT NULL DEFAULT (JSON_OBJECT()),
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `view_items_view_idx` (`view_id`, `sort_order`),
+  KEY `view_items_row_idx` (`row_id`, `slot`),
+  CONSTRAINT `view_items_view_fk` FOREIGN KEY (`view_id`) REFERENCES `metric_groups` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Tracks one-off data steps (the Lovable import) so they never run twice.
 CREATE TABLE IF NOT EXISTS `app_migrations` (
   `name` VARCHAR(191) NOT NULL,

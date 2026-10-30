@@ -67,7 +67,7 @@ const DesignInputText = React.forwardRef<HTMLInputElement, DesignInputTextProps>
       <div className={cn("flex flex-col", className)}>
         {/* Label */}
         {resolvedLabel && (
-          <label className="text-[14px] leading-[18px] font-normal text-[var(--input-title)] mb-1">
+          <label className="text-[14px] leading-[18px] font-medium text-[var(--input-title)] mb-1">
             {resolvedLabel}
           </label>
         )}
@@ -77,9 +77,9 @@ const DesignInputText = React.forwardRef<HTMLInputElement, DesignInputTextProps>
           className={cn(
             "flex items-center rounded-[6px] border transition-all bg-[var(--background)]",
             // Height
-            isCompact ? "min-h-[36px]" : "min-h-[44px]",
+            isCompact ? "h-[36px]" : "min-h-[44px]",
             // Padding
-            "px-3",
+            "px-4",
             // Border color
             error
               ? "border-[var(--error-default)]"
@@ -117,7 +117,7 @@ const DesignInputText = React.forwardRef<HTMLInputElement, DesignInputTextProps>
             }}
             className={cn(
               "flex-1 bg-transparent outline-none min-w-0",
-              "text-[16px] leading-[22px]",
+              "text-[14px] leading-[18px]",
               "font-normal",
               "text-[var(--input-value)] placeholder:text-[var(--input-placeholder)]",
               "caret-[var(--primary)]",
@@ -221,7 +221,7 @@ const DesignInputTextArea = React.forwardRef<
       <div className={cn("flex flex-col", className)}>
         {/* Label */}
         {resolvedLabel && (
-          <label className="text-[14px] leading-[18px] font-normal text-[var(--input-title)] mb-1">
+          <label className="text-[14px] leading-[18px] font-medium text-[var(--input-title)] mb-1">
             {resolvedLabel}
           </label>
         )}
@@ -229,7 +229,7 @@ const DesignInputTextArea = React.forwardRef<
         {/* Textarea container */}
         <div
           className={cn(
-            "flex rounded-[6px] border transition-all bg-[var(--background)] px-3 py-2.5",
+            "flex rounded-[6px] border transition-all bg-[var(--background)] px-4 py-2.5",
             error
               ? "border-[var(--error-default)]"
               : focused
@@ -255,7 +255,7 @@ const DesignInputTextArea = React.forwardRef<
             }}
             className={cn(
               "flex-1 bg-transparent outline-none resize-none min-w-0",
-              "text-[16px] leading-[22px] font-normal",
+              "text-[14px] leading-[18px] font-normal",
               "text-[var(--input-value)] placeholder:text-[var(--input-placeholder)]",
               "caret-[var(--primary)]",
               disabled && "cursor-not-allowed text-[var(--greyscale-3)]"

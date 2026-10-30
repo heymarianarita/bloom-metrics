@@ -126,7 +126,7 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
       >
         {/* Label */}
         {resolvedLabel && (
-          <label className="text-[14px] leading-[18px] font-normal text-[var(--input-title)] mb-1">
+          <label className="text-[14px] leading-[18px] font-medium text-[var(--input-title)] mb-1">
             {resolvedLabel}
           </label>
         )}
@@ -142,9 +142,9 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
             className={cn(
               "w-full flex items-center justify-between rounded-[6px] transition-all outline-none cursor-pointer",
               // Padding
-              isCompact ? "px-3 py-1.5" : "px-3 py-2.5",
+              isCompact ? "px-4" : "px-4 py-2.5",
               // Height
-              isCompact ? "min-h-[36px]" : "min-h-[44px]",
+              isCompact ? "h-[36px]" : "min-h-[44px]",
               // Background
               disabled
                 ? "bg-[var(--greyscale-5)] cursor-not-allowed"
@@ -178,7 +178,7 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
             <span
               className={cn(
                 "flex-1 text-left truncate",
-                "text-[16px] leading-[22px]",
+                "text-[14px] leading-[18px]",
                 "font-normal",
                 disabled
                   ? "text-[var(--greyscale-3)]"
@@ -222,8 +222,8 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
                     aria-selected={isSelected}
                     onClick={() => handleSelect(option.value)}
                     className={cn(
-                      "w-full text-left px-3 flex items-center gap-2 transition-colors cursor-pointer",
-                      "py-2 text-[16px] leading-[22px]",
+                      "w-full text-left px-4 flex items-center gap-2 transition-colors cursor-pointer",
+                      "py-2 text-[14px] leading-[18px]",
                       "font-normal",
                       "hover:bg-[var(--surface-hover)] active:bg-[var(--surface-active)]",
                       isSelected

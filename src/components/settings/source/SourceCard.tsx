@@ -7,14 +7,13 @@ import { DesignButton } from "@/components/ds/DesignButton";
 import { DesignInputText } from "@/components/ds/DesignInput";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import CredentialsCard from "@/components/settings/CredentialsCard";
-import MetricGroupPicker from "@/components/settings/MetricGroupPicker";
 import { CREDENTIAL_DEFS, useCredentialStatus } from "@/hooks/useCredentials";
 import { formatDateTime } from "@/lib/formatDate";
 import type { SortableRowProps } from "@/components/settings/SortableList";
 
 /**
  * The one layout every dynamic source uses (Settings → Dynamic sources), top to bottom:
- * header (name, description, credential and sync status) · "Shown in" · item list ·
+ * header (name, description, credential and sync status) · item list ·
  * "Add…" field · source-specific sections · credentials · last check + Sync now.
  * Everything saves as it changes; there is no Save button.
  */
@@ -126,12 +125,15 @@ export const SourceSection = ({
   title,
   description,
   aside,
+  handle,
   children,
 }: {
   title?: string;
   description?: string;
   /** Right of the heading, e.g. counts. */
   aside?: React.ReactNode;
+  /** A grip handle left of the heading, when the sections can be reordered. */
+  handle?: React.ReactNode;
   children: React.ReactNode;
 }) => (
   <>
@@ -139,7 +141,12 @@ export const SourceSection = ({
     {(title || aside) && (
       <>
         <div className="flex items-center justify-between gap-3">
-          {title && <h3 className="text-[14px] font-medium text-foreground">{title}</h3>}
+          {title && (
+            <div className="flex items-center gap-1 min-w-0">
+              {handle}
+              <h3 className="text-[14px] font-medium text-foreground">{title}</h3>
+            </div>
+          )}
           {aside}
         </div>
         {description && <p className="text-[12px] text-muted-foreground mt-1">{description}</p>}
@@ -148,23 +155,6 @@ export const SourceSection = ({
     )}
     {children}
   </>
-);
-
-/** Where a source's data shows up on the Metrics pages. */
-export const SourceShownIn = ({
-  value,
-  onChange,
-  helperText = "The Metrics tab that shows this source.",
-}: {
-  value: string | null | undefined;
-  onChange: (groupId: string) => void;
-  helperText?: string;
-}) => (
-  <SourceSection>
-    <div className="max-w-[360px]">
-      <MetricGroupPicker value={value} onChange={onChange} helperText={helperText} />
-    </div>
-  </SourceSection>
 );
 
 /** The items a source tracks (libraries, properties, reports…), or an empty state. */

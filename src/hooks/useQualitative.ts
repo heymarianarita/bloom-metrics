@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { removePlacements } from "@/hooks/useViewItems";
 
 /** Qualitative metrics: a free-text dataset column summarised into themes (see server/qualitative). */
 
@@ -105,6 +106,7 @@ const useInvalidate = () => {
     Promise.all([
       qc.invalidateQueries({ queryKey: ["qualitative-sources"] }),
       qc.invalidateQueries({ queryKey: ["qualitative-group"] }),
+      qc.invalidateQueries({ queryKey: ["view-items"] }),
     ]);
 };
 
@@ -133,6 +135,7 @@ export const useDeleteQualitativeSource = () => {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("qualitative_sources").delete().eq("id", id);
       if (error) throw new Error(error.message);
+      await removePlacements("qualitative", id);
     },
     onSuccess: invalidate,
   });

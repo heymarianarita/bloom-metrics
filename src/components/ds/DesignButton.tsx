@@ -8,8 +8,9 @@ const buttonVariants = cva(
     variants: {
       size: {
         default: "min-h-[44px] py-[11px] px-4 text-base font-medium leading-[22px]",
-        medium: "min-h-[36px] py-[9px] px-[14px] text-sm font-normal leading-[18px]",
-        small: "min-h-[32px] py-2 px-3 text-xs font-normal leading-4",
+        // Exact heights, border included, so buttons line up with the 36px inputs.
+        medium: "h-9 py-0 px-[14px] text-sm font-normal leading-[18px]",
+        small: "h-8 py-0 px-3 text-xs font-normal leading-4",
       },
       theme: {
         primary: "",
@@ -46,7 +47,7 @@ const buttonVariants = cva(
       { variant: "flat", theme: "dark", className: "text-btn-dark hover:bg-btn-dark-hover-bg active:bg-btn-dark-active-bg" },
     ],
     defaultVariants: {
-      size: "default",
+      size: "medium",
       theme: "primary",
       variant: "filled",
     },
@@ -77,7 +78,7 @@ const Spinner = ({ className }: { className?: string }) => (
 );
 
 const DesignButton = React.forwardRef<HTMLButtonElement, DesignButtonProps>(
-  ({ className, size, theme, variant, fullWidth, isLoading, inverse, icon, iconPosition = "left", url, children, disabled, ...props }, ref) => {
+  ({ className, size: _size, theme, variant, fullWidth, isLoading, inverse, icon, iconPosition = "left", url, children, disabled, ...props }, ref) => {
     const content = (
       <>
         {isLoading && <Spinner />}
@@ -87,8 +88,11 @@ const DesignButton = React.forwardRef<HTMLButtonElement, DesignButtonProps>(
       </>
     );
 
+    // Every button uses the medium size (filled, outlined and flat alike), so buttons have the same
+    // height (36px, like the inputs) and text size across the app. `size` is kept for compatibility
+    // with older call sites but no longer changes anything; square icon buttons set their own box.
     const classes = cn(
-      buttonVariants({ size, theme, variant, className }),
+      buttonVariants({ size: "medium", theme, variant, className }),
       fullWidth && "w-full",
       inverse && variant === "filled" && "bg-white text-btn-primary border-transparent",
       isLoading && "pointer-events-none opacity-70"

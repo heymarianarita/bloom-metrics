@@ -3,7 +3,6 @@ import { GearSix, GithubLogo, Trash } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DesignButton } from "@/components/ds/DesignButton";
 import { DesignInputText } from "@/components/ds/DesignInput";
-import MetricGroupPicker from "@/components/settings/MetricGroupPicker";
 import {
   SourceAddField,
   SourceCard,
@@ -13,7 +12,6 @@ import {
 } from "@/components/settings/source/SourceCard";
 import { useSaveDataSourceConfig } from "@/hooks/useDataSources";
 import { useCodeAdoption, useSyncCodeAdoption, type CodeReportSource } from "@/hooks/useCodeAdoption";
-import { groupOptions, useMetricGroups } from "@/hooks/useMetricGroups";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/formatDate";
 
@@ -51,8 +49,6 @@ const CodeAdoptionSourceCard = ({
   const sync = useSyncCodeAdoption();
   const [reports, setReports] = React.useState<CodeReportSource[]>([]);
   const [openRow, setOpenRow] = React.useState<string | null>(null);
-  const groups = useMetricGroups();
-  const labels = new Map(groupOptions(groups.data ?? []).map((o) => [o.value, o.label]));
   const codeAdoption = useCodeAdoption();
   const stored = new Map((codeAdoption.data?.repos ?? []).map((r) => [r.repo, r]));
 
@@ -139,12 +135,11 @@ const CodeAdoptionSourceCard = ({
           const key = keyOf(report);
           const synced = stored.get(repoOf(report.path));
           const last = synced?.snapshots[synced.snapshots.length - 1];
-          const shownIn = report.metricGroupId ? labels.get(report.metricGroupId) : undefined;
           return (
             <SourceListItem
               key={key}
               title={repoOf(report.path)}
-              subtitle={`${shownIn ?? "Not shown anywhere yet"} · ${
+              subtitle={`${
                 last
                   ? `${synced!.snapshots.length} weekly report${synced!.snapshots.length === 1 ? "" : "s"}, latest ${formatDate(last.generated_at)}`
                   : "not synced yet"
@@ -174,10 +169,6 @@ const CodeAdoptionSourceCard = ({
             >
               {openRow === key && (
                 <div className="grid gap-3 md:grid-cols-2">
-                  <MetricGroupPicker
-                    value={report.metricGroupId}
-                    onChange={(metricGroupId) => persist(updateRow(key, { metricGroupId }))}
-                  />
                   <DesignInputText
                     label="Branch"
                     placeholder={DEFAULT_BRANCH}

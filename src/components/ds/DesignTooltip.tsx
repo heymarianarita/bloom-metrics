@@ -7,6 +7,8 @@ export interface DesignTooltipProps {
   children: React.ReactNode;
   side?: "top" | "bottom" | "left" | "right";
   className?: string;
+  /** Milliseconds of hover before it opens. Lower for text people hover on purpose to read. */
+  delay?: number;
 }
 
 const DesignTooltip: React.FC<DesignTooltipProps> = ({
@@ -14,6 +16,7 @@ const DesignTooltip: React.FC<DesignTooltipProps> = ({
   children,
   side = "top",
   className,
+  delay = 300,
 }) => {
   // Nothing to say (e.g. a table cell holding only a control): don't open an empty bubble.
   const isEmpty =
@@ -24,7 +27,7 @@ const DesignTooltip: React.FC<DesignTooltipProps> = ({
   if (isEmpty) return <>{children}</>;
 
   return (
-    <TooltipPrimitive.Root delayDuration={300}>
+    <TooltipPrimitive.Root delayDuration={delay}>
       <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Content

@@ -16,8 +16,10 @@ import Auth from "./pages/Auth";
 import SetPassword from "./pages/SetPassword";
 import DataSourcesSettings from "./pages/settings/DataSourcesSettings";
 import PerformanceSettings from "./pages/settings/PerformanceSettings";
+import OkrsSettings from "./pages/settings/OkrsSettings";
 import ManualMetricsSettings from "./pages/settings/ManualMetricsSettings";
 import MetricsSettings from "./pages/settings/MetricsSettings";
+import ViewsSettings from "./pages/settings/ViewsSettings";
 import HistorySettings from "./pages/settings/HistorySettings";
 import ComponentsSettings from "./pages/settings/ComponentsSettings";
 import UsersSettings from "./pages/settings/UsersSettings";
@@ -66,9 +68,11 @@ const App = () => (
           <Route path="/performance" element={<Performance />} />
           <Route path="/settings" element={<Navigate to="/settings/data-sources" replace />} />
           <Route path="/settings/data-sources" element={<DataSourcesSettings />} />
+          <Route path="/settings/okrs" element={<OkrsSettings />} />
           <Route path="/settings/performance" element={<PerformanceSettings />} />
           <Route path="/settings/manual-metrics" element={<ManualMetricsSettings />} />
           <Route path="/settings/metrics" element={<MetricsSettings />} />
+          <Route path="/settings/views" element={<ViewsSettings />} />
           {/* Quantitative, Qualitative and Metric groups are now one page. */}
           <Route path="/settings/qualitative" element={<Navigate to="/settings/metrics" replace />} />
           <Route path="/settings/metric-groups" element={<Navigate to="/settings/metrics" replace />} />
