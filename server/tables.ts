@@ -103,7 +103,7 @@ export const TABLES: Record<string, TableDef> = {
     columns: [
       "id", "slug", "name", "unit", "surface", "subgroup_id", "description", "sort_order", "archived",
       "dataset_id", "value_column", "period_column", "aggregation", "aggregation_options", "source_type",
-      "source_key", "source_field", "filter_columns", "breakdown_views", "scale_labels", ...ts,
+      "source_key", "source_field", "filter_columns", "breakdown_views", "direction", "scale_labels", ...ts,
     ],
     json: ["aggregation_options", "filter_columns", "breakdown_views", "scale_labels"],
     bool: ["archived"],

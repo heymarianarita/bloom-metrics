@@ -29,9 +29,25 @@ export interface ManualMetric {
   filter_columns: string[];
   /** How each filter column's breakdown is shown: column key → "table" | "bar" | "line" | "none". */
   breakdown_views: Record<string, BreakdownView>;
+  /** Which way is good: "up" (more is better), "down" (less is better) or "none". */
+  direction: MetricDirection;
   /** What each score means on a rating scale ("1" → "…"); empty when not a rating. */
   scale_labels: Record<string, string>;
 }
+
+export type MetricDirection = "up" | "down" | "none";
+
+export const DIRECTION_OPTIONS: { value: MetricDirection; label: string }[] = [
+  { value: "up", label: "Going up is good" },
+  { value: "down", label: "Going down is good" },
+  { value: "none", label: "Neither" },
+];
+
+/** How a change reads for this metric: good, bad, or neutral (no change, or no good direction). */
+export const changeTone = (direction: MetricDirection | undefined, delta: number | undefined): "good" | "bad" | "neutral" => {
+  if (delta === undefined || delta === 0 || direction === "none") return "neutral";
+  return (direction === "down" ? delta < 0 : delta > 0) ? "good" : "bad";
+};
 
 /** Order of metrics on a tab: as arranged in Metrics → All metrics, ties broken by name. */
 export const byTabOrder = (a: Pick<ManualMetric, "sort_order" | "name">, b: Pick<ManualMetric, "sort_order" | "name">) =>

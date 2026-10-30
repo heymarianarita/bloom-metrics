@@ -21,7 +21,7 @@ import { DesignCheckbox } from "@/components/ds/DesignCheckbox";
 import { DesignLoader } from "@/components/ds/DesignLoader";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { BREAKDOWN_VIEW_OPTIONS, useManualMetrics, type BreakdownView, type ManualMetric } from "@/hooks/useManualMetrics";
+import { useSaveManualMetric, type MetricDirection, BREAKDOWN_VIEW_OPTIONS, useManualMetrics, type BreakdownView, type ManualMetric } from "@/hooks/useManualMetrics";
 import { useDataSourceConfigs } from "@/hooks/useDataSources";
 import { useAllDatasetColumns } from "@/hooks/useManualDatasets";
 import { useQualitativeSources } from "@/hooks/useQualitative";
@@ -71,6 +71,11 @@ const TREND_OPTIONS = [
   { value: "line", label: "Line chart" },
   { value: "bar", label: "Bar chart" },
   { value: "area", label: "Stacked area chart" },
+];
+const DIRECTION_SHORT: { value: MetricDirection; label: string }[] = [
+  { value: "up", label: "Up is good" },
+  { value: "down", label: "Down is good" },
+  { value: "none", label: "Neither" },
 ];
 const TEXT_STYLES = [
   { value: "heading", label: "Heading" },
@@ -426,6 +431,7 @@ const SectionForm = ({
   const qualitative = useQualitativeSources();
   const configs = useDataSourceConfigs();
   const navigate = useNavigate();
+  const saveMetric = useSaveManualMetric();
 
   const live = (metrics.data ?? []).filter((m) => !m.archived);
   const isRating = (m: ManualMetric) =>
@@ -578,6 +584,32 @@ const SectionForm = ({
           />
           <DesignInputTextArea label="Text" rows={4} value={draft.options.text ?? ""} onChange={(e) => setOption({ text: e.target.value })} />
         </>
+      )}
+
+      {draft.kind === "card" && ids.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-foreground">When a number changes</p>
+          <p className="text-[12px] text-muted-foreground -mt-1">
+            Its change is green when it moves the good way. Saved on the metric, so it applies on every page.
+          </p>
+          {ids.map((id) => {
+            const metric = live.find((m) => m.id === id);
+            if (!metric) return null;
+            return (
+              <div key={id} className="grid grid-cols-[minmax(0,1fr)_150px] items-center gap-2">
+                <span className="text-sm truncate" title={metric.name}>{metric.name}</span>
+                <DesignInputSelect
+                  size="small"
+                  value={metric.direction ?? "up"}
+                  options={DIRECTION_SHORT}
+                  onChange={(direction) =>
+                    saveMetric.mutate({ id: metric.id, name: metric.name, slug: metric.slug, direction: direction as MetricDirection })
+                  }
+                />
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {draft.kind === "card" && ids.length > 1 && (
