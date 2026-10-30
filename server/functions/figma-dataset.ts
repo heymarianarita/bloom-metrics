@@ -75,9 +75,15 @@ export async function syncFigmaDatasetWith(conn: PoolConnection): Promise<{ rows
   const parsed = typeof config?.config === "string" ? JSON.parse(config.config) : config?.config;
   const libraries = new Map<string, Library>(((parsed?.libraries ?? []) as Library[]).map((l) => [l.fileKey, l]));
 
-  const snapshots = (await run(
-    "SELECT file_key, file_name, quarter, components FROM figma_adoption_snapshots ORDER BY quarter, file_key",
-  )) as { file_key: string; file_name: string | null; quarter: string; components: SnapshotComponent[] | string }[];
+  // Sorted here, not in SQL: sorting rows that carry the large components JSON overruns MySQL's sort buffer.
+  const snapshots = (
+    (await run("SELECT file_key, file_name, quarter, components FROM figma_adoption_snapshots")) as {
+      file_key: string;
+      file_name: string | null;
+      quarter: string;
+      components: SnapshotComponent[] | string;
+    }[]
+  ).sort((a, b) => a.quarter.localeCompare(b.quarter) || a.file_key.localeCompare(b.file_key));
 
   const rows: unknown[][] = [];
   for (const s of snapshots) {
