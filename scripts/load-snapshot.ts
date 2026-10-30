@@ -1,5 +1,5 @@
 // npm run db:load -- ~/Downloads/bloom-metrics-2026-10-30.json
-// Puts a production snapshot (Settings → Users → Download data) in the local database, and
+// Puts a production snapshot (Settings → Data history → Download database copy) in the local database, and
 // keeps it as server/seed/snapshot.json so the local database starts from it after a restart.
 import { copyFileSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
