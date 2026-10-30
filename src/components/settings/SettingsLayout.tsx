@@ -36,7 +36,8 @@ export interface SettingsContextPanel {
 /**
  * The column layout of Settings pages, after the app's own section sidebar: a list of items,
  * the selected item in the main panel, and a collapsible context panel on the right. Whether
- * the context panel is open is remembered per person. Below xl the panel opens as a side sheet.
+ * the context panel is open is remembered per person. Below xl it stays a slim rail that opens
+ * the panel as a side sheet; on phone widths a button above the main column does that.
  */
 export const SettingsLayout = ({
   list,
@@ -71,6 +72,8 @@ export const SettingsLayout = ({
       saveOpen(!was);
       return !was;
     });
+  // The rail expands the panel where it fits, otherwise opens the sheet.
+  const expand = () => (window.matchMedia("(min-width: 1280px)").matches ? toggle() : setSheet(true));
 
   const columns = [
     list ? "280px" : null,
@@ -85,7 +88,7 @@ export const SettingsLayout = ({
         className="grid grid-cols-1 gap-4 items-start lg:[grid-template-columns:var(--cols-lg)] xl:[grid-template-columns:var(--cols-xl)] xl:items-stretch xl:flex-1 xl:min-h-0"
         style={
           {
-            "--cols-lg": [list ? "280px" : null, "minmax(0,1fr)"].filter(Boolean).join(" "),
+            "--cols-lg": [list ? "280px" : null, "minmax(0,1fr)", context ? "44px" : null].filter(Boolean).join(" "),
             "--cols-xl": columns.join(" "),
           } as React.CSSProperties
         }
@@ -98,7 +101,7 @@ export const SettingsLayout = ({
           }`}
         >
           {context && !hideContextButton && (
-            <div className="xl:hidden flex justify-end">
+            <div className="lg:hidden flex justify-end">
               <DesignButton variant="flat" theme="muted" size="small" icon={<PanelRightOpen className="w-4 h-4" />} onClick={() => setSheet(true)}>
                 {context.title}
               </DesignButton>
@@ -106,8 +109,7 @@ export const SettingsLayout = ({
           )}
           {main}
         </div>
-        {context &&
-          (open ? (
+        {context && open && (
             <DesignCard className="hidden xl:flex flex-col overflow-hidden min-h-0">
               <div className="px-4 pt-4 pb-2 flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -122,19 +124,20 @@ export const SettingsLayout = ({
               </div>
               <div className="px-4 pb-4 flex-1 overflow-y-auto min-h-0">{context.content}</div>
             </DesignCard>
-          ) : (
+        )}
+        {context && (
             <DesignTooltip content={`Expand ${context.title}`} side="left">
               <button
                 type="button"
-                onClick={toggle}
+                onClick={expand}
                 aria-label={`Expand ${context.title}`}
-                className="hidden xl:flex flex-col items-center gap-3 py-3 self-start rounded-[12px] border border-design-card-border bg-design-card text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)] transition-colors"
+                className={`hidden lg:flex ${open ? "xl:hidden" : ""} flex-col items-center gap-3 py-3 self-start rounded-[12px] border border-design-card-border bg-design-card text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)] transition-colors`}
               >
                 <PanelRightOpen className="w-4 h-4" />
                 <span className="text-[13px] [writing-mode:vertical-rl]">{context.title}</span>
               </button>
             </DesignTooltip>
-          ))}
+        )}
       </div>
 
       {context && (

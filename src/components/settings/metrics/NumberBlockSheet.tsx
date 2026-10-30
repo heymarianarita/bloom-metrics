@@ -19,6 +19,7 @@ import { groupOptions as toGroupOptions, metricGroupId, useMetricGroups } from "
 import { aggregateDataset, comparePeriods, useDatasetColumns, useDatasetRows, useManualDatasets } from "@/hooks/useManualDatasets";
 import { useDynamicMetricSeries, useDynamicSourceOptions } from "@/hooks/useDynamicMetricSeries";
 import { findDynamicField, findDynamicSource } from "@/lib/dynamicMetricSources";
+import type { AggregationOptions, CountOp } from "../../../../server/shared/aggregate.ts";
 
 const slugifyMetric = (value: string) =>
   value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -28,6 +29,16 @@ const AGGREGATION_OPTIONS = [
   { value: "avg", label: "Average of rows" },
   { value: "latest", label: "Last row entered" },
   { value: "count", label: "Number of rows" },
+  { value: "ratio", label: "Percentage of another column's total" },
+  { value: "count_if", label: "Number of rows where the value…" },
+];
+
+const COUNT_OPS = [
+  { value: "eq", label: "is" },
+  { value: "lt", label: "is below" },
+  { value: "lte", label: "is at most" },
+  { value: "gt", label: "is above" },
+  { value: "gte", label: "is at least" },
 ];
 
 const emptyDraft = {
@@ -43,6 +54,7 @@ const emptyDraft = {
   value_column: "",
   period_column: "",
   aggregation: "sum",
+  aggregation_options: {} as AggregationOptions,
   filter_columns: [] as string[],
   breakdown_views: {} as Record<string, BreakdownView>,
   scale_labels: {} as Record<string, string>,
@@ -62,6 +74,7 @@ const draftFrom = (metric: ManualMetric): Draft => ({
   value_column: metric.value_column,
   period_column: metric.period_column,
   aggregation: metric.aggregation,
+  aggregation_options: { ...(metric.aggregation_options ?? {}) },
   filter_columns: Array.isArray(metric.filter_columns) ? [...metric.filter_columns] : [],
   breakdown_views: { ...(metric.breakdown_views ?? {}) } as Record<string, BreakdownView>,
   scale_labels: { ...(metric.scale_labels ?? {}) },
@@ -85,10 +98,11 @@ const ValuesPreview = ({ draft }: { draft: Draft }) => {
             value_column: draft.value_column,
             period_column: draft.period_column,
             aggregation: draft.aggregation as ManualMetric["aggregation"],
+            aggregation_options: draft.aggregation_options,
           })
         : [];
     return [...points].sort((a, b) => comparePeriods(b.period, a.period));
-  }, [isDynamic, dynamic.points, rows.data, draft.dataset_id, draft.value_column, draft.period_column, draft.aggregation]);
+  }, [isDynamic, dynamic.points, rows.data, draft.dataset_id, draft.value_column, draft.period_column, draft.aggregation, draft.aggregation_options]);
 
   const ready = isDynamic ? draft.source_key && draft.source_field : draft.dataset_id && draft.value_column && draft.period_column;
   const columns: DataTableColumn<Row>[] = [
@@ -229,6 +243,13 @@ const NumberBlockSheet = ({
         value_column: dynamic ? "" : draft.value_column,
         period_column: dynamic ? "" : draft.period_column,
         aggregation: draft.aggregation as ManualMetric["aggregation"],
+        // Only what the chosen way of combining uses.
+        aggregation_options:
+          draft.aggregation === "ratio"
+            ? { denominator_column: draft.aggregation_options.denominator_column ?? "" }
+            : draft.aggregation === "count_if"
+              ? { op: draft.aggregation_options.op ?? "eq", threshold: draft.aggregation_options.threshold ?? 0 }
+              : {},
         filter_columns: dynamic ? [] : draft.filter_columns,
         breakdown_views: dynamic
           ? {}
@@ -385,9 +406,44 @@ const NumberBlockSheet = ({
           <DesignInputSelect
             label="Combine rows by"
             value={draft.aggregation}
-            onChange={(aggregation) => setDraft({ ...draft, aggregation })}
+            onChange={(aggregation) => setDraft({ ...draft, aggregation, unit: aggregation === "ratio" && !draft.unit ? "%" : draft.unit })}
             options={AGGREGATION_OPTIONS}
           />
+          {draft.aggregation === "ratio" && (
+            <DesignInputSelect
+              label="Divided by the total of"
+              placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
+              disabled={!draft.dataset_id}
+              value={draft.aggregation_options.denominator_column ?? ""}
+              onChange={(denominator_column) =>
+                setDraft({ ...draft, aggregation_options: { ...draft.aggregation_options, denominator_column } })
+              }
+              options={valueColumnOptions}
+              helperText="E.g. detachments divided by insertions, shown as a percentage."
+            />
+          )}
+          {draft.aggregation === "count_if" && (
+            <div className="grid grid-cols-2 gap-3">
+              <DesignInputSelect
+                label="Count rows where the value"
+                value={draft.aggregation_options.op ?? "eq"}
+                onChange={(op) =>
+                  setDraft({ ...draft, aggregation_options: { ...draft.aggregation_options, op: op as CountOp } })
+                }
+                options={COUNT_OPS}
+              />
+              <DesignInputText
+                label="This number"
+                inputMode="decimal"
+                value={String(draft.aggregation_options.threshold ?? 0)}
+                onChange={(e) => {
+                  const threshold = Number(e.target.value);
+                  if (e.target.value.trim() === "" || Number.isFinite(threshold))
+                    setDraft({ ...draft, aggregation_options: { ...draft.aggregation_options, threshold: e.target.value.trim() === "" ? 0 : threshold } });
+                }}
+              />
+            </div>
+          )}
 
         </>
       )}

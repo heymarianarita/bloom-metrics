@@ -123,6 +123,8 @@ CREATE TABLE IF NOT EXISTS `manual_metrics` (
   `value_column` VARCHAR(191) NOT NULL DEFAULT '',
   `period_column` VARCHAR(191) NOT NULL DEFAULT '',
   `aggregation` VARCHAR(32) NOT NULL DEFAULT 'sum',
+  -- ratio: {denominator_column}; count_if: {op, threshold}.
+  `aggregation_options` JSON NOT NULL DEFAULT (JSON_OBJECT()),
   `source_type` VARCHAR(32) NOT NULL DEFAULT 'dataset',
   `source_key` VARCHAR(191) NOT NULL DEFAULT '',
   `source_field` VARCHAR(191) NOT NULL DEFAULT '',
@@ -135,7 +137,7 @@ CREATE TABLE IF NOT EXISTS `manual_metrics` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `manual_metrics_slug_key` (`slug`),
   CONSTRAINT `manual_metrics_dataset_fk` FOREIGN KEY (`dataset_id`) REFERENCES `manual_datasets` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `manual_metrics_aggregation_check` CHECK (`aggregation` IN ('sum','avg','latest','count')),
+  CONSTRAINT `manual_metrics_aggregation_check` CHECK (`aggregation` IN ('sum','avg','latest','count','ratio','count_if')),
   CONSTRAINT `manual_metrics_source_type_check` CHECK (`source_type` IN ('dataset','dynamic'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

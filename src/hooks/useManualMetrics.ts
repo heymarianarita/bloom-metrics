@@ -1,3 +1,4 @@
+import type { Aggregation, AggregationOptions } from "../../server/shared/aggregate.ts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { removePlacements } from "@/hooks/useViewItems";
@@ -17,7 +18,9 @@ export interface ManualMetric {
   dataset_id: string | null;
   value_column: string;
   period_column: string;
-  aggregation: "sum" | "avg" | "latest" | "count";
+  aggregation: Aggregation;
+  /** ratio: {denominator_column}; count_if: {op, threshold}. */
+  aggregation_options: AggregationOptions;
   /** "dataset" reads a manual dataset, "dynamic" reads a connected live source. */
   source_type: "dataset" | "dynamic";
   source_key: string;
@@ -48,13 +51,14 @@ export const scaleLabelFor = (metric: Pick<ManualMetric, "scale_labels">, value:
 export const hasScaleLabels = (metric: Pick<ManualMetric, "scale_labels">) =>
   SCALE_POINTS.some((p) => metric.scale_labels?.[p]?.trim());
 
-export type BreakdownView = "none" | "table" | "bar" | "line";
+export type BreakdownView = "none" | "table" | "bar" | "line" | "area";
 
 export const BREAKDOWN_VIEW_OPTIONS: { value: BreakdownView; label: string }[] = [
   { value: "none", label: "Don't show a breakdown" },
   { value: "table", label: "Table" },
   { value: "bar", label: "Bar chart" },
   { value: "line", label: "Line chart over time" },
+  { value: "area", label: "Stacked area over time" },
 ];
 
 export interface ManualMetricValue {
@@ -75,7 +79,8 @@ export const useManualMetrics = () =>
         .select("*")
         .order("sort_order", { ascending: true });
       if (error) throw new Error(error.message);
-      return (data ?? []) as unknown as ManualMetric[];
+      // The order set in Metrics → All metrics, everywhere metrics are listed.
+      return ((data ?? []) as unknown as ManualMetric[]).sort(byTabOrder);
     },
   });
 

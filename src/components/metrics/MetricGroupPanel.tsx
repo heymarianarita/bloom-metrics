@@ -30,7 +30,10 @@ import { bucketPeriod } from "../../../server/shared/periods.ts";
 import { QualitativeSection } from "@/components/metrics/QualitativeSection";
 import { useQualitativeSources } from "@/hooks/useQualitative";
 import { LINE_COLORS } from "@/lib/chartColors";
+import { compactNumber } from "@/lib/chartFormat";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -47,6 +50,14 @@ import {
 const ALL = "__all__";
 /** The "All …" choice of a segment select. */
 export const ALL_SEGMENT_VALUES = ALL;
+
+/** "Role" → "roles", "Library" → "libraries", "Business unit" → "business units". */
+const pluralLabel = (label: string) => {
+  const word = label.toLowerCase();
+  if (/[^aeiou]y$/.test(word)) return `${word.slice(0, -1)}ies`;
+  if (/(s|x|z|ch|sh)$/.test(word)) return `${word}es`;
+  return `${word}s`;
+};
 
 const PREVIOUS = "__previous__";
 
@@ -168,7 +179,7 @@ export const MetricFilterBar = ({
                 className="w-[160px]"
                 size="small"
                 options={[
-                  { value: ALL, label: `All ${segment.label.toLowerCase()}s` },
+                  { value: ALL, label: `All ${pluralLabel(segment.label)}` },
                   ...segment.values.map((value) => ({ value, label: value })),
                 ]}
                 value={filters.segments[segment.label] ?? ALL}
@@ -413,9 +424,11 @@ interface MetricGroupPanelProps {
   /** Draw only these parts (a view's widget); the rest still loads the data they need. */
   parts?: MetricPanelParts;
   /** The trend's chart type. */
-  trendChart?: "line" | "bar";
+  trendChart?: "line" | "bar" | "area";
   /** Cards per row; automatic when left out. */
   cardColumns?: number;
+  /** Breakdowns show only their largest this many groups. */
+  breakdownLimit?: number;
   /** Overrides the empty-state title when the narrowed list is empty. */
   emptyTitle?: string;
   /** Receives each shown metric's series (latest period first), e.g. to derive insights. */
@@ -447,6 +460,7 @@ const MetricGroupPanel = ({
   parts,
   trendChart = "line",
   cardColumns,
+  breakdownLimit,
   filters: pageFilters,
   onFiltersChange,
   onFacetsChange,
@@ -715,6 +729,7 @@ const MetricGroupPanel = ({
                     tick={{ fontSize: 12 }}
                     stroke="var(--muted-foreground)"
                     width={44}
+                    tickFormatter={compactNumber}
                     {...(group === "Impact" ? { domain: [0, 5], ticks: [0, 1, 2, 3, 4, 5], allowDataOverflow: true } : {})}
                   />
                   <Tooltip contentStyle={{ borderRadius: 6, border: "1px solid var(--border)", fontSize: 12 }} cursor={{ fill: "var(--border)", opacity: 0.4 }} />
@@ -723,6 +738,28 @@ const MetricGroupPanel = ({
                     <Bar key={metric.id} dataKey={metric.name} fill={LINE_COLORS[index % LINE_COLORS.length]} maxBarSize={32} />
                   ))}
                 </BarChart>
+              ) : trendChart === "area" ? (
+                // Stacked: each metric's band sits on the ones before it, so the top edge is their total.
+                <AreaChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" width={44} tickFormatter={compactNumber} />
+                  <Tooltip contentStyle={{ borderRadius: 6, border: "1px solid var(--border)", fontSize: 12 }} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {chartMetrics.map((metric, index) => (
+                    <Area
+                      key={metric.id}
+                      type="monotone"
+                      dataKey={metric.name}
+                      stackId="all"
+                      stroke={LINE_COLORS[index % LINE_COLORS.length]}
+                      fill={LINE_COLORS[index % LINE_COLORS.length]}
+                      fillOpacity={0.35}
+                      strokeWidth={2}
+                      connectNulls
+                    />
+                  ))}
+                </AreaChart>
               ) : (
               <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
@@ -731,6 +768,7 @@ const MetricGroupPanel = ({
                   tick={{ fontSize: 12 }}
                   stroke="var(--muted-foreground)"
                   width={44}
+                  tickFormatter={compactNumber}
                   {...(group === "Impact" ? { domain: [0, 5], ticks: [0, 1, 2, 3, 4, 5], allowDataOverflow: true } : {})}
                 />
                 <Tooltip
@@ -769,6 +807,7 @@ const MetricGroupPanel = ({
           metrics={groupMetrics}
           filters={{ period: filters.period, segments: filters.segments }}
           periodicity={periodicity}
+          limit={breakdownLimit}
         />
       ) : (
         groupMetrics.map((metric) => (
@@ -777,6 +816,7 @@ const MetricGroupPanel = ({
             metric={metric}
             filters={{ period: filters.period, segments: filters.segments }}
             periodicity={periodicity}
+            limit={breakdownLimit}
           />
         ))
       )}

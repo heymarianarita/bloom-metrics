@@ -12,7 +12,7 @@ import NumberBlockSheet from "@/components/settings/metrics/NumberBlockSheet";
 import QualitativeBlockSheet, { StatusBadge } from "@/components/settings/metrics/QualitativeBlockSheet";
 import { UnusedDataPanel } from "@/components/settings/metrics/UnusedDataPanel";
 import { useManualMetrics, type ManualMetric } from "@/hooks/useManualMetrics";
-import { useMetricGroups } from "@/hooks/useMetricGroups";
+import { useMetricGroups, useReorder } from "@/hooks/useMetricGroups";
 import { aggregateDataset, comparePeriods, useDatasetRows, useManualDatasets } from "@/hooks/useManualDatasets";
 import { useDynamicMetricSeries, useDynamicSourceLabel } from "@/hooks/useDynamicMetricSeries";
 import { useQualitativeSources } from "@/hooks/useQualitative";
@@ -113,10 +113,19 @@ const MetricLibrary = () => {
   // A new metric is selected once it shows up in the list after saving.
   const [savedSlug, setSavedSlug] = React.useState<string | null>(null);
 
-  const numbers = [...(metrics.data ?? [])]
-    .filter((m) => !m.archived)
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-  const insights = [...(qualitative.data ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+  // Both come in the order set here by dragging; Views and pages list metrics the same way.
+  const numbers = (metrics.data ?? []).filter((m) => !m.archived);
+  const insights = qualitative.data ?? [];
+  const reorderNumbers = useReorder("manual_metrics");
+  const reorderInsights = useReorder("qualitative_sources");
+  const reorder = (ids: string[]) => {
+    const of = (kind: string) => ids.filter((id) => id.startsWith(`${kind}:`)).map((id) => id.slice(kind.length + 1));
+    const changed = (kind: string, current: string[]) => of(kind).join("|") !== current.join("|");
+    return Promise.all([
+      changed("metric", numbers.map((m) => m.id)) && reorderNumbers.mutateAsync(of("metric")),
+      changed("insight", insights.map((q) => q.id)) && reorderInsights.mutateAsync(of("insight")),
+    ]);
+  };
 
   const items = [
     ...numbers.map((m) => ({ id: `metric:${m.id}`, label: m.name, group: "Quantitative" })),
@@ -249,6 +258,7 @@ const MetricLibrary = () => {
         items={items}
         selectedId={listId(selection)}
         onSelect={select}
+        onReorder={reorder}
         actions={[
           { label: "New quantitative metric", icon: <Plus size={16} />, onClick: () => setParams({ new: "number" }, { replace: true }) },
           { label: "New qualitative metric", icon: <Plus size={16} />, onClick: () => setParams({ new: "insight" }, { replace: true }) },

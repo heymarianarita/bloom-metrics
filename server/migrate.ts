@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -5,6 +6,7 @@ import type { PoolConnection } from "mysql2/promise";
 import { pool } from "./db.ts";
 import { looksLikeDates, normalizeDateColumn, toIsoDate } from "./shared/dates.ts";
 import { isSnapshot, loadSnapshot } from "./snapshot.ts";
+import { FIGMA_DATASET_SLUG, syncFigmaDatasetWith } from "./functions/figma-dataset.ts";
 
 /**
  * Runs on every start: creates missing tables, then imports the Lovable data
@@ -36,6 +38,8 @@ const ADDED_COLUMNS: { table: string; column: string; definition: string }[] = [
   { table: "metric_groups", column: "filters", definition: "JSON NOT NULL DEFAULT (JSON_ARRAY()) AFTER `periodicity`" },
   { table: "manual_datasets", column: "entry_method", definition: "VARCHAR(32) NOT NULL DEFAULT '' AFTER `description`" },
   { table: "manual_datasets", column: "entry_notes", definition: "TEXT NOT NULL DEFAULT ('') AFTER `entry_method`" },
+  // ratio: {denominator_column}; count_if: {op, threshold}.
+  { table: "manual_metrics", column: "aggregation_options", definition: "JSON NOT NULL DEFAULT (JSON_OBJECT()) AFTER `aggregation`" },
 ];
 
 /**
@@ -474,6 +478,76 @@ const statements = (sql: string) =>
     .map((s) => s.replace(/^\s*--.*$/gm, "").trim())
     .filter(Boolean);
 
+/**
+ * One-off: Figma becomes ordinary data. Its snapshots are synced into the "Figma component
+ * analytics" dataset, four metrics read it, and the Figma view's dedicated section is replaced
+ * by generic ones (numbers grid, insertions per library over time, adoption per component).
+ */
+const FIGMA_GENERIC_NAME = "2026-10-30-figma-generic";
+
+async function figmaGeneric(conn: PoolConnection) {
+  const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [FIGMA_GENERIC_NAME]);
+  if ((done as unknown[]).length) return;
+  await syncFigmaDatasetWith(conn);
+  const [datasets] = await conn.query("SELECT id FROM manual_datasets WHERE slug = ?", [FIGMA_DATASET_SLUG]);
+  const datasetId = (datasets as { id: string }[])[0].id;
+  const [groups] = await conn.query(
+    "SELECT g.id, p.name AS parent FROM metric_groups g JOIN metric_groups p ON p.id = g.parent_id WHERE g.slug = 'figma'",
+  );
+  const figma = (groups as { id: string; parent: string }[])[0];
+
+  const metrics = [
+    { slug: "figma-insertions", name: "Figma insertions", unit: "", value: "inserts", aggregation: "sum", options: {},
+      description: "Times a library component was inserted into a Figma file." },
+    { slug: "figma-detachments", name: "Figma detachments", unit: "", value: "detaches", aggregation: "sum", options: {},
+      description: "Times an inserted library component was detached." },
+    { slug: "figma-detach-rate", name: "Figma detach rate", unit: "%", value: "detaches", aggregation: "ratio",
+      options: { denominator_column: "inserts" }, description: "Detachments as a share of insertions." },
+    { slug: "figma-never-inserted", name: "Figma components never inserted", unit: "", value: "inserts", aggregation: "count_if",
+      options: { op: "eq", threshold: 0 }, description: "Library components nobody inserted in the period." },
+  ];
+  const ids: Record<string, string> = {};
+  const [maxRow] = await conn.query("SELECT COALESCE(MAX(sort_order), 0) AS m FROM manual_metrics");
+  let order = Number((maxRow as { m: number }[])[0].m) + 1;
+  for (const m of metrics) {
+    const [existing] = await conn.query("SELECT id FROM manual_metrics WHERE slug = ?", [m.slug]);
+    const id = (existing as { id: string }[])[0]?.id ?? randomUUID();
+    ids[m.slug] = id;
+    if ((existing as unknown[]).length) continue;
+    await conn.query(
+      `INSERT INTO manual_metrics (id, slug, name, unit, surface, subgroup_id, description, sort_order, dataset_id,
+         value_column, period_column, aggregation, aggregation_options, source_type, filter_columns, breakdown_views)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'quarter', ?, ?, 'dataset', ?, ?)`,
+      [id, m.slug, m.name, m.unit, figma?.parent ?? "Adoption", figma?.id ?? null, m.description, order++, datasetId,
+       m.value, m.aggregation, JSON.stringify(m.options), JSON.stringify(["library", "component"]),
+       JSON.stringify({ library: "none", component: "none" })],
+    );
+  }
+
+  if (figma) {
+    await conn.query("DELETE FROM view_items WHERE view_id = ? AND kind = 'figma'", [figma.id]);
+    const [last] = await conn.query("SELECT COALESCE(MAX(sort_order), -1) AS m FROM view_items WHERE view_id = ?", [figma.id]);
+    let at = Number((last as { m: number }[])[0].m) + 1;
+    const sections = [
+      { kind: "card", ref: ids["figma-insertions"], options: { width: "full", columns: 4,
+        metrics: ["figma-insertions", "figma-detachments", "figma-detach-rate", "figma-never-inserted"].map((s) => ids[s]) } },
+      { kind: "breakdown", ref: ids["figma-insertions"], options: { width: "full", title: "Evolution over time",
+        metrics: [ids["figma-insertions"]], column: "library", view: "line" } },
+      { kind: "breakdown", ref: ids["figma-insertions"], options: { width: "full", title: "Adoption per component",
+        metrics: [ids["figma-insertions"], ids["figma-detachments"]], column: "component", view: "bar", limit: 20 } },
+    ];
+    for (const s of sections) {
+      await conn.query(
+        "INSERT INTO view_items (id, view_id, kind, ref, section, hidden, sort_order, options) VALUES (?, ?, ?, ?, '', 0, ?, ?)",
+        [randomUUID(), figma.id, s.kind, s.ref, at++, JSON.stringify(s.options)],
+      );
+    }
+    await conn.query("UPDATE metric_groups SET filters = ? WHERE id = ?", [JSON.stringify(["Library"]), figma.id]);
+  }
+  await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [FIGMA_GENERIC_NAME]);
+  console.log("figma is now a synced dataset with generic view sections");
+}
+
 /** The database may still be starting (dev db, or a restarting MySQL pod): retry for up to a minute. */
 async function connectWithRetry() {
   const deadline = Date.now() + 60_000;
@@ -516,6 +590,17 @@ async function main() {
       );
       console.log("manual_dataset_columns.kind now allows rating");
     }
+    // Metrics gained "ratio" and "count_if"; an older CHECK still lists the first four.
+    const [aggCheck] = await conn.query(
+      "SELECT CHECK_CLAUSE AS clause FROM information_schema.CHECK_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_NAME = 'manual_metrics_aggregation_check'",
+    );
+    const aggClause = String((aggCheck as { clause?: string }[])[0]?.clause ?? "");
+    if (aggClause && !aggClause.includes("count_if")) {
+      await conn.query(
+        "ALTER TABLE `manual_metrics` DROP CHECK `manual_metrics_aggregation_check`, ADD CONSTRAINT `manual_metrics_aggregation_check` CHECK (`aggregation` IN ('sum','avg','latest','count','ratio','count_if'))",
+      );
+      console.log("manual_metrics.aggregation now allows ratio and count_if");
+    }
     console.log("schema ready");
 
     const [started] = await conn.query("SELECT 1 FROM app_migrations LIMIT 1");
@@ -537,6 +622,7 @@ async function main() {
       await adoptionSubgroups(conn);
       await viewLayout(conn);
       await viewSections(conn);
+      await figmaGeneric(conn);
       return;
     }
     if (!existsSync(EXPORT_FILE)) {
@@ -580,6 +666,7 @@ async function main() {
     await adoptionSubgroups(conn);
     await viewLayout(conn);
     await viewSections(conn);
+    await figmaGeneric(conn);
   } finally {
     conn.release();
     await pool.end();

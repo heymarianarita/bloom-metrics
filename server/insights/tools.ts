@@ -5,6 +5,7 @@ import type { FnHandler } from "../functions/types.ts";
 import ga4Analytics from "../functions/ga4-analytics.ts";
 import sheetsAnalytics from "../functions/sheets-analytics.ts";
 import { periodRank } from "../shared/periods.ts";
+import { aggregateRows } from "../shared/aggregate.ts";
 import { groupView } from "../qualitative/view.ts";
 
 /**
@@ -63,7 +64,7 @@ const listSources = async () => {
     ),
     query<Record<string, any>>(
       `SELECT m.slug, m.name, m.unit, m.surface, s.name AS subgroup, m.description, m.dataset_id, m.value_column,
-              m.period_column, m.aggregation, m.source_type, m.source_key, m.source_field, m.filter_columns
+              m.period_column, m.aggregation, m.aggregation_options, m.source_type, m.source_key, m.source_field, m.filter_columns
          FROM manual_metrics m LEFT JOIN metric_groups s ON s.id = m.subgroup_id
         WHERE m.archived = 0 ORDER BY m.surface, m.sort_order`,
     ),
@@ -182,34 +183,21 @@ const getMetricSeries = async (input: z.infer<typeof metricSeriesInput>) => {
     .map((r) => (asJson(r.data) ?? {}) as Record<string, unknown>)
     .filter((d) => matchesFilters(d, input.filters));
 
-  const aggregate = (subset: Record<string, unknown>[]) => {
-    const buckets = new Map<string, number[]>();
-    subset.forEach((d) => {
-      const period = String(d[metric.period_column] ?? "").trim();
-      const num = Number(d[metric.value_column]);
-      if (!period || !Number.isFinite(num)) return;
-      buckets.set(period, [...(buckets.get(period) ?? []), num]);
-    });
-    return Array.from(buckets.entries())
-      .map(([period, nums]) => {
-        const total = nums.reduce((s, n) => s + n, 0);
-        const value =
-          metric.aggregation === "avg"
-            ? total / nums.length
-            : metric.aggregation === "latest"
-              ? nums[nums.length - 1]
-              : metric.aggregation === "count"
-                ? nums.length
-                : total;
-        return { period, value: Number(value.toFixed(3)), rows: nums.length };
-      })
+  const aggregate = (subset: Record<string, unknown>[]) =>
+    aggregateRows(subset, {
+      value_column: metric.value_column,
+      period_column: metric.period_column,
+      aggregation: metric.aggregation,
+      aggregation_options: asJson(metric.aggregation_options),
+    })
+      .map((p) => ({ ...p, value: Number(p.value.toFixed(3)) }))
       .sort((a, b) => byPeriod(a.period, b.period));
-  };
 
   const base = {
     metric: metric.name,
     unit: metric.unit,
     aggregation: metric.aggregation,
+    aggregationOptions: asJson(metric.aggregation_options),
     periodColumn: metric.period_column,
     valueColumn: metric.value_column,
     note: "Raw periods from the dataset (oldest first). The page may bucket them by the group's periodicity.",

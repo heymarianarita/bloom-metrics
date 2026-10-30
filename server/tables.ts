@@ -102,10 +102,10 @@ export const TABLES: Record<string, TableDef> = {
   manual_metrics: {
     columns: [
       "id", "slug", "name", "unit", "surface", "subgroup_id", "description", "sort_order", "archived",
-      "dataset_id", "value_column", "period_column", "aggregation", "source_type",
+      "dataset_id", "value_column", "period_column", "aggregation", "aggregation_options", "source_type",
       "source_key", "source_field", "filter_columns", "breakdown_views", "scale_labels", ...ts,
     ],
-    json: ["filter_columns", "breakdown_views", "scale_labels"],
+    json: ["aggregation_options", "filter_columns", "breakdown_views", "scale_labels"],
     bool: ["archived"],
     read: "public",
     write: "editor",

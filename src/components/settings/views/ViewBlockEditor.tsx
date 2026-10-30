@@ -70,6 +70,7 @@ const CODE_CHART_OPTIONS: Record<string, { value: string; label: string }[]> = {
 const TREND_OPTIONS = [
   { value: "line", label: "Line chart" },
   { value: "bar", label: "Bar chart" },
+  { value: "area", label: "Stacked area chart" },
 ];
 const TEXT_STYLES = [
   { value: "heading", label: "Heading" },
@@ -115,7 +116,7 @@ const changeKind = (d: Draft, kind: WidgetKind): Draft => {
       section: "",
       options:
         kind === "trend"
-          ? { metrics: ids, width, title, chart: d.options.chart === "bar" ? "bar" : "line" }
+          ? { metrics: ids, width, title, chart: d.options.chart === "bar" || d.options.chart === "area" ? d.options.chart : "line" }
           : kind === "breakdown"
             ? { metrics: ids, width, title, column: d.options.column, view: d.options.view ?? "table" }
             : { metrics: ids, width, title },
@@ -140,6 +141,13 @@ const MetricChecklist = ({
 }) => {
   const [q, setQ] = React.useState("");
   const shown = metrics.filter((m) => m.name.toLowerCase().includes(q.trim().toLowerCase()));
+  // Picked metrics keep the order of Metrics → All metrics (the order they're listed in here).
+  const rank = (id: string) => {
+    const i = metrics.findIndex((m) => m.id === id);
+    return i < 0 ? metrics.length : i;
+  };
+  const toggle = (id: string, on: boolean) =>
+    onChange(on ? [...selected, id].sort((a, b) => rank(a) - rank(b)) : selected.filter((x) => x !== id));
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm text-foreground">
@@ -152,7 +160,7 @@ const MetricChecklist = ({
           <label key={m.id} className="flex items-center gap-3 rounded-[6px] px-2 py-1.5 cursor-pointer hover:bg-[rgba(0,119,130,0.04)]">
             <DesignCheckbox
               checked={selected.includes(m.id)}
-              onCheckedChange={(next) => onChange(next ? [...selected, m.id] : selected.filter((id) => id !== m.id))}
+              onCheckedChange={(next) => toggle(m.id, Boolean(next))}
             />
             <span className="min-w-0">
               <span className="block text-sm leading-5">{m.name}</span>
@@ -175,10 +183,17 @@ const KIND_INFO: { kind: WidgetKind; description: string; demo: WidgetOptions }[
   { kind: "breakdown", description: "Compare metrics across groups, like role or team.", demo: { view: "bar" } },
   { kind: "distribution", description: "How many people gave each score.", demo: {} },
   { kind: "themes", description: "What people wrote in a survey, grouped into themes.", demo: {} },
-  { kind: "code", description: "A part of a GitHub code adoption report.", demo: {} },
-  { kind: "figma", description: "Component usage from your Figma libraries.", demo: {} },
   { kind: "text", description: "A heading or a short note between sections.", demo: { style: "heading", text: "Heading" } },
 ];
+
+/**
+ * Source-specific sections, no longer offered: sections are content-agnostic and read metrics
+ * (Figma and GitHub data arrive as synced datasets). Kept so older sections can still be edited.
+ */
+const LEGACY_KINDS: Partial<Record<WidgetKind, string>> = {
+  code: "A part of a GitHub code adoption report. Being replaced by metrics on its synced dataset.",
+  figma: "Component usage from your Figma libraries. Replaced by metrics on the Figma dataset.",
+};
 
 const TypePicker = ({ onPick }: { onPick: (kind: WidgetKind) => void }) => (
   <ul className="-mx-2 flex flex-col">
@@ -297,7 +312,7 @@ const SectionPreview = ({
     case "trend":
       return <LinesPreview count={names.length} bars={item.options?.chart === "bar"} />;
     case "breakdown":
-      return item.options?.view === "line" ? <LinesPreview count={3} bars={false} /> : <RowsPreview table={item.options?.view !== "bar"} />;
+      return item.options?.view === "line" || item.options?.view === "area" ? <LinesPreview count={3} bars={false} /> : <RowsPreview table={item.options?.view !== "bar"} />;
     case "distribution":
       return (
         <div className={`flex items-end gap-1.5 ${compact ? "h-[40px]" : "h-[96px]"}`}>
@@ -439,8 +454,11 @@ const SectionForm = ({
       <DesignInputSelect
         label="Shows"
         value={draft.kind}
-        options={KIND_INFO.map((k) => ({ value: k.kind, label: WIDGET_LABELS[k.kind] }))}
-        helperText={KIND_INFO.find((k) => k.kind === draft.kind)?.description}
+        options={[
+          ...KIND_INFO.map((k) => ({ value: k.kind, label: WIDGET_LABELS[k.kind] })),
+          ...(LEGACY_KINDS[draft.kind] ? [{ value: draft.kind, label: WIDGET_LABELS[draft.kind] }] : []),
+        ]}
+        helperText={KIND_INFO.find((k) => k.kind === draft.kind)?.description ?? LEGACY_KINDS[draft.kind]}
         onChange={(kind) => onChange(changeKind(draft, kind as WidgetKind))}
       />
 
@@ -460,6 +478,19 @@ const SectionForm = ({
           value={draft.options.view ?? "table"}
           options={BREAKDOWN_VIEW_OPTIONS.filter((o) => o.value !== "none")}
           onChange={(view) => setOption({ view: view as BreakdownView })}
+        />
+      )}
+      {draft.kind === "breakdown" && draft.options.column && (
+        <Segmented
+          label="Show"
+          value={String(draft.options.limit ?? "all")}
+          options={[
+            { value: "all", label: "All" },
+            { value: "5", label: "Top 5" },
+            { value: "10", label: "Top 10" },
+            { value: "20", label: "Top 20" },
+          ]}
+          onChange={(v) => setOption({ limit: v === "all" ? undefined : Number(v) })}
         />
       )}
       {draft.kind === "trend" && (
