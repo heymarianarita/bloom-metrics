@@ -7,6 +7,8 @@ import { pool } from "./db.ts";
 import { looksLikeDates, normalizeDateColumn, toIsoDate } from "./shared/dates.ts";
 import { isSnapshot, loadSnapshot } from "./snapshot.ts";
 import { FIGMA_DATASET_SLUG, syncFigmaDatasetWith } from "./functions/figma-dataset.ts";
+import { codeDatasetSlug, domainDatasetSlug, greenhouseDatasetSlug, syncCodeAdoptionDatasetsWith } from "./functions/code-adoption-dataset.ts";
+import { codeAdoptionChartsOf, reportRepo } from "./shared/codeAdoptionCharts.ts";
 
 /**
  * Runs on every start: creates missing tables, then imports the Lovable data
@@ -548,6 +550,139 @@ async function figmaGeneric(conn: PoolConnection) {
   console.log("figma is now a synced dataset with generic view sections");
 }
 
+/**
+ * One-off: code adoption becomes ordinary data. Each GitHub report gets synced datasets, metrics
+ * read them (four shares from the report's totals, the same four per domain, Greenhouse usages),
+ * and every "Code adoption" section is replaced in place (same position, width and visibility)
+ * by a generic one, drawn the way that section was.
+ */
+const CODE_GENERIC_NAME = "2026-10-30-code-generic";
+
+async function codeGeneric(conn: PoolConnection) {
+  const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [CODE_GENERIC_NAME]);
+  if ((done as unknown[]).length) return;
+  await syncCodeAdoptionDatasetsWith(conn);
+
+  const [configRows] = await conn.query("SELECT config FROM data_source_configs WHERE source_key = 'code_adoption'");
+  const rawConfig = (configRows as { config: unknown }[])[0]?.config;
+  const config = (typeof rawConfig === "string" ? JSON.parse(rawConfig) : rawConfig) as
+    | { reports?: { path?: string; metricGroupId?: string; charts?: unknown }[] }
+    | undefined;
+  const reports = (config?.reports ?? []).filter((r) => r.path);
+  const [maxRow] = await conn.query("SELECT COALESCE(MAX(sort_order), 0) AS m FROM manual_metrics");
+  let order = Number((maxRow as { m: number }[])[0].m) + 1;
+
+  /** Per report path: the metric ids, and how its charts were drawn. */
+  const byPath = new Map<
+    string,
+    { shares: string[]; domainShares: string[]; usages: string; charts: ReturnType<typeof codeAdoptionChartsOf> }
+  >();
+  for (const report of reports) {
+    const repo = reportRepo(String(report.path));
+    const [codeSet] = await conn.query("SELECT id FROM manual_datasets WHERE slug = ?", [codeDatasetSlug(repo)]);
+    const [domainSet] = await conn.query("SELECT id FROM manual_datasets WHERE slug = ?", [domainDatasetSlug(repo)]);
+    const [ghSet] = await conn.query("SELECT id FROM manual_datasets WHERE slug = ?", [greenhouseDatasetSlug(repo)]);
+    const codeId = (codeSet as { id: string }[])[0]?.id;
+    const domainId = (domainSet as { id: string }[])[0]?.id;
+    const ghId = (ghSet as { id: string }[])[0]?.id;
+    if (!codeId || !domainId || !ghId) continue;
+    // The report's page: a subgroup (metric under its parent) or a top-level group.
+    const [groupRows] = await conn.query(
+      "SELECT g.id, g.name, p.name AS parent FROM metric_groups g LEFT JOIN metric_groups p ON p.id = g.parent_id WHERE g.id = ?",
+      [report.metricGroupId ?? ""],
+    );
+    const group = (groupRows as { id: string; name: string; parent: string | null }[])[0];
+    const surface = group ? (group.parent ?? group.name) : "Adoption";
+    const subgroupId = group?.parent ? group.id : null;
+
+    const specs = [
+      { key: "bloom", name: "Bloom share", description: "Share of UI elements that are Bloom components." },
+      { key: "greenhouse", name: "Greenhouse share", description: "Share of UI elements that are tagged Greenhouse components." },
+      { key: "native", name: "Native HTML share", description: "Share of UI elements that are plain HTML elements." },
+      { key: "untagged", name: "Untagged custom UI share", description: "Share of UI elements that are custom and untagged." },
+    ];
+    const ids: string[] = [];
+    const save = async (slug: string, fields: unknown[]) => {
+      const [existing] = await conn.query("SELECT id FROM manual_metrics WHERE slug = ?", [slug]);
+      const found = (existing as { id: string }[])[0]?.id;
+      if (found) return found;
+      const id = randomUUID();
+      await conn.query(
+        `INSERT INTO manual_metrics (id, slug, name, unit, surface, subgroup_id, description, sort_order, dataset_id,
+           value_column, period_column, aggregation, aggregation_options, source_type, filter_columns, breakdown_views)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scanned', ?, ?, 'dataset', ?, ?)`,
+        [id, slug, ...fields],
+      );
+      return id;
+    };
+    for (const s of specs) {
+      ids.push(
+        await save(`${repo}-${s.key}-share`, [
+          `${s.name} · ${repo}`, "%", surface, subgroupId, `${s.description} From the ${repo} code scans.`, order++, codeId,
+          s.key, "ratio", JSON.stringify({ denominator_column: "elements" }), "[]", "{}",
+        ]),
+      );
+    }
+    const domainIds: string[] = [];
+    for (const s of specs) {
+      domainIds.push(
+        await save(`${repo}-${s.key}-share-by-domain`, [
+          `${s.name} by domain · ${repo}`, "%", surface, subgroupId,
+          `${s.description} Per domain of ${repo}; domains overlap a little, so use the overall share for the whole repo.`,
+          order++, domainId, s.key, "ratio", JSON.stringify({ denominator_column: "elements" }), JSON.stringify(["domain"]),
+          JSON.stringify({ domain: "none" }),
+        ]),
+      );
+    }
+    const usages = await save(`${repo}-greenhouse-usages`, [
+      `Greenhouse component usages · ${repo}`, "", surface, subgroupId,
+      `How often registered Greenhouse components are used in ${repo}.`, order++, ghId, "usages", "sum", "{}",
+      JSON.stringify(["component"]), JSON.stringify({ component: "none" }),
+    ]);
+    byPath.set(String(report.path), { shares: ids, domainShares: domainIds, usages, charts: codeAdoptionChartsOf(report.charts) });
+  }
+
+  const [items] = await conn.query("SELECT id, ref, section, hidden, options FROM view_items WHERE kind = 'code'");
+  for (const item of items as { id: string; ref: string; section: string; hidden: number; options: unknown }[]) {
+    const metrics = byPath.get(item.ref);
+    if (!metrics) continue;
+    const old = (typeof item.options === "string" ? JSON.parse(item.options) : item.options ?? {}) as Record<string, unknown>;
+    const keep = { width: old.width, ...(old.title ? { title: old.title } : {}) };
+    // The section's own chart choice, else the report's.
+    const chart = String(old.chart ?? metrics.charts[item.section as keyof typeof metrics.charts] ?? "");
+    const [trend, teams, greenhouse] = [chart, chart, chart];
+    const next =
+      item.section === "shares"
+        ? { kind: "card", options: { ...keep, metrics: metrics.shares, columns: 4 }, hide: false }
+        : item.section === "trend"
+          ? {
+              kind: "trend",
+              options: { ...keep, title: old.title ?? "Evolution over time", metrics: metrics.shares, chart: trend === "line" ? "line" : trend === "stacked_bar" ? "bar" : "area" },
+              hide: trend === "hidden",
+            }
+          : item.section === "teams"
+            ? {
+                kind: "breakdown",
+                options: { ...keep, title: old.title ?? "Adoption by team", metrics: metrics.domainShares, column: "domain", view: teams === "table" ? "table" : "bar" },
+                hide: teams === "hidden",
+              }
+            : {
+                kind: "breakdown",
+                options: { ...keep, title: old.title ?? "Greenhouse components", metrics: [metrics.usages], column: "component", view: greenhouse === "bar" ? "bar" : "table" },
+                hide: greenhouse === "hidden",
+              };
+    await conn.query("UPDATE view_items SET kind = ?, ref = ?, section = '', hidden = ?, options = ? WHERE id = ?", [
+      next.kind,
+      (next.options.metrics as string[])[0],
+      next.hide ? 1 : item.hidden,
+      JSON.stringify(next.options),
+      item.id,
+    ]);
+  }
+  await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [CODE_GENERIC_NAME]);
+  console.log(`code adoption is now synced datasets with generic view sections (${byPath.size} reports)`);
+}
+
 /** The database may still be starting (dev db, or a restarting MySQL pod): retry for up to a minute. */
 async function connectWithRetry() {
   const deadline = Date.now() + 60_000;
@@ -623,6 +758,7 @@ async function main() {
       await viewLayout(conn);
       await viewSections(conn);
       await figmaGeneric(conn);
+      await codeGeneric(conn);
       return;
     }
     if (!existsSync(EXPORT_FILE)) {
@@ -667,6 +803,7 @@ async function main() {
     await viewLayout(conn);
     await viewSections(conn);
     await figmaGeneric(conn);
+    await codeGeneric(conn);
   } finally {
     conn.release();
     await pool.end();
