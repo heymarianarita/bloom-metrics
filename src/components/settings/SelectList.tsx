@@ -5,7 +5,7 @@ import { SortableList } from "@/components/settings/SortableList";
 /**
  * The left-hand list of a settings page that shows one item at a time (Datasets, Dynamic
  * sources): every item by name, the selected one highlighted, and optional actions below.
- * With `onReorder`, items can be dragged into any order.
+ * With `onReorder`, items can be dragged into any order (within their group).
  */
 export const SelectList = ({
   title,
@@ -20,7 +20,7 @@ export const SelectList = ({
   items: { id: string; label: string; group?: string }[];
   selectedId: string;
   onSelect: (id: string) => void;
-  /** Saves a new order (ids, first to last). */
+  /** Saves a new order (all ids, first to last). */
   onReorder?: (ids: string[]) => Promise<unknown>;
   /** Rows after the items, e.g. "New dataset". */
   actions?: { label: string; icon: React.ReactNode; onClick: () => void }[];
@@ -39,26 +39,44 @@ export const SelectList = ({
       </button>
     );
   };
+  const heading = (group: string, first: boolean) => (
+    <p className={`px-3 pb-1 text-[12px] text-muted-foreground ${first ? "pt-1" : "pt-3"}`}>{group}</p>
+  );
+  // Runs of items that share a group, in list order.
+  const groups = items.reduce<{ group?: string; items: typeof items }[]>((acc, item) => {
+    const last = acc[acc.length - 1];
+    if (last && last.group === item.group) last.items.push(item);
+    else acc.push({ group: item.group, items: [item] });
+    return acc;
+  }, []);
   return (
     <DesignCard className="p-2">
       {/* The page's title lives here, at the top of its list (the pages have no header above the columns). */}
       <h1 className="px-3 pt-2 pb-3 text-[22px] font-[580] text-foreground truncate">{title}</h1>
       <div className="flex flex-col gap-0.5">
         {onReorder ? (
-          <SortableList items={items} getId={(i) => i.id} getLabel={(i) => i.label} onReorder={onReorder}>
-            {(item, row) => (
-              <div key={item.id} ref={row.ref} style={row.style} className="flex items-center gap-0.5 rounded-[6px]">
-                {row.handle}
-                {itemButton(item)}
-              </div>
-            )}
-          </SortableList>
+          groups.map((g, gi) => (
+            <React.Fragment key={g.group ?? gi}>
+              {g.group && heading(g.group, gi === 0)}
+              <SortableList
+                items={g.items}
+                getId={(i) => i.id}
+                getLabel={(i) => i.label}
+                onReorder={(ids) => onReorder(groups.flatMap((other, oi) => (oi === gi ? ids : other.items.map((i) => i.id))))}
+              >
+                {(item, row) => (
+                  <div key={item.id} ref={row.ref} style={row.style} className="flex items-center gap-0.5 rounded-[6px]">
+                    {row.handle}
+                    {itemButton(item)}
+                  </div>
+                )}
+              </SortableList>
+            </React.Fragment>
+          ))
         ) : (
           items.map((item, i) => (
             <React.Fragment key={item.id}>
-              {item.group && item.group !== items[i - 1]?.group && (
-                <p className={`px-3 pb-1 text-[12px] text-muted-foreground ${i > 0 ? "pt-3" : "pt-1"}`}>{item.group}</p>
-              )}
+              {item.group && item.group !== items[i - 1]?.group && heading(item.group, i === 0)}
               {itemButton(item)}
             </React.Fragment>
           ))

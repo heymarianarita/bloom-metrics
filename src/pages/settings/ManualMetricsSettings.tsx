@@ -59,6 +59,8 @@ import {
   useUpdateDataset,
   useUpdateDatasetRow,
   ENTRY_METHODS,
+  SYNCED_SOURCES,
+  isSyncedDataset,
   type DatasetColumnKind,
   type ManualDataset,
   type ManualDatasetColumn,
@@ -81,7 +83,7 @@ const kindOptions = [
 type DatasetDraft = { name: string; description: string; entry_method: string; entry_notes: string };
 const EMPTY_DATASET_DRAFT: DatasetDraft = { name: "", description: "", entry_method: "", entry_notes: "" };
 
-const entryLabel = (method: string) => ENTRY_METHODS.find((m) => m.value === method)?.label;
+const entryLabel = (method: string) => SYNCED_SOURCES[method] ?? ENTRY_METHODS.find((m) => m.value === method)?.label;
 
 /**
  * One quiet line under the dataset's title: how its data gets in, the metrics that read it
@@ -209,6 +211,7 @@ const DatasetsTab = () => {
   }, [datasets.data, datasetId]);
 
   const activeDataset = datasets.data?.find((d) => d.id === datasetId);
+  const synced = isSyncedDataset(activeDataset);
   const activeStats = useDatasetStats(datasetId ? [datasetId] : []);
   const lastUpdated = activeStats.data?.[datasetId];
 
@@ -660,6 +663,7 @@ const DatasetsTab = () => {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {csvFileInput}
+            {!synced && (
             <DesignButton
               variant="outlined"
               theme="primary"
@@ -670,6 +674,7 @@ const DatasetsTab = () => {
             >
               Import CSV
             </DesignButton>
+            )}
             {activeDataset && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -682,6 +687,7 @@ const DatasetsTab = () => {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px]">
+                  {!synced && (
                   <DropdownMenuItem
                     onSelect={() => {
                       openEdit();
@@ -690,6 +696,7 @@ const DatasetsTab = () => {
                     <PencilSimple size={16} className="mr-2" />
                     Edit details
                   </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onSelect={() => duplicate(true)}>
                     <Copy size={16} className="mr-2" />
                     Duplicate with data
@@ -698,6 +705,8 @@ const DatasetsTab = () => {
                     <Copy size={16} className="mr-2" />
                     Duplicate structure only
                   </DropdownMenuItem>
+                  {!synced && (
+                  <>
                   <DropdownMenuItem
                     onSelect={() => {
                       if (
@@ -728,11 +737,19 @@ const DatasetsTab = () => {
                     <Trash size={16} className="mr-2" />
                     Delete dataset
                   </DropdownMenuItem>
+                  </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
           </div>
         </div>
+
+        {synced && (
+          <p className="text-[14px] text-muted-foreground mt-3">
+            Read-only: this data is synced automatically. {activeDataset?.entry_notes}
+          </p>
+        )}
 
         <DesignSpacer size="medium" />
 
@@ -749,6 +766,7 @@ const DatasetsTab = () => {
         ) : (
           <>
             <DatasetGrid
+              readOnly={synced}
               columns={columns.data ?? []}
               rows={rows.data ?? []}
               onCellChange={(row, column, value) =>

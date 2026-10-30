@@ -45,6 +45,8 @@ export interface WidgetOptions {
   /** breakdown: the dataset column it breaks down by, and how. */
   column?: string;
   view?: BreakdownView;
+  /** breakdown: only the largest this many groups (all when left out). */
+  limit?: number;
   /** text */
   text?: string;
   style?: "heading" | "note";

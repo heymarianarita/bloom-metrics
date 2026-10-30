@@ -16,6 +16,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
+import { compactNumber } from "@/lib/chartFormat";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignTooltip } from "@/components/ds/DesignTooltip";
 
@@ -60,10 +61,12 @@ interface Props {
   metrics: ManualMetric[];
   filters: { period: string; segments: Record<string, string> };
   periodicity: Periodicity;
+  /** Only the largest this many groups (by their combined value). */
+  limit?: number;
 }
 
 /** One chart or table per breakdown aspect, combining every metric in the group. */
-const MergedBreakdowns = ({ group, metrics, filters, periodicity }: Props) => {
+const MergedBreakdowns = ({ group, metrics, filters, periodicity, limit }: Props) => {
   const { data: aliasConfig = DEFAULT_ALIAS_CONFIG } = useComponentAliases();
   const units = useTeamBusinessUnits();
   const teamUnits = units.data ?? {};
@@ -186,7 +189,8 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity }: Props) => {
             ...values,
             __total: Object.values(values).reduce((s, v) => s + v, 0),
           }))
-          .sort((a, b) => b.__total - a.__total);
+          .sort((a, b) => b.__total - a.__total)
+          .slice(0, limit ?? Infinity);
         const asTable = aspect.views.every((v) => v === "table");
         const horizontal = data.length > 10;
 
@@ -256,7 +260,7 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity }: Props) => {
                     />
                     {horizontal ? (
                       <>
-                        <XAxis type="number" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
+                        <XAxis type="number" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" tickFormatter={compactNumber} />
                         <YAxis
                           type="category"
                           dataKey="segment"
@@ -268,7 +272,7 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity }: Props) => {
                     ) : (
                       <>
                         <XAxis dataKey="segment" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
-                        <YAxis tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" width={44} />
+                        <YAxis tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" width={44} tickFormatter={compactNumber} />
                       </>
                     )}
                     <Tooltip

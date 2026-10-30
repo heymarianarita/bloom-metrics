@@ -85,7 +85,10 @@ export const useQualitativeSources = () =>
     queryFn: async () => {
       const { data, error } = await supabase.from("qualitative_sources").select("*").order("sort_order", { ascending: true });
       if (error) throw new Error(error.message);
-      return (data ?? []) as unknown as QualitativeSource[];
+      // The order set in Metrics → All metrics.
+      return ((data ?? []) as unknown as QualitativeSource[]).sort(
+        (a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      );
     },
     // While a run is going, keep its progress message fresh.
     refetchInterval: (q) => ((q.state.data as QualitativeSource[] | undefined)?.some((s) => s.run_status === "running") ? 3000 : false),

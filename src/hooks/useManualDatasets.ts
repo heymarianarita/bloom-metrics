@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { comparePeriods, periodRank } from "../../server/shared/periods.ts";
+import { aggregateRows, type AggregationConfig } from "../../server/shared/aggregate.ts";
 import { reorderRows } from "@/hooks/useMetricGroups";
 
 /** "rating": a 1–5 score (e.g. a survey answer); its metrics can label each score. */
@@ -13,7 +14,12 @@ export const ENTRY_METHODS = [
   { value: "csv", label: "CSV export, imported" },
   { value: "other", label: "Other" },
 ] as const;
-export type EntryMethod = (typeof ENTRY_METHODS)[number]["value"] | "";
+/** Datasets filled by a sync rather than by people: read-only in the app. */
+export const SYNCED_SOURCES: Record<string, string> = { figma: "Synced from Figma" };
+export type EntryMethod = (typeof ENTRY_METHODS)[number]["value"] | keyof typeof SYNCED_SOURCES | "";
+
+export const isSyncedDataset = (dataset: { entry_method?: string } | undefined) =>
+  Boolean(dataset?.entry_method && SYNCED_SOURCES[dataset.entry_method]);
 
 export interface ManualDataset {
   id: string;
@@ -147,8 +153,9 @@ export const useDuplicateDataset = () => {
           name,
           slug: `${slugify(name) || "dataset"}_${Date.now()}`,
           description: source.description ?? "",
-          entry_method: source.entry_method ?? "",
-          entry_notes: source.entry_notes ?? "",
+          // A copy is ordinary data people edit, even when the original is synced.
+          entry_method: isSyncedDataset(source) ? "" : source.entry_method ?? "",
+          entry_notes: isSyncedDataset(source) ? "" : source.entry_notes ?? "",
         } as never)
         .select("*")
         .single();
@@ -362,35 +369,11 @@ export const useClearDatasetRows = () => {
 };
 
 /** Aggregate dataset rows into one value per period, following a metric's configuration. */
-export const aggregateDataset = (
-  rows: ManualDatasetRow[],
-  config: { value_column: string; period_column: string; aggregation: string },
-) => {
-  const buckets = new Map<string, number[]>();
-  rows.forEach((row) => {
-    const period = String(row.data?.[config.period_column] ?? "").trim();
-    if (!period) return;
-    const raw = row.data?.[config.value_column];
-    const num = Number(raw);
-    if (!Number.isFinite(num)) return;
-    buckets.set(period, [...(buckets.get(period) ?? []), num]);
-  });
-
-  return Array.from(buckets.entries())
-    .map(([period, numbers]) => {
-      const total = numbers.reduce((sum, n) => sum + n, 0);
-      const value =
-        config.aggregation === "avg"
-          ? total / numbers.length
-          : config.aggregation === "latest"
-            ? numbers[numbers.length - 1]
-            : config.aggregation === "count"
-              ? numbers.length
-              : total;
-      return { period, value, rows: numbers.length };
-    })
-    .sort((a, b) => comparePeriods(b.period, a.period));
-};
+export const aggregateDataset = (rows: ManualDatasetRow[], config: AggregationConfig) =>
+  aggregateRows(
+    rows.map((row) => row.data ?? {}),
+    config,
+  ).sort((a, b) => comparePeriods(b.period, a.period));
 
 export { periodRank, comparePeriods };
 

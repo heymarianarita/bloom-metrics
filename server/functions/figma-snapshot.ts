@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { execute, nowMysql, query, toIso } from "../db.ts";
 import { authenticateCronRequest } from "./cron-auth.ts";
 import figmaAnalytics from "./figma-analytics.ts";
+import { syncFigmaDataset } from "./figma-dataset.ts";
 import type { FnHandler, FnResponse } from "./types.ts";
 
 /**
@@ -207,6 +208,16 @@ async function captureOne(
   }
 }
 
+/** Keeps the "Figma component analytics" dataset in step with the snapshots. */
+async function refreshDataset() {
+  try {
+    const { rows } = await syncFigmaDataset();
+    console.log(`figma dataset synced: ${rows} rows`);
+  } catch (e) {
+    console.error("figma dataset sync failed", e instanceof Error ? e.message : e);
+  }
+}
+
 /** Write path without the HTTP auth check; used by the POST handler and the scheduler. */
 export async function captureFigmaSnapshots(): Promise<FnResponse> {
   const fileKeys = readFileKeys();
@@ -227,6 +238,7 @@ export async function captureFigmaSnapshots(): Promise<FnResponse> {
   }
 
   const anyOk = results.some((r) => r.ok);
+  if (anyOk) await refreshDataset();
   return json({ ok: anyOk, periods, results }, anyOk ? 200 : 502);
 }
 
@@ -257,6 +269,7 @@ export async function backfillFigmaSnapshots(): Promise<{ captured: number; skip
       else tally.failed++;
     }
   }
+  if (tally.captured || tally.removed) await refreshDataset();
   return tally;
 }
 

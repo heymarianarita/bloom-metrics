@@ -202,8 +202,9 @@ const ViewBlocks = ({
           metricIds={widgetMetrics(item)}
           displayOptions={displayOptions(item)}
           parts={parts}
-          trendChart={item.options?.chart === "bar" ? "bar" : "line"}
+          trendChart={item.options?.chart === "bar" || item.options?.chart === "area" ? item.options.chart : "line"}
           cardColumns={item.kind === "card" ? item.options?.columns : undefined}
+          breakdownLimit={item.kind === "breakdown" ? item.options?.limit : undefined}
           showQualitative={false}
           showResponses={showResponses && item.kind === "card"}
           filters={filters}

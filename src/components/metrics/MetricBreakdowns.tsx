@@ -3,6 +3,8 @@ import { useSectionHeading } from "@/components/metrics/sectionHeading";
 import * as React from "react";
 import { ChartBar } from "@phosphor-icons/react";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -15,6 +17,7 @@ import {
   YAxis,
 } from "recharts";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
+import { compactNumber } from "@/lib/chartFormat";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignLoader } from "@/components/ds/DesignLoader";
 import {
@@ -72,7 +75,10 @@ const Breakdown = ({
   period,
   valueMap,
   unavailable,
+  limit,
 }: {
+  /** Only the largest this many groups (by value in the shown period). */
+  limit?: number;
   valueMap?: Record<string, string>;
   /** Shown instead of the breakdown when its grouping can't be computed. */
   unavailable?: { title: string; body: string };
@@ -102,7 +108,7 @@ const Breakdown = ({
   }, [rows, columnKey, metric, periodicity, valueMap]);
 
   /** Value of each segment in the selected period (or its latest period). */
-  const current = React.useMemo(
+  const ranked = React.useMemo(
     () =>
       series
         .map((segment) => {
@@ -122,11 +128,17 @@ const Breakdown = ({
         .sort((a, b) => b.value - a.value),
     [series, period],
   );
+  const current = limit ? ranked.slice(0, limit) : ranked;
+  // Over time, the same top groups.
+  const lineSeries = React.useMemo(
+    () => (limit ? series.filter((s) => ranked.slice(0, limit).some((c) => c.segment === s.value)) : series),
+    [series, ranked, limit],
+  );
 
   /** One row per period, one column per segment value — oldest first. */
   const overTime = React.useMemo(() => {
     const byPeriod = new Map<string, Record<string, string | number>>();
-    series.forEach((segment) => {
+    lineSeries.forEach((segment) => {
       segment.points.forEach((point) => {
         const row = byPeriod.get(point.period) ?? { period: point.period };
         row[segment.value] = Number(point.value.toFixed(2));
@@ -136,10 +148,11 @@ const Breakdown = ({
     return Array.from(byPeriod.values()).sort((a, b) =>
       comparePeriods(String(a.period), String(b.period)),
     );
-  }, [series]);
+  }, [lineSeries]);
 
-  const total = current.reduce((sum, entry) => sum + entry.value, 0);
-  const hasData = view === "line" ? overTime.length > 0 : current.length > 0;
+  const total = ranked.reduce((sum, entry) => sum + entry.value, 0);
+  const overTimeView = view === "line" || view === "area";
+  const hasData = overTimeView ? overTime.length > 0 : current.length > 0;
 
   return (
     <section className="pt-2">
@@ -197,7 +210,7 @@ const Breakdown = ({
                 margin={{ top: 8, right: 16, bottom: 8, left: 0 }}
               >
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
+                <XAxis type="number" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" tickFormatter={compactNumber} />
                 <YAxis
                   type="category"
                   dataKey="segment"
@@ -218,7 +231,7 @@ const Breakdown = ({
               <BarChart data={current} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="segment" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
-                <YAxis tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" width={44} />
+                <YAxis tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" width={44} tickFormatter={compactNumber} />
                 <Tooltip
                   contentStyle={{ borderRadius: 6, border: "1px solid var(--border)", fontSize: 12 }}
                 />
@@ -227,6 +240,32 @@ const Breakdown = ({
             </ResponsiveContainer>
           </div>
         )
+      ) : view === "area" ? (
+        <div className="h-[280px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            {/* Stacked: the top edge is the total of the groups shown. */}
+            <AreaChart data={overTime} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
+              <YAxis tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" width={44} tickFormatter={compactNumber} />
+              <Tooltip contentStyle={{ borderRadius: 6, border: "1px solid var(--border)", fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              {lineSeries.map((segment, index) => (
+                <Area
+                  key={segment.value}
+                  type="monotone"
+                  dataKey={segment.value}
+                  stackId="all"
+                  stroke={COLORS[index % COLORS.length]}
+                  fill={COLORS[index % COLORS.length]}
+                  fillOpacity={0.35}
+                  strokeWidth={2}
+                  connectNulls
+                />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       ) : (
 
         <div className="h-[280px] w-full">
@@ -234,12 +273,12 @@ const Breakdown = ({
             <LineChart data={overTime} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
-              <YAxis tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" width={44} />
+              <YAxis tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" width={44} tickFormatter={compactNumber} />
               <Tooltip
                 contentStyle={{ borderRadius: 6, border: "1px solid var(--border)", fontSize: 12 }}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              {series.map((segment, index) => (
+              {lineSeries.map((segment, index) => (
                 <Line
                   key={segment.value}
                   type="monotone"
@@ -264,10 +303,13 @@ const MetricBreakdowns = ({
   metric,
   filters,
   periodicity,
+  limit,
 }: {
   metric: ManualMetric;
   filters: BreakdownFilters;
   periodicity: Periodicity;
+  /** Only the largest this many groups in each breakdown. */
+  limit?: number;
 }) => {
   const isDataset = metric.source_type !== "dynamic";
   const datasetId = isDataset ? metric.dataset_id ?? undefined : undefined;
@@ -329,6 +371,7 @@ const MetricBreakdowns = ({
             rows={filtered}
             periodicity={periodicity}
             period={filters.period}
+            limit={limit}
           />
         );
       })}
