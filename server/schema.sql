@@ -250,6 +250,18 @@ CREATE TABLE IF NOT EXISTS `figma_adoption_snapshots` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Code adoption: one row per ds-analyzer report, i.e. one per weekly scan of a product repo.
+-- Figma library activity per week and page (Figma reports actions weekly); kept so periods
+-- still running can be compared with the same stretch of earlier ones.
+CREATE TABLE IF NOT EXISTS `figma_weekly_activity` (
+  `file_key` VARCHAR(191) NOT NULL,
+  `week` DATE NOT NULL,
+  `page` VARCHAR(191) NOT NULL,
+  `inserts` INT NOT NULL DEFAULT 0,
+  `detaches` INT NOT NULL DEFAULT 0,
+  `captured_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`file_key`, `week`, `page`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `code_adoption_snapshots` (
   `id` CHAR(36) NOT NULL DEFAULT (UUID()),
   `repo` VARCHAR(191) NOT NULL,

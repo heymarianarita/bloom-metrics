@@ -15,7 +15,6 @@ import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignTooltip } from "@/components/ds/DesignTooltip";
 import { byTabOrder, changeTone, hasScaleLabels, scaleLabelFor, SCALE_POINTS, useManualMetrics, type BreakdownView, type ManualMetric } from "@/hooks/useManualMetrics";
 import {
-  aggregateDataset,
   comparePeriods,
   useDatasetColumns,
   useDatasetRows,
@@ -26,7 +25,8 @@ import MetricBreakdowns from "@/components/metrics/MetricBreakdowns";
 import MergedBreakdowns from "@/components/metrics/MergedBreakdowns";
 import { useMetricGroups, PERIODICITY_OPTIONS, type Periodicity } from "@/hooks/useMetricGroups";
 import { bucketSeries, type SeriesPoint } from "@/lib/periodBuckets";
-import { bucketPeriod } from "../../../server/shared/periods.ts";
+import { bucketPeriod, sameDayCutoff } from "../../../server/shared/periods.ts";
+import { periodSeries } from "../../../server/shared/aggregate.ts";
 import { QualitativeSection } from "@/components/metrics/QualitativeSection";
 import { useQualitativeSources } from "@/hooks/useQualitative";
 import { LINE_COLORS } from "@/lib/chartColors";
@@ -334,14 +334,12 @@ const MetricStat = ({
     );
   }, [rows.data, filterSignature]);
 
+  const datasetRows = React.useMemo(() => filteredRows.map((row) => row.data ?? {}), [filteredRows]);
   const points = React.useMemo(() => {
-    const raw = !isDataset
-      ? [...dynamic.points].reverse()
-      : !metric.dataset_id || !metric.value_column || !metric.period_column
-        ? []
-        : aggregateDataset(filteredRows, metric);
-    return bucketSeries(raw, periodicity);
-  }, [isDataset, dynamic.points, filteredRows, metric, periodicity]);
+    if (!isDataset) return bucketSeries([...dynamic.points].reverse(), periodicity);
+    if (!metric.dataset_id || !metric.value_column || !metric.period_column) return [];
+    return periodSeries(datasetRows, metric, periodicity);
+  }, [isDataset, dynamic.points, datasetRows, metric, periodicity]);
 
   // Publish the periods and segments this metric knows about to the filter bar.
   const facetSignature = JSON.stringify({
@@ -367,7 +365,23 @@ const MetricStat = ({
       ? points[(currentIndex >= 0 ? currentIndex : 0) + 1]
       : points.find((point) => point.period === filters.compare);
   // Comparing a period with itself says nothing (e.g. a live value with a single reading).
-  const previous = candidate && candidate.period !== latest?.period ? candidate : undefined;
+  const fullPrevious = candidate && candidate.period !== latest?.period ? candidate : undefined;
+  // While the shown period is still running, compare it with the same stretch of the other one
+  // (e.g. 1–30 October against 1–30 July), as far as the rows have dates.
+  const cutoff =
+    isDataset && latest && fullPrevious ? sameDayCutoff(latest.period, fullPrevious.period, periodicity) : null;
+  const cutPoint = React.useMemo(() => {
+    if (cutoff === null || !fullPrevious) return undefined;
+    const cut = periodSeries(datasetRows, metric, periodicity, { [fullPrevious.period]: cutoff });
+    const point = cut.find((p) => p.period === fullPrevious.period);
+    // Only when the cut left something out; quarter-labelled rows have no dates to cut by.
+    return point && (point.value !== fullPrevious.value || point.rows !== fullPrevious.rows) ? point : undefined;
+  }, [cutoff, fullPrevious, datasetRows, metric, periodicity]);
+  const previous = cutPoint ?? fullPrevious;
+  const previousLabel =
+    cutPoint && cutoff !== null
+      ? `${fullPrevious!.period} to ${new Date(cutoff).toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" })}`
+      : previous?.period;
 
   const delta =
     latest && previous ? Number((latest.value - previous.value).toFixed(1)) : undefined;
@@ -404,7 +418,7 @@ const MetricStat = ({
         unit={metric.unit && metric.unit !== "%" && latest ? metric.unit : undefined}
         change={
           delta !== undefined
-            ? `${delta >= 0 ? "+" : ""}${delta} vs ${previous?.period}`
+            ? `${delta >= 0 ? "+" : ""}${delta} vs ${previousLabel}`
             : (latest?.period ?? (filters.period !== ALL ? `No data for ${filters.period}` : undefined))
         }
         changeTone={changeTone(metric.direction, delta)}

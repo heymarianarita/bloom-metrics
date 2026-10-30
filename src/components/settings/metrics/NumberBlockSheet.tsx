@@ -19,7 +19,7 @@ import { groupOptions as toGroupOptions, metricGroupId, useMetricGroups } from "
 import { aggregateDataset, comparePeriods, useDatasetColumns, useDatasetRows, useManualDatasets } from "@/hooks/useManualDatasets";
 import { useDynamicMetricSeries, useDynamicSourceOptions } from "@/hooks/useDynamicMetricSeries";
 import { findDynamicField, findDynamicSource } from "@/lib/dynamicMetricSources";
-import type { AggregationOptions, CountOp } from "../../../../server/shared/aggregate.ts";
+import type { AggregationOptions, CountOp, OverTime } from "../../../../server/shared/aggregate.ts";
 
 const slugifyMetric = (value: string) =>
   value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -31,6 +31,12 @@ const AGGREGATION_OPTIONS = [
   { value: "count", label: "Number of rows" },
   { value: "ratio", label: "Percentage of another column's total" },
   { value: "count_if", label: "Number of rows where the value…" },
+];
+
+const OVER_TIME_OPTIONS = [
+  { value: "average", label: "Average of each date" },
+  { value: "total", label: "Everything in the period together" },
+  { value: "last", label: "Only the period's last date" },
 ];
 
 const COUNT_OPS = [
@@ -246,12 +252,14 @@ const NumberBlockSheet = ({
         period_column: dynamic ? "" : draft.period_column,
         aggregation: draft.aggregation as ManualMetric["aggregation"],
         // Only what the chosen way of combining uses.
-        aggregation_options:
-          draft.aggregation === "ratio"
+        aggregation_options: {
+          over_time: draft.aggregation_options.over_time ?? "average",
+          ...(draft.aggregation === "ratio"
             ? { denominator_column: draft.aggregation_options.denominator_column ?? "" }
             : draft.aggregation === "count_if"
               ? { op: draft.aggregation_options.op ?? "eq", threshold: draft.aggregation_options.threshold ?? 0 }
-              : {},
+              : {}),
+        },
         filter_columns: dynamic ? [] : draft.filter_columns,
         breakdown_views: dynamic
           ? {}
@@ -418,6 +426,15 @@ const NumberBlockSheet = ({
             value={draft.aggregation}
             onChange={(aggregation) => setDraft({ ...draft, aggregation, unit: aggregation === "ratio" && !draft.unit ? "%" : draft.unit })}
             options={AGGREGATION_OPTIONS}
+          />
+          <DesignInputSelect
+            label="When a period has several dates"
+            helperText="Things that happen (insertions) add up; snapshots (a weekly scan) use the last date."
+            value={draft.aggregation_options.over_time ?? "average"}
+            onChange={(over_time) =>
+              setDraft({ ...draft, aggregation_options: { ...draft.aggregation_options, over_time: over_time as OverTime } })
+            }
+            options={OVER_TIME_OPTIONS}
           />
           {draft.aggregation === "ratio" && (
             <DesignInputSelect

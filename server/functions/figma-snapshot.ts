@@ -208,6 +208,52 @@ async function captureOne(
   }
 }
 
+/** The Monday on or before a date (Figma's weeks start on Monday). */
+const mondayOf = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() || 7) - 1)));
+
+/**
+ * Stores one library's weekly activity from `days` ago until today. The range starts on a
+ * Monday so every stored week is complete (a week that began before the range would only be
+ * partly counted); the current week is stored as far as it goes and filled in on later runs.
+ */
+async function captureWeeks(key: string, days: number): Promise<number> {
+  const start = mondayOf(new Date(Date.now() - days * 86400000));
+  const res = await figmaAnalytics({
+    method: "POST",
+    query: new URLSearchParams(),
+    body: { fileKey: key, startDate: iso(start), endDate: iso(new Date()) },
+    headers: {},
+    user: null,
+  }).catch(() => null);
+  const body = res?.body as { weeks?: { week: string; page: string; inserts: number; detaches: number }[] } | undefined;
+  const weeks = (body?.weeks ?? []).filter((w) => w.week >= iso(start));
+  for (const w of weeks) {
+    await execute(
+      `INSERT INTO figma_weekly_activity (file_key, week, page, inserts, detaches, captured_at) VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE inserts = VALUES(inserts), detaches = VALUES(detaches), captured_at = VALUES(captured_at)`,
+      [key, w.week, w.page, w.inserts, w.detaches, nowMysql()],
+    );
+  }
+  return weeks.length;
+}
+
+/**
+ * Weekly activity for every library: the last three weeks on each run, or Figma's whole
+ * retention window for a library with no weeks stored yet.
+ */
+export async function captureFigmaWeeks(): Promise<number> {
+  let stored = 0;
+  for (const { key } of readFileKeys()) {
+    const have = await query("SELECT 1 FROM figma_weekly_activity WHERE file_key = ? LIMIT 1", [key]);
+    try {
+      stored += await captureWeeks(key, have.length ? 21 : FIGMA_RETENTION_DAYS - 7);
+    } catch (e) {
+      console.error(`figma weekly capture failed for ${key}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  return stored;
+}
+
 /** Keeps the "Figma component analytics" dataset in step with the snapshots. */
 async function refreshDataset() {
   try {
@@ -238,7 +284,8 @@ export async function captureFigmaSnapshots(): Promise<FnResponse> {
   }
 
   const anyOk = results.some((r) => r.ok);
-  if (anyOk) await refreshDataset();
+  const weeks = await captureFigmaWeeks();
+  if (anyOk || weeks) await refreshDataset();
   return json({ ok: anyOk, periods, results }, anyOk ? 200 : 502);
 }
 
@@ -269,7 +316,8 @@ export async function backfillFigmaSnapshots(): Promise<{ captured: number; skip
       else tally.failed++;
     }
   }
-  if (tally.captured || tally.removed) await refreshDataset();
+  const weeks = await captureFigmaWeeks();
+  if (tally.captured || tally.removed || weeks) await refreshDataset();
   return tally;
 }
 

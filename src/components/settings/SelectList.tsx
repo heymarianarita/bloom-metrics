@@ -17,7 +17,7 @@ export const SelectList = ({
 }: {
   title: string;
   /** Items with a `group` get a small heading wherever the group changes. */
-  items: { id: string; label: string; group?: string }[];
+  items: { id: string; label: string; group?: string; detail?: string }[];
   selectedId: string;
   onSelect: (id: string) => void;
   /** Saves a new order (all ids, first to last). */
@@ -29,13 +29,14 @@ export const SelectList = ({
     `w-full text-left px-3 py-2 rounded-[6px] transition-colors min-w-0 ${
       selected ? "bg-[rgba(0,119,130,0.08)]" : "hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]"
     }`;
-  const itemButton = (item: { id: string; label: string }) => {
+  const itemButton = (item: { id: string; label: string; detail?: string }) => {
     const selected = item.id === selectedId;
     return (
       <button type="button" className={rowClass(selected)} onClick={() => onSelect(item.id)}>
         <p className={`text-sm truncate ${selected ? "font-medium text-[var(--primary-extra-dark)]" : "text-foreground"}`}>
           {item.label}
         </p>
+        {item.detail && <p className="text-[12px] text-muted-foreground truncate">{item.detail}</p>}
       </button>
     );
   };

@@ -27,12 +27,11 @@ const Trunc = ({ text }: { text: string }) => (
   </DesignTooltip>
 );
 import {
-  aggregateDataset,
   type ManualDatasetColumn,
   type ManualDatasetRow,
 } from "@/hooks/useManualDatasets";
 import type { BreakdownView, ManualMetric } from "@/hooks/useManualMetrics";
-import { bucketSeries } from "@/lib/periodBuckets";
+import { periodSeries } from "../../../server/shared/aggregate.ts";
 import type { Periodicity } from "@/hooks/useMetricGroups";
 import {
   DEFAULT_ALIAS_CONFIG,
@@ -173,7 +172,7 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity, limit }: Props
             if (value) groups.set(value, [...(groups.get(value) ?? []), row]);
           });
           groups.forEach((groupRows, segment) => {
-            const points = bucketSeries(aggregateDataset(groupRows, metric), periodicity);
+            const points = periodSeries(groupRows.map((r) => r.data ?? {}), metric, periodicity);
             const point =
               filters.period === ALL ? points[0] : points.find((p) => p.period === filters.period);
             if (!point) return;

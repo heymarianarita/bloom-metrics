@@ -12,7 +12,7 @@ import NumberBlockSheet from "@/components/settings/metrics/NumberBlockSheet";
 import QualitativeBlockSheet, { StatusBadge } from "@/components/settings/metrics/QualitativeBlockSheet";
 import { UnusedDataPanel } from "@/components/settings/metrics/UnusedDataPanel";
 import { useManualMetrics, type ManualMetric } from "@/hooks/useManualMetrics";
-import { useMetricGroups, useReorder } from "@/hooks/useMetricGroups";
+import { metricGroupId, useMetricGroups, useReorder } from "@/hooks/useMetricGroups";
 import { aggregateDataset, comparePeriods, useDatasetRows, useManualDatasets } from "@/hooks/useManualDatasets";
 import { useDynamicMetricSeries, useDynamicSourceLabel } from "@/hooks/useDynamicMetricSeries";
 import { useQualitativeSources } from "@/hooks/useQualitative";
@@ -105,6 +105,7 @@ const listId = (s: Selection) =>
 const MetricLibrary = () => {
   const metrics = useManualMetrics();
   const qualitative = useQualitativeSources();
+  const groups = useMetricGroups();
   const placedIn = usePlacements();
   const [params, setParams] = useSearchParams();
   const selection = selectionFrom(params);
@@ -127,10 +128,30 @@ const MetricLibrary = () => {
     ]);
   };
 
-  const items = [
-    ...numbers.map((m) => ({ id: `metric:${m.id}`, label: m.name, group: "Quantitative" })),
-    ...insights.map((q) => ({ id: `insight:${q.id}`, label: q.name, group: "Qualitative" })),
+  // Clustered by group ("Impact", "Adoption › Figma"), in the order of Metrics → Views;
+  // within a group, in the order set by dragging.
+  const allGroups = groups.data ?? [];
+  const ordered = allGroups
+    .filter((g) => !g.parent_id)
+    .flatMap((top) => [top, ...allGroups.filter((g) => g.parent_id === top.id)]);
+  const groupName = (id: string) => {
+    const g = allGroups.find((x) => x.id === id);
+    const parent = g?.parent_id ? allGroups.find((x) => x.id === g.parent_id) : undefined;
+    return g ? (parent ? `${parent.name} › ${g.name}` : g.name) : "No group";
+  };
+  const qualitativeGroupId = (name: string) => allGroups.find((g) => !g.parent_id && g.name === name)?.id ?? "";
+  const entries: { id: string; label: string; groupId: string; detail?: string }[] = [
+    ...numbers.map((m) => ({ id: `metric:${m.id}`, label: m.name, groupId: metricGroupId(allGroups, m), detail: "Quantitative" })),
+    ...insights.map((q) => ({ id: `insight:${q.id}`, label: q.name, groupId: qualitativeGroupId(q.group_name), detail: "Qualitative" })),
   ];
+  const rank = (groupId: string) => {
+    const i = ordered.findIndex((g) => g.id === groupId);
+    return i < 0 ? ordered.length : i;
+  };
+  const items = entries
+    .map((e, i) => ({ ...e, i, group: groupName(e.groupId) }))
+    .sort((a, b) => rank(a.groupId) - rank(b.groupId) || a.i - b.i)
+    .map(({ id, label, group, detail }) => ({ id, label, group, detail }));
   const select = (id: string) => {
     const [kind, ...rest] = id.split(":");
     const ref = rest.join(":");
