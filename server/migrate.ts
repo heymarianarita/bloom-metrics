@@ -40,6 +40,8 @@ const ADDED_COLUMNS: { table: string; column: string; definition: string }[] = [
   { table: "metric_groups", column: "filters", definition: "JSON NOT NULL DEFAULT (JSON_ARRAY()) AFTER `periodicity`" },
   { table: "manual_datasets", column: "entry_method", definition: "VARCHAR(32) NOT NULL DEFAULT '' AFTER `description`" },
   { table: "manual_datasets", column: "entry_notes", definition: "TEXT NOT NULL DEFAULT ('') AFTER `entry_method`" },
+  // Which way is good: up (more is better), down (less is better) or none.
+  { table: "manual_metrics", column: "direction", definition: "VARCHAR(16) NOT NULL DEFAULT 'up' AFTER `breakdown_views`" },
   // ratio: {denominator_column}; count_if: {op, threshold}.
   { table: "manual_metrics", column: "aggregation_options", definition: "JSON NOT NULL DEFAULT (JSON_OBJECT()) AFTER `aggregation`" },
 ];
@@ -683,6 +685,21 @@ async function codeGeneric(conn: PoolConnection) {
   console.log(`code adoption is now synced datasets with generic view sections (${byPath.size} reports)`);
 }
 
+/** One-off: metrics where less is better are marked so (detachments, native and untagged UI). */
+const METRIC_DIRECTION_NAME = "2026-10-30-metric-direction";
+
+async function metricDirection(conn: PoolConnection) {
+  const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [METRIC_DIRECTION_NAME]);
+  if ((done as unknown[]).length) return;
+  const [res] = await conn.query(
+    `UPDATE manual_metrics SET direction = 'down'
+      WHERE slug IN ('figma-detachments', 'figma-detach-rate', 'figma-never-inserted')
+         OR slug LIKE '%-native-share%' OR slug LIKE '%-untagged-share%'`,
+  );
+  await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [METRIC_DIRECTION_NAME]);
+  console.log(`metrics where less is better: ${(res as { affectedRows?: number }).affectedRows ?? 0}`);
+}
+
 /** The database may still be starting (dev db, or a restarting MySQL pod): retry for up to a minute. */
 async function connectWithRetry() {
   const deadline = Date.now() + 60_000;
@@ -759,6 +776,7 @@ async function main() {
       await viewSections(conn);
       await figmaGeneric(conn);
       await codeGeneric(conn);
+      await metricDirection(conn);
       return;
     }
     if (!existsSync(EXPORT_FILE)) {
@@ -804,6 +822,7 @@ async function main() {
     await viewSections(conn);
     await figmaGeneric(conn);
     await codeGeneric(conn);
+    await metricDirection(conn);
   } finally {
     conn.release();
     await pool.end();

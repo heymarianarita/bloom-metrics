@@ -130,6 +130,8 @@ CREATE TABLE IF NOT EXISTS `manual_metrics` (
   `source_field` VARCHAR(191) NOT NULL DEFAULT '',
   `filter_columns` JSON NOT NULL DEFAULT (JSON_ARRAY()),
   `breakdown_views` JSON NOT NULL DEFAULT (JSON_OBJECT()),
+  -- Which way is good: up (more is better), down (less is better) or none.
+  `direction` VARCHAR(16) NOT NULL DEFAULT 'up',
   -- What each score means on a rating scale: {"1": "…", …, "5": "…"}.
   `scale_labels` JSON NOT NULL DEFAULT (JSON_OBJECT()),
   `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),

@@ -13,7 +13,7 @@ import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignChip } from "@/components/ds/DesignChip";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignTooltip } from "@/components/ds/DesignTooltip";
-import { byTabOrder, hasScaleLabels, scaleLabelFor, SCALE_POINTS, useManualMetrics, type BreakdownView, type ManualMetric } from "@/hooks/useManualMetrics";
+import { byTabOrder, changeTone, hasScaleLabels, scaleLabelFor, SCALE_POINTS, useManualMetrics, type BreakdownView, type ManualMetric } from "@/hooks/useManualMetrics";
 import {
   aggregateDataset,
   comparePeriods,
@@ -407,7 +407,7 @@ const MetricStat = ({
             ? `${delta >= 0 ? "+" : ""}${delta} vs ${previous?.period}`
             : (latest?.period ?? (filters.period !== ALL ? `No data for ${filters.period}` : undefined))
         }
-        changeUp={delta === undefined ? true : delta >= 0}
+        changeTone={changeTone(metric.direction, delta)}
       />
   );
 };

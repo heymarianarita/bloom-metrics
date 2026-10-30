@@ -15,6 +15,8 @@ export interface DesignStatCardProps extends React.HTMLAttributes<HTMLDivElement
   change?: string;
   /** Whether the change is positive (true = success, false = error) */
   changeUp?: boolean;
+  /** Overrides `changeUp`: good (success), bad (error) or neutral (muted, e.g. no change). */
+  changeTone?: "good" | "bad" | "neutral";
   /** Icon displayed at the top-right of the card */
   icon?: React.ReactNode;
   /** Secondary line under the value (e.g. a year-over-year comparison) */
@@ -68,6 +70,7 @@ const DesignStatCard = React.forwardRef<HTMLDivElement, DesignStatCardProps>(
       unit,
       change,
       changeUp = true,
+      changeTone,
       icon,
       note,
       sparkline,
@@ -103,7 +106,10 @@ const DesignStatCard = React.forwardRef<HTMLDivElement, DesignStatCardProps>(
                 {unit && <span className="inline-block max-w-full text-[14px] font-[375] text-muted-foreground ml-1 break-words">{unit}</span>}
               </span>
               {change && (
-                <DesignBadge theme={changeUp ? "success" : "error"} styling="light">
+                <DesignBadge
+                  theme={(changeTone ?? (changeUp ? "good" : "bad")) === "good" ? "success" : changeTone === "neutral" ? "muted" : "error"}
+                  styling="light"
+                >
                   {change}
                 </DesignBadge>
               )}

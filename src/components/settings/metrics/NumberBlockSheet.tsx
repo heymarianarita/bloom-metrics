@@ -8,7 +8,7 @@ import { DesignDataTable, type DataTableColumn } from "@/components/ds/DesignDat
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { DesignNote } from "@/components/ds/DesignNote";
 import { useToast } from "@/hooks/use-toast";
-import {
+import { DIRECTION_OPTIONS, type MetricDirection,
   useSaveManualMetric,
   useDeleteManualMetric,
   SCALE_POINTS,
@@ -57,6 +57,7 @@ const emptyDraft = {
   aggregation_options: {} as AggregationOptions,
   filter_columns: [] as string[],
   breakdown_views: {} as Record<string, BreakdownView>,
+  direction: "up" as MetricDirection,
   scale_labels: {} as Record<string, string>,
 };
 type Draft = typeof emptyDraft;
@@ -77,6 +78,7 @@ const draftFrom = (metric: ManualMetric): Draft => ({
   aggregation_options: { ...(metric.aggregation_options ?? {}) },
   filter_columns: Array.isArray(metric.filter_columns) ? [...metric.filter_columns] : [],
   breakdown_views: { ...(metric.breakdown_views ?? {}) } as Record<string, BreakdownView>,
+  direction: metric.direction ?? "up",
   scale_labels: { ...(metric.scale_labels ?? {}) },
 });
 
@@ -254,6 +256,7 @@ const NumberBlockSheet = ({
         breakdown_views: dynamic
           ? {}
           : Object.fromEntries(draft.filter_columns.map((key) => [key, draft.breakdown_views[key] ?? "table"])),
+        direction: draft.direction,
         scale_labels: valueIsRating
           ? Object.fromEntries(Object.entries(draft.scale_labels).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v))
           : {},
@@ -305,6 +308,13 @@ const NumberBlockSheet = ({
         placeholder="%, count, hours"
         value={draft.unit}
         onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
+      />
+      <DesignInputSelect
+        label="When it changes"
+        helperText="Colours its change on the page: green when it moves the good way, red when it doesn't."
+        value={draft.direction}
+        onChange={(direction) => setDraft({ ...draft, direction: direction as MetricDirection })}
+        options={DIRECTION_OPTIONS}
       />
       <DesignInputSelect
         label="Group"
