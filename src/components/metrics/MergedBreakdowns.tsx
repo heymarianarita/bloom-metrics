@@ -192,6 +192,10 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity, limit }: Props
           .sort((a, b) => b.__total - a.__total)
           .slice(0, limit ?? Infinity);
         const asTable = aspect.views.every((v) => v === "table");
+        // Shares that together make a whole (e.g. Bloom, native, custom): the axis ends at 100%.
+        const wholeShares =
+          aspect.entries.every(({ metric }) => metric.unit === "%") && data.every((row) => row.__total <= 100.5);
+        const valueDomain = wholeShares ? ([0, 100] as [number, number]) : undefined;
         const horizontal = data.length > 10;
 
         return (
@@ -260,7 +264,7 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity, limit }: Props
                     />
                     {horizontal ? (
                       <>
-                        <XAxis type="number" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" tickFormatter={compactNumber} />
+                        <XAxis type="number" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" tickFormatter={compactNumber} domain={valueDomain} ticks={wholeShares ? [0, 25, 50, 75, 100] : undefined} />
                         <YAxis
                           type="category"
                           dataKey="segment"
@@ -272,7 +276,7 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity, limit }: Props
                     ) : (
                       <>
                         <XAxis dataKey="segment" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
-                        <YAxis tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" width={44} tickFormatter={compactNumber} />
+                        <YAxis tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" width={44} tickFormatter={compactNumber} domain={valueDomain} ticks={wholeShares ? [0, 25, 50, 75, 100] : undefined} />
                       </>
                     )}
                     <Tooltip

@@ -6,6 +6,7 @@ import { execute, nowMysql, query, toIso, toMysqlDatetime } from "../db.ts";
 import { localDevFlag } from "../devmode.ts";
 import { codeAdoptionChartsOf, type CodeAdoptionCharts } from "../shared/codeAdoptionCharts.ts";
 import { authenticateCronRequest } from "./cron-auth.ts";
+import { syncCodeAdoptionDatasets } from "./code-adoption-dataset.ts";
 import type { FnHandler, FnResponse } from "./types.ts";
 
 /**
@@ -249,10 +250,21 @@ const logRun = (status: string, message: string, rowCount: number, triggeredBy: 
   ).catch((e) => console.error("could not log code adoption sync", e));
 
 /** Pulls new report versions from GitHub. Used by the scheduler and the "Sync now" button. */
+/** Keeps each report's "Code adoption" and "Greenhouse components" datasets in step with the snapshots. */
+async function refreshDatasets() {
+  try {
+    const counts = await syncCodeAdoptionDatasets();
+    console.log("code adoption datasets synced:", JSON.stringify(counts));
+  } catch (e) {
+    console.error("code adoption dataset sync failed", e instanceof Error ? e.message : e);
+  }
+}
+
 export async function syncCodeAdoption(triggeredBy = "automatic"): Promise<FnResponse> {
   const localFile = localDevFlag("CODE_ADOPTION_LOCAL_FILE") ? process.env.CODE_ADOPTION_LOCAL_FILE!.trim() : "";
   if (localFile) {
     const generatedAt = await storeReport(repoOf(localFile), localFile, null, JSON.parse(readFileSync(localFile, "utf8")));
+    await refreshDatasets();
     return json({ ok: true, local: true, results: [{ repo: repoOf(localFile), added: 1, generatedAt }] });
   }
 
@@ -276,6 +288,7 @@ export async function syncCodeAdoption(triggeredBy = "automatic"): Promise<FnRes
     ? added ? `${added} new report${added === 1 ? "" : "s"} stored` : "Already up to date"
     : errors.join("; ");
   await logRun(ok ? "success" : "error", message, added, triggeredBy);
+  await refreshDatasets();
   return json({ ok, added, results, ...(ok ? {} : { error: message }) }, ok ? 200 : 502);
 }
 
