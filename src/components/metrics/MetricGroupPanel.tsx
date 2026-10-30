@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useSectionHeading } from "@/components/metrics/sectionHeading";
 import { cn } from "@/lib/utils";
 import { ChartBar, Info } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
@@ -12,7 +13,7 @@ import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignChip } from "@/components/ds/DesignChip";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignTooltip } from "@/components/ds/DesignTooltip";
-import { byTabOrder, hasScaleLabels, scaleLabelFor, SCALE_POINTS, useManualMetrics, type ManualMetric } from "@/hooks/useManualMetrics";
+import { byTabOrder, hasScaleLabels, scaleLabelFor, SCALE_POINTS, useManualMetrics, type BreakdownView, type ManualMetric } from "@/hooks/useManualMetrics";
 import {
   aggregateDataset,
   comparePeriods,
@@ -30,6 +31,8 @@ import { QualitativeSection } from "@/components/metrics/QualitativeSection";
 import { useQualitativeSources } from "@/hooks/useQualitative";
 import { LINE_COLORS } from "@/lib/chartColors";
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
   Legend,
   Line,
@@ -42,6 +45,8 @@ import {
 
 
 const ALL = "__all__";
+/** The "All …" choice of a segment select. */
+export const ALL_SEGMENT_VALUES = ALL;
 
 const PREVIOUS = "__previous__";
 
@@ -55,6 +60,30 @@ const formatValue = (value: number | undefined, unit: string) => {
   if (rounded === "—") return rounded;
   return unit ? `${rounded}${unit === "%" ? "%" : ` ${unit}`}` : rounded;
 };
+
+/** The metric as a view shows it: the placement's filters and breakdowns, where it sets them. */
+/** A widget's say over how a metric is filtered and broken down on its page. */
+export interface MetricDisplayOptions {
+  filter_columns?: string[];
+  breakdown_views?: Record<string, BreakdownView>;
+}
+
+/** Which parts of the panel a widget draws; everything when left out. */
+export interface MetricPanelParts {
+  cards?: boolean;
+  trend?: boolean;
+  distribution?: boolean;
+  breakdowns?: boolean;
+}
+
+const withDisplayOptions = (metric: ManualMetric, options?: MetricDisplayOptions): ManualMetric =>
+  options
+    ? {
+        ...metric,
+        filter_columns: options.filter_columns ?? metric.filter_columns,
+        breakdown_views: options.breakdown_views ?? metric.breakdown_views,
+      }
+    : metric;
 
 /** How many responses gave each score (1–5) in one period, for rating metrics. */
 export interface ScoreDistribution {
@@ -70,12 +99,94 @@ interface Facets {
   segments: Record<string, string[]>;
 }
 
-interface Filters {
+export interface MetricFilters {
   period: string;
   compare: string;
   /** Selected value per filter column label. */
   segments: Record<string, string>;
 }
+type Filters = MetricFilters;
+
+/** Periods (newest first) and segment values the shown metrics offer to the filter bar. */
+export interface MetricFacets {
+  periods: string[];
+  segments: { label: string; values: string[] }[];
+}
+
+/** Starting filters: the newest period against the one before, resolved once periods are known. */
+export const INITIAL_METRIC_FILTERS: MetricFilters = { period: ALL, compare: PREVIOUS, segments: {} };
+
+/** Turns the "newest" and "previous" placeholders into real periods once the periods are known. */
+export const resolveMetricFilters = (prev: MetricFilters, periods: string[]): MetricFilters => {
+  if (periods.length === 0) return prev;
+  const next = { ...prev };
+  if (prev.period === ALL) next.period = periods[0];
+  if (prev.compare === PREVIOUS) next.compare = periods[1] ?? periods[0];
+  return next.period === prev.period && next.compare === prev.compare ? prev : next;
+};
+
+/** Period, comparison period and segment selects. */
+export const MetricFilterBar = ({
+  facets,
+  filters,
+  onChange,
+  extra,
+}: {
+  facets: MetricFacets;
+  filters: MetricFilters;
+  onChange: React.Dispatch<React.SetStateAction<MetricFilters>>;
+  /** Shown at the end of the row, e.g. a response count. */
+  extra?: React.ReactNode;
+}) => {
+  const periodOptions = facets.periods.map((period) => ({ value: period, label: period }));
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="flex items-center gap-2">
+        <DesignInputSelect
+          className="w-[140px]"
+          size="small"
+          options={periodOptions}
+          value={filters.period}
+          onChange={(value) => onChange((prev) => ({ ...prev, period: value }))}
+        />
+        <span className="text-[12px] text-muted-foreground whitespace-nowrap">vs</span>
+        <DesignInputSelect
+          className="w-[140px]"
+          size="small"
+          options={periodOptions}
+          value={filters.compare}
+          onChange={(value) => onChange((prev) => ({ ...prev, compare: value }))}
+        />
+      </div>
+      {facets.segments.length > 0 && (
+        <>
+          <div className="hidden sm:block h-6 w-px bg-border" aria-hidden="true" />
+          <div className="flex flex-wrap items-center gap-2">
+            {facets.segments.map((segment) => (
+              <DesignInputSelect
+                key={segment.label}
+                className="w-[160px]"
+                size="small"
+                options={[
+                  { value: ALL, label: `All ${segment.label.toLowerCase()}s` },
+                  ...segment.values.map((value) => ({ value, label: value })),
+                ]}
+                value={filters.segments[segment.label] ?? ALL}
+                onChange={(value) =>
+                  onChange((prev) => ({
+                    ...prev,
+                    segments: { ...prev.segments, [segment.label]: value },
+                  }))
+                }
+              />
+            ))}
+          </div>
+        </>
+      )}
+      {extra}
+    </div>
+  );
+};
 
 const distinct = (rows: ManualDatasetRow[], key?: string) =>
   key
@@ -96,13 +207,14 @@ const ScoreDistributions = ({
   metrics: ManualMetric[];
   distributions: Record<string, ScoreDistribution | null>;
 }) => {
+  const heading = useSectionHeading("How people answered");
   const rated = metrics.filter((m) => distributions[m.id]);
   if (rated.length === 0) return null;
   const period = distributions[rated[0].id]?.period;
   return (
     <section className="pt-2">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[16px] font-medium text-foreground">How people answered</p>
+        <p className="text-[16px] font-medium text-foreground">{heading}</p>
         <p className="text-[12px] text-muted-foreground">{period}</p>
       </div>
       <div className="grid gap-3 md:grid-cols-2 mt-3">
@@ -282,7 +394,7 @@ const MetricStat = ({
         change={
           delta !== undefined
             ? `${delta >= 0 ? "+" : ""}${delta} vs ${previous?.period}`
-            : latest?.period
+            : (latest?.period ?? (filters.period !== ALL ? `No data for ${filters.period}` : undefined))
         }
         changeUp={delta === undefined ? true : delta >= 0}
       />
@@ -290,10 +402,20 @@ const MetricStat = ({
 };
 
 interface MetricGroupPanelProps {
-  /** Group name as configured in Settings → Metrics. */
+  /** Group name as configured in Metrics → All metrics. */
   group: string;
   /** Optional narrowing, e.g. only the metrics of one touchpoint. */
   match?: (metric: ManualMetric) => boolean;
+  /** Exactly these metrics, in this order, whatever group they belong to (a view's placed numbers). */
+  metricIds?: string[];
+  /** Per metric id: how this view filters and breaks it down, over the metric's own settings. */
+  displayOptions?: Record<string, MetricDisplayOptions>;
+  /** Draw only these parts (a view's widget); the rest still loads the data they need. */
+  parts?: MetricPanelParts;
+  /** The trend's chart type. */
+  trendChart?: "line" | "bar";
+  /** Cards per row; automatic when left out. */
+  cardColumns?: number;
   /** Overrides the empty-state title when the narrowed list is empty. */
   emptyTitle?: string;
   /** Receives each shown metric's series (latest period first), e.g. to derive insights. */
@@ -302,32 +424,48 @@ interface MetricGroupPanelProps {
   showResponses?: boolean;
   /** Shows the group's qualitative insights under the numbers (off on sub-tabs). */
   showQualitative?: boolean;
+  /**
+   * Filters owned by the page, which then draws the filter bar itself (so it can sit at the
+   * top and drive other panels too). Without them the panel keeps its own and shows its bar.
+   */
+  filters?: MetricFilters;
+  onFiltersChange?: React.Dispatch<React.SetStateAction<MetricFilters>>;
+  /** Receives the periods and segments the shown metrics offer, for a page-owned filter bar. */
+  onFacetsChange?: (facets: MetricFacets) => void;
 }
 
 /** Shows every metric configured under a metric group, with period and segment filters. */
 const MetricGroupPanel = ({
   group,
   match,
+  metricIds,
+  displayOptions,
   emptyTitle,
   onSeriesChange,
   showResponses = false,
   showQualitative = true,
+  parts,
+  trendChart = "line",
+  cardColumns,
+  filters: pageFilters,
+  onFiltersChange,
+  onFacetsChange,
 }: MetricGroupPanelProps) => {
   const navigate = useNavigate();
   const metrics = useManualMetrics();
   const qualitative = useQualitativeSources();
   const groups = useMetricGroups();
-  const periodicity: Periodicity =
-    ((groups.data ?? []).find((g) => !g.parent_id && g.name === group)?.periodicity as Periodicity) ?? "quarterly";
+  const topGroup = (groups.data ?? []).find((g) => !g.parent_id && g.name === group);
+  const periodicity: Periodicity = (topGroup?.periodicity as Periodicity) ?? "quarterly";
+  const trendHeading = useSectionHeading("Evolution over time");
   const periodicityLabel =
     PERIODICITY_OPTIONS.find((o) => o.value === periodicity)?.label ?? "Quarterly";
   const [series, setSeries] = React.useState<Record<string, SeriesPoint[]>>({});
   const [facets, setFacets] = React.useState<Record<string, Facets>>({});
-  const [filters, setFilters] = React.useState<Filters>({
-    period: ALL,
-    compare: PREVIOUS,
-    segments: {},
-  });
+  const [ownFilters, setOwnFilters] = React.useState<Filters>(INITIAL_METRIC_FILTERS);
+  const pageOwned = Boolean(pageFilters && onFiltersChange);
+  const filters = pageOwned ? pageFilters! : ownFilters;
+  const setFilters = pageOwned ? onFiltersChange! : setOwnFilters;
   // Extra metrics from the same group, added to the trend chart for comparison.
   const [compareIds, setCompareIds] = React.useState<string[]>([]);
 
@@ -351,11 +489,15 @@ const MetricGroupPanel = ({
     });
   }, []);
 
-  const groupMetrics = (metrics.data ?? []).filter(
-    (metric) => !metric.archived && metric.surface === group && (!match || match(metric)),
-  );
-  // In the order set in Settings → Metrics (alphabetical until arranged there).
-  groupMetrics.sort(byTabOrder);
+  const groupMetrics = metricIds
+    ? metricIds
+        .map((id) => (metrics.data ?? []).find((metric) => metric.id === id))
+        .filter((metric): metric is ManualMetric => Boolean(metric))
+        .map((metric) => withDisplayOptions(metric, displayOptions?.[metric.id]))
+    : (metrics.data ?? [])
+        .filter((metric) => !metric.archived && metric.surface === group && (!match || match(metric)))
+        // In the order set in Metrics → All metrics (alphabetical until arranged there).
+        .sort(byTabOrder);
 
   // Other metrics in the same group that can be laid over the trend chart.
   const comparableMetrics = (metrics.data ?? []).filter(
@@ -418,20 +560,16 @@ const MetricGroupPanel = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shownSignature, onSeriesChange]);
 
-  // Resolve the sentinel defaults to real periods as soon as we know them.
+  // Resolve the sentinel defaults to real periods as soon as we know them
+  // (a page that owns the filters does this with its own, wider list of periods).
   React.useEffect(() => {
-    if (merged.periods.length === 0) return;
-    setFilters((prev) => {
-      const next = { ...prev };
-      if (prev.period === ALL) next.period = merged.periods[0];
-      if (prev.compare === PREVIOUS) {
-        next.compare = merged.periods[1] ?? merged.periods[0];
-      }
-      return next.period === prev.period && next.compare === prev.compare ? prev : next;
-    });
-  }, [merged.periods]);
+    if (!pageOwned) setOwnFilters((prev) => resolveMetricFilters(prev, merged.periods));
+  }, [merged.periods, pageOwned]);
 
-
+  const facetsSignature = JSON.stringify(merged);
+  React.useEffect(() => {
+    onFacetsChange?.(JSON.parse(facetsSignature) as MetricFacets);
+  }, [facetsSignature, onFacetsChange]);
 
   if (metrics.isLoading) {
     return (
@@ -451,7 +589,7 @@ const MetricGroupPanel = ({
         <DesignEmptyState
           icon={<ChartBar size={40} />}
           title={emptyTitle ?? `No metrics in ${group} yet`}
-          body="Add numbers or qualitative insights to this tab in Settings → Metrics."
+          body="Add quantitative or qualitative metrics to this tab in Metrics → All metrics."
           action={
             <DesignButton
               variant="outlined"
@@ -466,69 +604,42 @@ const MetricGroupPanel = ({
     );
   }
 
-  const periodOptions = merged.periods.map((period) => ({ value: period, label: period }));
-  const compareOptions = merged.periods.map((period) => ({ value: period, label: period }));
   const sampleSize = groupMetrics.reduce((max, metric) => {
     const points = series[metric.id] ?? [];
     const point = points.find((p) => p.period === filters.period) ?? points[0];
     return Math.max(max, point?.rows ?? 0);
   }, 0);
 
+  const qualitativeSection = (
+    <QualitativeSection
+      group={group}
+      period={filters.period}
+      compare={filters.compare}
+      segmentFilters={Object.fromEntries(Object.entries(filters.segments).filter(([, value]) => value && value !== ALL))}
+    />
+  );
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex items-center gap-2">
-          <DesignInputSelect
-            className="w-[140px]"
-            size="small"
-            options={periodOptions}
-            value={filters.period}
-            onChange={(value) => setFilters((prev) => ({ ...prev, period: value }))}
-          />
-          <span className="text-[12px] text-muted-foreground whitespace-nowrap">vs</span>
-          <DesignInputSelect
-            className="w-[140px]"
-            size="small"
-            options={compareOptions}
-            value={filters.compare}
-            onChange={(value) => setFilters((prev) => ({ ...prev, compare: value }))}
-          />
-        </div>
-        {merged.segments.length > 0 && (
-          <>
-            <div className="hidden sm:block h-6 w-px bg-border" aria-hidden="true" />
-            <div className="flex flex-wrap items-center gap-2">
-              {merged.segments.map((segment) => (
-                <DesignInputSelect
-                  key={segment.label}
-                  className="w-[160px]"
-                  size="small"
-                  options={[
-                    { value: ALL, label: `All ${segment.label.toLowerCase()}s` },
-                    ...segment.values.map((value) => ({ value, label: value })),
-                  ]}
-                  value={filters.segments[segment.label] ?? ALL}
-                  onChange={(value) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      segments: { ...prev.segments, [segment.label]: value },
-                    }))
-                  }
-                />
-              ))}
-            </div>
-          </>
-        )}
-        {showResponses && sampleSize > 0 && (
-          <span className="ml-auto text-[12px] text-muted-foreground whitespace-nowrap">
-            {sampleSize} response{sampleSize === 1 ? "" : "s"}
-          </span>
-        )}
-      </div>
+      {!pageOwned && (
+        <MetricFilterBar
+          facets={merged}
+          filters={filters}
+          onChange={setFilters}
+          extra={
+            showResponses &&
+            sampleSize > 0 && (
+              <span className="ml-auto text-[12px] text-muted-foreground whitespace-nowrap">
+                {sampleSize} response{sampleSize === 1 ? "" : "s"}
+              </span>
+            )
+          }
+        />
+      )}
 
 
-
-      <DesignStatGroup>
+      {/* The cards also load each metric's values, so they render (hidden) whatever is shown. */}
+      <DesignStatGroup className={parts && !parts.cards ? "hidden" : undefined} columns={cardColumns}>
         {groupMetrics.map((metric) => (
           <MetricStat
             key={metric.id}
@@ -556,9 +667,10 @@ const MetricGroupPanel = ({
         ))}
       </div>
 
-      <section className="pt-2">
+      {(!parts || parts.trend) && (
+      <section className={parts ? undefined : "pt-2"}>
         <div className="flex items-baseline justify-between gap-3">
-          <p className="text-[16px] font-medium text-foreground">Evolution over time</p>
+          <p className="text-[16px] font-medium text-foreground">{trendHeading}</p>
           <p className="text-[12px] text-muted-foreground">{periodicityLabel}</p>
         </div>
         {comparableMetrics.length > 0 && (
@@ -595,6 +707,23 @@ const MetricGroupPanel = ({
         ) : (
           <div className="h-[256px] w-full rounded-[6px] border border-border p-4">
             <ResponsiveContainer width="100%" height="100%">
+              {trendChart === "bar" ? (
+                <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
+                  <YAxis
+                    tick={{ fontSize: 12 }}
+                    stroke="var(--muted-foreground)"
+                    width={44}
+                    {...(group === "Impact" ? { domain: [0, 5], ticks: [0, 1, 2, 3, 4, 5], allowDataOverflow: true } : {})}
+                  />
+                  <Tooltip contentStyle={{ borderRadius: 6, border: "1px solid var(--border)", fontSize: 12 }} cursor={{ fill: "var(--border)", opacity: 0.4 }} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {chartMetrics.map((metric, index) => (
+                    <Bar key={metric.id} dataKey={metric.name} fill={LINE_COLORS[index % LINE_COLORS.length]} maxBarSize={32} />
+                  ))}
+                </BarChart>
+              ) : (
               <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
@@ -625,14 +754,16 @@ const MetricGroupPanel = ({
                   />
                 ))}
               </LineChart>
+              )}
             </ResponsiveContainer>
           </div>
         )}
       </section>
+      )}
 
-      <ScoreDistributions metrics={groupMetrics} distributions={distributions} />
+      {(!parts || parts.distribution) && <ScoreDistributions metrics={groupMetrics} distributions={distributions} />}
 
-      {groupMetrics.length > 1 ? (
+      {parts && !parts.breakdowns ? null : groupMetrics.length > 1 ? (
         <MergedBreakdowns
           group={group}
           metrics={groupMetrics}
@@ -650,14 +781,7 @@ const MetricGroupPanel = ({
         ))
       )}
 
-      {showQualitative && (
-      <QualitativeSection
-        group={group}
-        period={filters.period}
-        compare={filters.compare}
-        segmentFilters={Object.fromEntries(Object.entries(filters.segments).filter(([, value]) => value && value !== ALL))}
-      />
-      )}
+      {showQualitative && qualitativeSection}
     </div>
   );
 };

@@ -27,7 +27,33 @@ export interface MetricGroup {
   description: string;
   sort_order: number;
   periodicity: Periodicity;
+  /** Dataset columns (by label) the view's filter bar offers. */
+  filters?: string[] | null;
 }
+
+/** Saves which columns a view's filter bar offers. */
+export const useSaveViewFilters = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, filters }: { id: string; filters: string[] }) => {
+      const { error } = await supabase.from("metric_groups").update({ filters } as never).eq("id", id);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["metric-groups"] }),
+  });
+};
+
+/** A view's benchmark frequency: how values are grouped into periods (sub-views use their parent's). */
+export const useSaveViewPeriodicity = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, periodicity }: { id: string; periodicity: Periodicity }) => {
+      const { error } = await supabase.from("metric_groups").update({ periodicity } as never).eq("id", id);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["metric-groups"] }),
+  });
+};
 
 export const slugifyGroup = (value: string) =>
   value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -120,7 +146,10 @@ export const useSaveMetricGroup = () => {
 };
 
 /** Saves a new order for sibling tabs (or any rows of `table`): position = index. */
-export const reorderRows = async (table: "metric_groups" | "manual_metrics" | "qualitative_sources", ids: string[]) => {
+export const reorderRows = async (
+  table: "metric_groups" | "manual_metrics" | "qualitative_sources" | "view_items" | "view_rows" | "manual_datasets",
+  ids: string[],
+) => {
   for (const [index, id] of ids.entries()) {
     const { error } = await supabase.from(table).update({ sort_order: index } as never).eq("id", id);
     if (error) throw new Error(error.message);

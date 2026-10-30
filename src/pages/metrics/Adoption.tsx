@@ -24,18 +24,19 @@ import {
   type FigmaComponentRow,
 } from "@/hooks/useFigmaAnalytics";
 import { useFigmaHistory } from "@/hooks/useFigmaHistory";
-import CodeAdoptionPanel, { type CodeAdoptionContext } from "@/components/code/CodeAdoptionPanel";
+import type { CodeAdoptionContext } from "@/components/code/CodeAdoptionPanel";
 import { useMetricGroups } from "@/hooks/useMetricGroups";
+import { itemsOf, useViewItems } from "@/hooks/useViewItems";
+import ViewBlocks from "@/components/metrics/ViewBlocks";
 import { useDataSourceConfigs } from "@/hooks/useDataSources";
-import { useCodeAdoption } from "@/hooks/useCodeAdoption";
 import MetricGroupPanel from "@/components/metrics/MetricGroupPanel";
-import { useManualMetrics, type ManualMetric } from "@/hooks/useManualMetrics";
+import { EditViewButton } from "@/components/metrics/EditViewButton";
+import { useManualMetrics } from "@/hooks/useManualMetrics";
 import { InsightsPanel, metricInsights, seriesForChat, type Insight, type MetricSeries } from "@/components/metrics/InsightsPanel";
 
 /**
- * Sub-tabs: Overview, then one per Adoption subgroup (Settings → Metrics), then one
- * per metric filed directly under Adoption. A subgroup shows the view of every dynamic
- * source pointed at it (Figma, GitHub code reports), followed by its own metrics.
+ * Sub-tabs: Overview, then one per Adoption subgroup, then one per metric filed directly
+ * under Adoption. Overview and each subgroup show their view, as arranged in Metrics → Views.
  */
 
 const numberFormat = (value: number | null | undefined) =>
@@ -90,11 +91,10 @@ const Adoption = () => {
           !subgroups.some((g) => g.id === metric.subgroup_id),
       );
   const isOverview = !subgroup && !metricTab;
-  const codeAdoption = useCodeAdoption();
-  const codeTargeted = Boolean(subgroup && codeAdoption.data?.reports?.some((r) => r.metricGroupId === subgroup.id));
-  const subgroupMetrics = subgroup
-    ? (metrics.data ?? []).filter((m) => !m.archived && m.subgroup_id === subgroup.id)
-    : [];
+  // The view shown: a subgroup tab, or the Adoption overview itself (Metrics → Views).
+  const shownView = subgroup ?? (isOverview ? adoptionGroup : undefined);
+  const viewItems = useViewItems();
+
   const [fileKey, setFileKey] = React.useState(getStoredFigmaFileKey);
   const [range, setRange] = React.useState(() => {
     const q = quarterToDate();
@@ -234,15 +234,15 @@ const Adoption = () => {
     return out;
   }, [data, totals, visibleComponents, history.data]);
 
-  const isDesign = Boolean(subgroup && figmaGroupId && subgroup.id === figmaGroupId);
+  const isDesign = itemsOf(viewItems.data, shownView?.id).some((i) => i.kind === "figma" && !i.hidden);
   const isCode = Boolean(subgroup && codeContext.insights.length + Object.keys(codeContext.view).length > 0);
   const insights = React.useMemo(
     () => [
       ...(isDesign ? figmaInsights : []),
       ...(isCode ? codeContext.insights : []),
-      ...(subgroup && !subgroupMetrics.length ? [] : metricInsights(metricSeries)),
+      ...metricInsights(metricSeries),
     ],
-    [isDesign, isCode, figmaInsights, codeContext.insights, metricSeries, subgroup, subgroupMetrics.length],
+    [isDesign, isCode, figmaInsights, codeContext.insights, metricSeries],
   );
 
   /** What the Design view shows, for the Insights chat (live Figma numbers for the selected range). */
@@ -306,31 +306,8 @@ const Adoption = () => {
 
   const q = quarterToDate();
 
-  /* ── Primary panel ─────────────────────────────────────────────── */
-  const primaryPanel = (
-    <DesignCard variant="default" className="lg:col-span-2 flex flex-col min-w-0 pt-0">
-
-      {/* One sub-tab per metric configured under the Adoption group. */}
-      {metricTab && (
-        <div className="p-5">
-          <MetricGroupPanel
-            group="Adoption"
-            match={(metric) => metric.id === metricTab.id}
-            emptyTitle={`No data for ${metricTab.name} yet`}
-            onSeriesChange={setMetricSeries}
-          />
-        </div>
-      )}
-
-      {isOverview && (
-        <div className="p-5">
-          <MetricGroupPanel group="Adoption" onSeriesChange={setMetricSeries} />
-        </div>
-      )}
-
-      {subgroup && <CodeAdoptionPanel metricGroupId={subgroup.id} onContextChange={setCodeContext} />}
-
-      {isDesign && (
+  /* ── Figma panel, placed in a view like any other item ───────── */
+  const figmaPanel = () => (
         <>
           <div className="px-5 pt-5 pb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
             <FigmaRangeControls
@@ -371,7 +348,7 @@ const Adoption = () => {
                   "Add a Figma access token in Settings → Dynamic sources to pull component adoption data."
                 }
                 actionLabel="Open data sources"
-                onAction={() => navigate("/settings/data-sources")}
+                onAction={() => navigate("/settings/data-sources?source=figma")}
                 showCloseButton={false}
               />
             </div>
@@ -464,27 +441,34 @@ const Adoption = () => {
             </>
           )}
         </>
-      )}
+      
+  );
 
-      {subgroup && subgroupMetrics.length > 0 && (
+  /* ── Primary panel ─────────────────────────────────────────────── */
+  const primaryPanel = (
+    <DesignCard variant="default" className="lg:col-span-2 flex flex-col min-w-0 pt-0">
+
+      {/* One sub-tab per metric configured under the Adoption group. */}
+      {metricTab && (
         <div className="p-5">
           <MetricGroupPanel
             group="Adoption"
-            match={(metric) => metric.subgroup_id === subgroup.id}
-            emptyTitle={`No data for ${subgroup.name} yet`}
+            match={(metric) => metric.id === metricTab.id}
+            emptyTitle={`No data for ${metricTab.name} yet`}
             onSeriesChange={setMetricSeries}
           />
         </div>
       )}
 
-      {subgroup && !isDesign && !codeTargeted && subgroupMetrics.length === 0 && (
-        <div className="p-5">
-          <DesignEmptyState
-            icon={<PuzzlePiece size={40} />}
-            title={`Nothing in ${subgroup.name} yet`}
-            body="Point a metric at this subgroup in Settings → Metrics, or a dynamic source (Figma, a GitHub report) in Settings → Dynamic sources."
-          />
-        </div>
+      {shownView && (
+        <ViewBlocks
+          key={shownView.id}
+          view={shownView}
+          groups={groups.data ?? []}
+          renderFigma={figmaPanel}
+          onSeriesChange={setMetricSeries}
+          onCodeContextChange={setCodeContext}
+        />
       )}
     </DesignCard>
   );
@@ -502,7 +486,7 @@ const Adoption = () => {
         view: {
           ...(isDesign ? { figma: figmaChatView } : {}),
           ...(isCode ? { code: codeContext.view } : {}),
-          ...(!subgroup || subgroupMetrics.length ? { metrics: seriesForChat(metricSeries) } : {}),
+          ...(metricSeries.length ? { metrics: seriesForChat(metricSeries) } : {}),
         },
         suggestions: isDesign
           ? [
@@ -556,6 +540,7 @@ const Adoption = () => {
         <DesignPageHeader
           title="Adoption"
           subtitle="Where Bloom is actually used across design and code"
+          primaryAction={<EditViewButton tabSlug={subgroup?.slug ?? adoptionGroup?.slug} />}
         />
         <DesignSpacer size="medium" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-[12px] items-start">

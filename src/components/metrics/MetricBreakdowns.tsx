@@ -1,4 +1,5 @@
 import { tableStyles as ts } from "@/components/ds/tableStyles";
+import { useSectionHeading } from "@/components/metrics/sectionHeading";
 import * as React from "react";
 import { ChartBar } from "@phosphor-icons/react";
 import {
@@ -144,7 +145,7 @@ const Breakdown = ({
     <section className="pt-2">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[16px] font-medium text-foreground">
-          {(metric.surface || metric.name)} per {label.toLowerCase()}
+          <BreakdownHeading fallback={`${metric.surface || metric.name} per ${label.toLowerCase()}`} />
         </p>
 
         <p className="text-[12px] text-muted-foreground">
@@ -336,3 +337,6 @@ const MetricBreakdowns = ({
 };
 
 export default MetricBreakdowns;
+
+/** The breakdown's heading, or the view section's own title. */
+const BreakdownHeading = ({ fallback }: { fallback: string }) => <>{useSectionHeading(fallback)}</>;

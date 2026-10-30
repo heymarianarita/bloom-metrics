@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { PoolConnection } from "mysql2/promise";
 import { pool } from "./db.ts";
 import { looksLikeDates, normalizeDateColumn, toIsoDate } from "./shared/dates.ts";
+import { isSnapshot, loadSnapshot } from "./snapshot.ts";
 
 /**
  * Runs on every start: creates missing tables, then imports the Lovable data
@@ -13,6 +14,8 @@ import { looksLikeDates, normalizeDateColumn, toIsoDate } from "./shared/dates.t
 const here = path.dirname(fileURLToPath(import.meta.url));
 const IMPORT_NAME = "2026-09-24-lovable-import";
 const EXPORT_FILE = path.join(here, "seed", "lovable-export.sql");
+/** The last production snapshot loaded with `npm run db:load`; a fresh local database starts from it. */
+const SNAPSHOT_FILE = path.join(here, "seed", "snapshot.json");
 
 /**
  * Columns added to tables that already exist in production. CREATE TABLE IF NOT EXISTS
@@ -24,6 +27,15 @@ const ADDED_COLUMNS: { table: string; column: string; definition: string }[] = [
   { table: "metric_groups", column: "parent_id", definition: "CHAR(36) NULL AFTER `id`" },
   // The subgroup a metric sits in; `surface` stays the name of its top-level group.
   { table: "manual_metrics", column: "subgroup_id", definition: "CHAR(36) NULL AFTER `surface`" },
+  // How a dataset gets its data (typed in, CSV export, …) and the steps to update it.
+  // Where view_items predates the row layout (local databases built before it).
+  { table: "view_items", column: "options", definition: "JSON NOT NULL DEFAULT (JSON_OBJECT()) AFTER `sort_order`" },
+  { table: "view_items", column: "row_id", definition: "CHAR(36) NULL AFTER `view_id`" },
+  { table: "view_items", column: "slot", definition: "INT NOT NULL DEFAULT 0 AFTER `row_id`" },
+  // Dataset columns (by label) the view's filter bar offers, e.g. ["Role", "Business unit"].
+  { table: "metric_groups", column: "filters", definition: "JSON NOT NULL DEFAULT (JSON_ARRAY()) AFTER `periodicity`" },
+  { table: "manual_datasets", column: "entry_method", definition: "VARCHAR(32) NOT NULL DEFAULT '' AFTER `description`" },
+  { table: "manual_datasets", column: "entry_notes", definition: "TEXT NOT NULL DEFAULT ('') AFTER `entry_method`" },
 ];
 
 /**
@@ -76,6 +88,220 @@ async function adoptionSubgroups(conn: PoolConnection) {
   }
   await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [ADOPTION_SUBGROUPS_NAME]);
   console.log(parentId ? "adoption subgroups created" : "no Adoption group, subgroups skipped");
+}
+
+/**
+ * One-off: each Metrics view gets its layout of rows and widgets, built to look exactly like the
+ * pages did until now (placement used to live on the metrics and sources themselves):
+ *   code report parts, one row each · the Figma panel · the numbers: their cards (up to four per
+ *   row), one trend of them all, the score distribution of rating metrics, one breakdown per
+ *   filter column · qualitative insights. The numbers' filter columns become the view's filters.
+ * Replaces the earlier flat list (2026-10-28-view-items), which only ever ran on local databases.
+ */
+const VIEW_LAYOUT_NAME = "2026-10-29-view-layout";
+const CODE_SECTIONS = [
+  { section: "shares", chart: null },
+  { section: "trend", chart: "trend" },
+  { section: "teams", chart: "teams" },
+  { section: "greenhouse", chart: "greenhouse" },
+] as const;
+
+const parseJson = <T,>(raw: unknown, fallback: T): T => {
+  if (raw === null || raw === undefined) return fallback;
+  if (typeof raw !== "string") return raw as T;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+async function viewLayout(conn: PoolConnection) {
+  const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [VIEW_LAYOUT_NAME]);
+  if ((done as unknown[]).length) return;
+  type Group = { id: string; parent_id: string | null; slug: string; name: string };
+  type Metric = {
+    id: string;
+    name: string;
+    surface: string;
+    subgroup_id: string | null;
+    sort_order: number;
+    dataset_id: string | null;
+    value_column: string;
+    filter_columns: unknown;
+    breakdown_views: unknown;
+  };
+  const [groupRows] = await conn.query("SELECT id, parent_id, slug, name FROM metric_groups");
+  const [metricRows] = await conn.query(
+    "SELECT id, name, surface, subgroup_id, sort_order, dataset_id, value_column, filter_columns, breakdown_views FROM manual_metrics WHERE archived = 0",
+  );
+  const [columnRows] = await conn.query("SELECT dataset_id, `key`, label, kind FROM manual_dataset_columns");
+  const [qualitativeRows] = await conn.query("SELECT id, name, group_name, sort_order FROM qualitative_sources");
+  const [configRows] = await conn.query(
+    "SELECT source_key, config FROM data_source_configs WHERE source_key IN ('figma', 'code_adoption')",
+  );
+  const groups = groupRows as Group[];
+  const metrics = metricRows as Metric[];
+  const columns = columnRows as { dataset_id: string; key: string; label: string; kind: string }[];
+  const qualitative = qualitativeRows as { id: string; name: string; group_name: string; sort_order: number }[];
+  const config = (key: string) =>
+    parseJson<Record<string, unknown>>((configRows as { source_key: string; config: unknown }[]).find((r) => r.source_key === key)?.config, {});
+  const reports = (Array.isArray(config("code_adoption").reports) ? config("code_adoption").reports : []) as {
+    path?: string;
+    metricGroupId?: string | null;
+    charts?: Record<string, string>;
+  }[];
+  const byOrder = <T extends { sort_order: number; name: string }>(a: T, b: T) =>
+    a.sort_order - b.sort_order || a.name.localeCompare(b.name);
+  const subgroupIds = new Set(groups.filter((g) => g.parent_id).map((g) => g.id));
+  const column = (datasetId: string | null, key: string) => columns.find((c) => c.dataset_id === datasetId && c.key === key);
+
+  // Only the superseded flat list (local databases) can be here: start clean.
+  await conn.query("DELETE FROM view_items");
+  await conn.query("DELETE FROM view_rows");
+
+  let rowCount = 0;
+  for (const group of groups) {
+    type Widget = { kind: string; ref?: string; section?: string; options?: Record<string, unknown> };
+    const rows: { layout: string; widgets: Widget[] }[] = [];
+    const filterLabels: string[] = [];
+
+    for (const r of reports.filter((r) => r.path && r.metricGroupId === group.id)) {
+      for (const { section, chart } of CODE_SECTIONS) {
+        const choice = chart ? r.charts?.[chart] : undefined;
+        if (choice === "hidden") continue;
+        rows.push({ layout: "1", widgets: [{ kind: "code", ref: r.path!, section, options: choice ? { chart: choice } : {} }] });
+      }
+    }
+    if (config("figma").metricGroupId === group.id) rows.push({ layout: "1", widgets: [{ kind: "figma" }] });
+
+    // Impact and Adoption showed every metric of the group, subgroups included; other tabs left
+    // subgroup metrics to their sub-tab.
+    const shown = (
+      group.parent_id
+        ? metrics.filter((m) => m.subgroup_id === group.id)
+        : metrics.filter(
+            (m) =>
+              m.surface === group.name &&
+              (["impact", "adoption"].includes(group.slug) || !m.subgroup_id || !subgroupIds.has(m.subgroup_id)),
+          )
+    ).sort(byOrder);
+    if (shown.length) {
+      const ids = shown.map((m) => m.id);
+      for (let i = 0; i < shown.length; i += 4) {
+        const chunk = shown.slice(i, i + 4);
+        rows.push({ layout: chunk.map(() => "1").join("-"), widgets: chunk.map((m) => ({ kind: "card", ref: m.id })) });
+      }
+      rows.push({ layout: "1", widgets: [{ kind: "trend", ref: ids[0], options: { metrics: ids, chart: "line" } }] });
+      const rated = shown.filter((m) => column(m.dataset_id, m.value_column)?.kind === "rating").map((m) => m.id);
+      if (rated.length) rows.push({ layout: "1", widgets: [{ kind: "distribution", ref: rated[0], options: { metrics: rated } }] });
+      // One breakdown per filter column, across the metrics that offer it.
+      const breakdowns = new Map<string, { view: string; metrics: string[] }>();
+      for (const m of shown) {
+        const keys = parseJson<string[]>(m.filter_columns, []);
+        const views = parseJson<Record<string, string>>(m.breakdown_views, {});
+        for (const key of keys) {
+          const label = column(m.dataset_id, key)?.label;
+          if (label && !filterLabels.includes(label)) filterLabels.push(label);
+          const view = views[key] ?? "table";
+          if (view === "none") continue;
+          const entry = breakdowns.get(key) ?? { view, metrics: [] };
+          entry.metrics.push(m.id);
+          breakdowns.set(key, entry);
+        }
+      }
+      for (const [key, { view, metrics: on }] of breakdowns) {
+        rows.push({ layout: "1", widgets: [{ kind: "breakdown", ref: on[0], options: { metrics: on, column: key, view } }] });
+      }
+    }
+
+    if (!group.parent_id) {
+      for (const q of qualitative.filter((q) => q.group_name === group.name).sort(byOrder)) {
+        rows.push({ layout: "1", widgets: [{ kind: "themes", ref: q.id }] });
+      }
+    }
+
+    for (const [i, row] of rows.entries()) {
+      const [created] = await conn.query("SELECT UUID() AS id");
+      const rowId = (created as { id: string }[])[0].id;
+      await conn.query("INSERT INTO view_rows (id, view_id, layout, sort_order) VALUES (?, ?, ?, ?)", [rowId, group.id, row.layout, i]);
+      for (const [slot, w] of row.widgets.entries()) {
+        await conn.query(
+          "INSERT INTO view_items (id, view_id, row_id, slot, kind, ref, section, options) VALUES (UUID(), ?, ?, ?, ?, ?, ?, CAST(? AS JSON))",
+          [group.id, rowId, slot, w.kind, w.ref ?? "", w.section ?? "", JSON.stringify(w.options ?? {})],
+        );
+      }
+    }
+    await conn.query("UPDATE metric_groups SET filters = CAST(? AS JSON) WHERE id = ?", [JSON.stringify(filterLabels), group.id]);
+    rowCount += rows.length;
+  }
+  await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [VIEW_LAYOUT_NAME]);
+  console.log(`view layouts created: ${rowCount} rows across ${groups.length} views`);
+}
+
+/**
+ * One-off: views become a plain list of sections instead of rows split into columns. Rows of
+ * cards merge into one "headline numbers" section; other widgets keep their order and take a
+ * width from their column's share of the row.
+ */
+const VIEW_SECTIONS_NAME = "2026-10-29-view-sections";
+
+async function viewSections(conn: PoolConnection) {
+  const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [VIEW_SECTIONS_NAME]);
+  if ((done as unknown[]).length) return;
+  type Row = { id: string; view_id: string; layout: string; sort_order: number };
+  type Item = { id: string; view_id: string; row_id: string | null; slot: number; kind: string; ref: string; options: unknown };
+  const [rowRows] = await conn.query("SELECT id, view_id, layout, sort_order FROM view_rows ORDER BY sort_order");
+  const [itemRows] = await conn.query("SELECT id, view_id, row_id, slot, kind, ref, options FROM view_items");
+  const rows = rowRows as Row[];
+  const items = itemRows as Item[];
+  const widthOf = (share: number) => (share > 0.99 ? "full" : share >= 0.6 ? "wide" : share >= 0.45 ? "half" : "narrow");
+
+  let count = 0;
+  for (const viewId of [...new Set(items.map((i) => i.view_id))]) {
+    const sections: { item: Item; options: Record<string, unknown> }[] = [];
+    const merged: string[] = [];
+    let lastWasCards = false;
+    for (const row of rows.filter((r) => r.view_id === viewId)) {
+      const widgets = items.filter((i) => i.row_id === row.id).sort((a, b) => a.slot - b.slot);
+      if (!widgets.length) continue;
+      if (widgets.every((w) => w.kind === "card")) {
+        const refs = widgets.map((w) => w.ref).filter(Boolean);
+        if (lastWasCards) {
+          const target = sections[sections.length - 1];
+          target.options.metrics = [...(target.options.metrics as string[]), ...refs];
+          merged.push(...widgets.map((w) => w.id));
+        } else {
+          sections.push({ item: widgets[0], options: { metrics: refs, width: "full" } });
+          merged.push(...widgets.slice(1).map((w) => w.id));
+        }
+        lastWasCards = true;
+        continue;
+      }
+      lastWasCards = false;
+      const parts = row.layout.split("-").map(Number).filter((n) => n > 0);
+      const total = parts.reduce((a, b) => a + b, 0) || 1;
+      for (const w of widgets) {
+        sections.push({ item: w, options: { ...parseJson<Record<string, unknown>>(w.options, {}), width: widthOf((parts[w.slot] ?? 1) / total) } });
+      }
+    }
+    // Widgets outside any row go last.
+    for (const w of items.filter((i) => i.view_id === viewId && !i.row_id)) {
+      sections.push({ item: w, options: { ...parseJson<Record<string, unknown>>(w.options, {}), width: "full" } });
+    }
+    for (const id of merged) await conn.query("DELETE FROM view_items WHERE id = ?", [id]);
+    for (const [i, { item, options }] of sections.entries()) {
+      await conn.query("UPDATE view_items SET row_id = NULL, slot = 0, sort_order = ?, options = CAST(? AS JSON) WHERE id = ?", [
+        i,
+        JSON.stringify(options),
+        item.id,
+      ]);
+    }
+    count += sections.length;
+  }
+  await conn.query("DELETE FROM view_rows");
+  await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [VIEW_SECTIONS_NAME]);
+  console.log(`view sections: ${count} sections`);
 }
 
 /** One-off: the Impact survey's answer labels, filled in only where no labels were set yet. */
@@ -292,6 +518,15 @@ async function main() {
     }
     console.log("schema ready");
 
+    const [started] = await conn.query("SELECT 1 FROM app_migrations LIMIT 1");
+    if ((started as unknown[]).length === 0 && existsSync(SNAPSHOT_FILE)) {
+      const snapshot: unknown = JSON.parse(readFileSync(SNAPSHOT_FILE, "utf8"));
+      if (isSnapshot(snapshot)) {
+        await loadSnapshot(conn, snapshot);
+        console.log(`loaded the production snapshot from ${snapshot.exported_at}`);
+      }
+    }
+
     const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [IMPORT_NAME]);
     if ((done as unknown[]).length) {
       console.log("lovable import already applied");
@@ -299,7 +534,9 @@ async function main() {
       await markRatingColumns(conn);
       await isoDates(conn);
       await isoDatesAll(conn);
-    await adoptionSubgroups(conn);
+      await adoptionSubgroups(conn);
+      await viewLayout(conn);
+      await viewSections(conn);
       return;
     }
     if (!existsSync(EXPORT_FILE)) {
@@ -341,6 +578,8 @@ async function main() {
     await isoDates(conn);
     await isoDatesAll(conn);
     await adoptionSubgroups(conn);
+    await viewLayout(conn);
+    await viewSections(conn);
   } finally {
     conn.release();
     await pool.end();

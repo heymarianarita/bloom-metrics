@@ -254,14 +254,17 @@ export const DatasetGrid = ({
   onDeleteRow,
   onPasteBlock,
 }: DatasetGridProps) => (
-  <div className={`${ts.containerNested} overflow-x-auto`}>
+  // Scrolls inside its own frame so the header row can stay in view (sticky needs the scrolling box).
+  // In a column that fits the window it fills the space left; otherwise it caps at the window height.
+  <div className={`${ts.containerNested} overflow-auto max-h-[calc(100vh-220px)] xl:max-h-none xl:flex-1 xl:min-h-0`}>
     <datalist id="dsg-quarters">
       {recentQuarters(12).map((q) => (
         <option key={q} value={q} />
       ))}
     </datalist>
     <table className={ts.table}>
-      <thead>
+      {/* The bottom border is a shadow: with collapsed borders, a real one scrolls away. */}
+      <thead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_var(--border)]">
         <tr className={ts.headRow}>
           <th className={`${ts.th} w-12`}>
             #

@@ -3,7 +3,6 @@ import { Copy, DotsThree, Eraser, PencilSimple, Plus, Trash, UploadSimple } from
 import AppShell from "@/components/layout/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import RequireRole from "@/components/auth/RequireRole";
-import { DesignPageHeader } from "@/components/ds/DesignPageHeader";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignButton } from "@/components/ds/DesignButton";
@@ -12,14 +11,23 @@ import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignSideSheet } from "@/components/ds/DesignSideSheet";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { DesignLoader } from "@/components/ds/DesignLoader";
-import { DesignNote } from "@/components/ds/DesignNote";
+import { DesignBadge } from "@/components/ds/DesignBadge";
+import { DesignTooltip } from "@/components/ds/DesignTooltip";
+import { SelectList } from "@/components/settings/SelectList";
+import { SettingsLayout } from "@/components/settings/SettingsLayout";
+import { DesignInputTextArea } from "@/components/ds/DesignInput";
+import { formatDate } from "@/lib/formatDate";
+import { useManualMetrics } from "@/hooks/useManualMetrics";
+import { useQualitativeSources } from "@/hooks/useQualitative";
 import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useNavigate } from "react-router-dom";
 import DatasetGrid from "@/components/datasets/DatasetGrid";
 import CsvImportSheet, { CSV_IGNORE, CSV_NEW_COLUMN, looksNumeric } from "@/components/datasets/CsvImportSheet";
 import { inferDateOrder, looksLikeDates, toIsoDate, type DateOrder } from "../../../server/shared/dates.ts";
@@ -45,10 +53,14 @@ import {
   useDeleteDatasetColumn,
   useDeleteDatasetRow,
   useClearDatasetRows,
+  useDatasetStats,
   useManualDatasets,
+  useReorderDatasets,
   useUpdateDataset,
   useUpdateDatasetRow,
+  ENTRY_METHODS,
   type DatasetColumnKind,
+  type ManualDataset,
   type ManualDatasetColumn,
   type ManualDatasetRow,
 } from "@/hooks/useManualDatasets";
@@ -64,6 +76,82 @@ const kindOptions = [
   { value: "text", label: "Text" },
   { value: "period", label: "Quarter (e.g. 2026-Q3)" },
 ];
+
+/** A dataset's name, description and how its data is entered (the new and edit sheets). */
+type DatasetDraft = { name: string; description: string; entry_method: string; entry_notes: string };
+const EMPTY_DATASET_DRAFT: DatasetDraft = { name: "", description: "", entry_method: "", entry_notes: "" };
+
+const entryLabel = (method: string) => ENTRY_METHODS.find((m) => m.value === method)?.label;
+
+/**
+ * One quiet line under the dataset's title: how its data gets in, the metrics that read it
+ * (each opens in Metrics → All metrics), a shortcut to add one, and the steps for updating it
+ * in a tooltip (edited from the dataset's details).
+ */
+const DatasetMeta = ({ dataset, onEdit }: { dataset: ManualDataset; onEdit: () => void }) => {
+  const metrics = useManualMetrics();
+  const qualitative = useQualitativeSources();
+  const navigate = useNavigate();
+  const usedBy = [
+    ...(metrics.data ?? [])
+      .filter((m) => m.dataset_id === dataset.id)
+      .map((m) => ({ id: m.id, name: m.name, href: `/settings/metrics?metric=${m.id}` })),
+    ...(qualitative.data ?? [])
+      .filter((q) => q.dataset_id === dataset.id)
+      .map((q) => ({ id: q.id, name: q.name, href: `/settings/metrics?insight=${q.id}` })),
+  ];
+  const addMetric = () => navigate(`/settings/metrics?new=number&dataset=${dataset.id}`);
+  const method = entryLabel(dataset.entry_method);
+  const hasSteps = Boolean(dataset.entry_notes.trim());
+  const dot = <span aria-hidden="true">·</span>;
+  return (
+    <p className="text-[12px] text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5">
+      {method && (
+        <>
+          <span>{method}</span>
+          {dot}
+        </>
+      )}
+      {usedBy.length ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className="text-primary hover:underline">
+              Used by {usedBy.length} {usedBy.length === 1 ? "metric" : "metrics"}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-[240px]">
+            {usedBy.map((m) => (
+              <DropdownMenuItem key={m.id} onSelect={() => navigate(m.href)}>
+                {m.name}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={addMetric}>
+              <Plus size={16} className="mr-2" />
+              New metric from this dataset
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <span>Not used by any metric yet</span>
+      )}
+      {dot}
+      <button type="button" className="text-primary hover:underline" onClick={addMetric}>
+        Add metric
+      </button>
+      {dot}
+      {hasSteps ? (
+        <DesignTooltip content={<span className="whitespace-pre-line">{dataset.entry_notes}</span>} delay={0}>
+          <span className="underline decoration-dotted underline-offset-2 cursor-default">How to update it</span>
+        </DesignTooltip>
+      ) : (
+        <button type="button" className="text-primary hover:underline" onClick={onEdit}>
+          Describe how it's entered
+        </button>
+      )}
+    </p>
+  );
+};
 
 const aggregationOptions = [
   { value: "sum", label: "Total of all rows" },
@@ -93,10 +181,11 @@ const DatasetsTab = () => {
   const updateRow = useUpdateDatasetRow();
   const deleteRow = useDeleteDatasetRow();
   const clearRows = useClearDatasetRows();
+  const reorderDatasets = useReorderDatasets();
 
   const [datasetSheet, setDatasetSheet] = React.useState(false);
   const [editSheet, setEditSheet] = React.useState(false);
-  const [editDraft, setEditDraft] = React.useState({ name: "", description: "" });
+  const [editDraft, setEditDraft] = React.useState<DatasetDraft>(EMPTY_DATASET_DRAFT);
   const [columnSheet, setColumnSheet] = React.useState(false);
   const [importSheet, setImportSheet] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
@@ -109,7 +198,7 @@ const DatasetsTab = () => {
   const [bulkSaving, setBulkSaving] = React.useState(false);
   const [bulkDrafts, setBulkDrafts] = React.useState<BulkFileDraft[]>([]);
 
-  const [datasetDraft, setDatasetDraft] = React.useState({ name: "", description: "" });
+  const [datasetDraft, setDatasetDraft] = React.useState<DatasetDraft>(EMPTY_DATASET_DRAFT);
   const [columnDraft, setColumnDraft] = React.useState<{ label: string; kind: DatasetColumnKind }>({
     label: "",
     kind: "number",
@@ -120,6 +209,8 @@ const DatasetsTab = () => {
   }, [datasets.data, datasetId]);
 
   const activeDataset = datasets.data?.find((d) => d.id === datasetId);
+  const activeStats = useDatasetStats(datasetId ? [datasetId] : []);
+  const lastUpdated = activeStats.data?.[datasetId];
 
   const saveDataset = async () => {
     if (!datasetDraft.name.trim()) return;
@@ -127,7 +218,7 @@ const DatasetsTab = () => {
       const created = await createDataset.mutateAsync(datasetDraft);
       setDatasetId(created.id);
       setDatasetSheet(false);
-      setDatasetDraft({ name: "", description: "" });
+      setDatasetDraft(EMPTY_DATASET_DRAFT);
       toast({ title: "Dataset created" });
     } catch (err) {
       toast({ title: "Could not create dataset", description: String(err), variant: "destructive" });
@@ -514,145 +605,136 @@ const DatasetsTab = () => {
     );
   }
 
+  const openEdit = () => {
+    if (!activeDataset) return;
+    setEditDraft({
+      name: activeDataset.name,
+      description: activeDataset.description ?? "",
+      entry_method: activeDataset.entry_method ?? "",
+      entry_notes: activeDataset.entry_notes ?? "",
+    });
+    setEditSheet(true);
+  };
+
   return (
     <>
-      <DesignCard className="p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-[280px]">
-            <DesignInputSelect
-              label="Dataset"
-              size="medium"
-              value={datasetId}
-              onChange={setDatasetId}
-              options={(datasets.data ?? []).map((d) => ({ value: d.id, label: d.name }))}
-            />
+      {bulkFileInput}
+      <SettingsLayout
+        fillMain
+        list={
+      <SelectList
+        title="Datasets"
+        items={(datasets.data ?? []).map((d) => ({ id: d.id, label: d.name }))}
+        selectedId={datasetId}
+        onSelect={setDatasetId}
+        onReorder={async (ids) => {
+          try {
+            await reorderDatasets.mutateAsync(ids);
+          } catch (err) {
+            toast({ title: "Could not reorder", description: String(err), variant: "destructive" });
+            throw err;
+          }
+        }}
+        actions={[
+          { label: "New dataset", icon: <Plus size={16} />, onClick: () => setDatasetSheet(true) },
+          { label: "Bulk import CSV files", icon: <UploadSimple size={16} />, onClick: () => bulkFileRef.current?.click() },
+        ]}
+      />
+        }
+        main={
+      <DesignCard className="p-4 min-w-0 xl:flex-1 xl:min-h-0 xl:flex xl:flex-col">
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+          <div className="min-w-[200px] flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-[16px] font-medium text-foreground">{activeDataset?.name}</h2>
+              {lastUpdated && (
+                <DesignBadge theme="muted" styling="light">
+                  {lastUpdated.updatedAt ? `Updated ${formatDate(lastUpdated.updatedAt)}` : "No data yet"}
+                </DesignBadge>
+              )}
+            </div>
+            {activeDataset?.description && (
+              <p className="text-[14px] text-muted-foreground mt-1">{activeDataset.description}</p>
+            )}
+            {activeDataset && <DatasetMeta dataset={activeDataset} onEdit={openEdit} />}
           </div>
-          <DesignButton
-            variant="outlined"
-            theme="primary"
-            size="medium"
-            icon={<Plus size={16} />}
-            onClick={() => setDatasetSheet(true)}
-          >
-            New dataset
-          </DesignButton>
-          <DesignButton
-            variant="outlined"
-            theme="primary"
-            size="medium"
-            icon={<Plus size={16} />}
-            onClick={() => setColumnSheet(true)}
-          >
-            Add column
-          </DesignButton>
-          <DesignButton
-            variant="filled"
-            theme="primary"
-            size="medium"
-            icon={<Plus size={16} />}
-            disabled={(columns.data ?? []).length === 0}
-            onClick={() => addRow.mutate({ dataset_id: datasetId, sort_order: rows.data?.length ?? 0 })}
-          >
-            Add row
-          </DesignButton>
-          {csvFileInput}
-          <DesignButton
-            variant="outlined"
-            theme="primary"
-            size="medium"
-            icon={<UploadSimple size={16} />}
-            disabled={!datasetId}
-            onClick={() => csvFileRef.current?.click()}
-          >
-            Import CSV
-          </DesignButton>
-          {bulkFileInput}
-          <DesignButton
-            variant="outlined"
-            theme="primary"
-            size="medium"
-            icon={<UploadSimple size={16} />}
-            onClick={() => bulkFileRef.current?.click()}
-          >
-            Bulk import
-          </DesignButton>
-
-
-          {activeDataset && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Dataset actions"
-                  className="flex h-10 w-10 items-center justify-center rounded-[6px] border border-border text-foreground transition-colors hover:bg-[rgba(21,25,26,0.06)] active:bg-[rgba(21,25,26,0.04)]"
-                >
-                  <DotsThree size={20} weight="bold" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                <DropdownMenuItem
-                  onSelect={() => {
-                    setEditDraft({
-                      name: activeDataset.name,
-                      description: activeDataset.description ?? "",
-                    });
-                    setEditSheet(true);
-                  }}
-                >
-                  <PencilSimple size={16} className="mr-2" />
-                  Edit details
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => duplicate(true)}>
-                  <Copy size={16} className="mr-2" />
-                  Duplicate with data
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => duplicate(false)}>
-                  <Copy size={16} className="mr-2" />
-                  Duplicate structure only
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => {
-                    if (
-                      !confirm(
-                        `Remove every row from “${activeDataset.name}”? The columns stay in place.`,
+          <div className="flex flex-wrap items-center gap-2">
+            {csvFileInput}
+            <DesignButton
+              variant="outlined"
+              theme="primary"
+              size="medium"
+              icon={<UploadSimple size={16} />}
+              disabled={!datasetId}
+              onClick={() => csvFileRef.current?.click()}
+            >
+              Import CSV
+            </DesignButton>
+            {activeDataset && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Dataset actions"
+                    className="flex h-9 w-9 items-center justify-center rounded-[6px] border border-border text-foreground transition-colors hover:bg-[rgba(21,25,26,0.06)] active:bg-[rgba(21,25,26,0.04)]"
+                  >
+                    <DotsThree size={20} weight="bold" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[200px]">
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      openEdit();
+                    }}
+                  >
+                    <PencilSimple size={16} className="mr-2" />
+                    Edit details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => duplicate(true)}>
+                    <Copy size={16} className="mr-2" />
+                    Duplicate with data
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => duplicate(false)}>
+                    <Copy size={16} className="mr-2" />
+                    Duplicate structure only
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      if (
+                        !confirm(
+                          `Remove every row from “${activeDataset.name}”? The columns stay in place.`,
+                        )
                       )
-                    )
-                      return;
-                    clearRows.mutate(activeDataset.id, {
-                      onSuccess: () =>
-                        toast({ title: "Data cleared", description: "The columns are still there." }),
-                      onError: (error) =>
-                        toast({ title: "Could not clear data", description: error.message }),
-                    });
-                  }}
-                >
-                  <Eraser size={16} className="mr-2" />
-                  Clear all data
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onSelect={() => {
-                    if (!confirm(`Delete “${activeDataset.name}” and all of its rows?`)) return;
-                    deleteDataset.mutate(activeDataset.id);
-                    setDatasetId("");
-                  }}
-                >
-                  <Trash size={16} className="mr-2" />
-                  Delete dataset
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+                        return;
+                      clearRows.mutate(activeDataset.id, {
+                        onSuccess: () =>
+                          toast({ title: "Data cleared", description: "The columns are still there." }),
+                        onError: (error) =>
+                          toast({ title: "Could not clear data", description: error.message }),
+                      });
+                    }}
+                  >
+                    <Eraser size={16} className="mr-2" />
+                    Clear all data
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={() => {
+                      if (!confirm(`Delete “${activeDataset.name}” and all of its rows?`)) return;
+                      deleteDataset.mutate(activeDataset.id);
+                      setDatasetId("");
+                    }}
+                  >
+                    <Trash size={16} className="mr-2" />
+                    Delete dataset
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
 
-        {activeDataset?.description && (
-          <>
-            <DesignSpacer size="small" />
-            <DesignNote text={activeDataset.description} />
-          </>
-        )}
-
-        <DesignSpacer size="small" />
+        <DesignSpacer size="medium" />
 
         {(columns.data ?? []).length === 0 ? (
           <DesignEmptyState
@@ -666,8 +748,6 @@ const DatasetsTab = () => {
           />
         ) : (
           <>
-            <DesignNote text="Click any cell to edit. Use arrow keys, Tab and Enter to move around, and paste a block straight from a spreadsheet to fill several rows at once." />
-            <DesignSpacer size="small" />
             <DatasetGrid
               columns={columns.data ?? []}
               rows={rows.data ?? []}
@@ -693,6 +773,8 @@ const DatasetsTab = () => {
           </>
         )}
       </DesignCard>
+        }
+      />
 
       <NewDatasetSheet
         open={datasetSheet}
@@ -787,8 +869,8 @@ const NewDatasetSheet = ({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  draft: { name: string; description: string };
-  setDraft: (draft: { name: string; description: string }) => void;
+  draft: DatasetDraft;
+  setDraft: (draft: DatasetDraft) => void;
   onSave: () => void;
   saving: boolean;
   title?: string;
@@ -821,6 +903,19 @@ const NewDatasetSheet = ({
         value={draft.description}
         onChange={(e) => setDraft({ ...draft, description: e.target.value })}
       />
+      <DesignInputSelect
+        label="How it's entered"
+        placeholder="Pick one"
+        value={draft.entry_method}
+        onChange={(entry_method) => setDraft({ ...draft, entry_method })}
+        options={ENTRY_METHODS.map((m) => ({ value: m.value, label: m.label }))}
+      />
+      <DesignInputTextArea
+        label="Steps to update it"
+        placeholder="Export the quarterly survey responses from Google Forms as CSV, then use Import CSV here. Owner: design ops."
+        value={draft.entry_notes}
+        onChange={(e) => setDraft({ ...draft, entry_notes: e.target.value })}
+      />
     </div>
   </DesignSideSheet>
 );
@@ -830,11 +925,6 @@ const NewDatasetSheet = ({
 const ManualMetricsSettings = () => (
   <RequireRole role="editor">
     <AppShell>
-      <DesignPageHeader
-        title="Datasets"
-        subtitle="Enter your data here. Metrics that read from these columns are placed on tabs in Settings → Metrics."
-      />
-      <DesignSpacer size="medium" />
       <DatasetsTab />
     </AppShell>
   </RequireRole>

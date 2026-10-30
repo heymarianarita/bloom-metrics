@@ -1,15 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { comparePeriods, periodRank } from "../../server/shared/periods.ts";
+import { reorderRows } from "@/hooks/useMetricGroups";
 
 /** "rating": a 1–5 score (e.g. a survey answer); its metrics can label each score. */
 export type DatasetColumnKind = "text" | "number" | "rating" | "email" | "date" | "period";
+
+/** How a dataset gets its data; shown in the dataset list. */
+export const ENTRY_METHODS = [
+  { value: "typed", label: "Typed in here" },
+  { value: "paste", label: "Pasted from a spreadsheet" },
+  { value: "csv", label: "CSV export, imported" },
+  { value: "other", label: "Other" },
+] as const;
+export type EntryMethod = (typeof ENTRY_METHODS)[number]["value"] | "";
 
 export interface ManualDataset {
   id: string;
   slug: string;
   name: string;
   description: string;
+  entry_method: EntryMethod;
+  /** Steps to update it: where the data comes from and how often. */
+  entry_notes: string;
   sort_order: number;
   archived: boolean;
 }
@@ -97,13 +110,15 @@ const invalidate = (queryClient: ReturnType<typeof useQueryClient>, keys: string
 export const useCreateDataset = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { name: string; description?: string }) => {
+    mutationFn: async (input: { name: string; description?: string; entry_method?: string; entry_notes?: string }) => {
       const { data, error } = await supabase
         .from("manual_datasets")
         .insert({
           name: input.name,
           slug: slugify(input.name) || `dataset_${Date.now()}`,
           description: input.description ?? "",
+          entry_method: input.entry_method ?? "",
+          entry_notes: input.entry_notes ?? "",
         } as never)
         .select("*")
         .single();
@@ -132,6 +147,8 @@ export const useDuplicateDataset = () => {
           name,
           slug: `${slugify(name) || "dataset"}_${Date.now()}`,
           description: source.description ?? "",
+          entry_method: source.entry_method ?? "",
+          entry_notes: source.entry_notes ?? "",
         } as never)
         .select("*")
         .single();
@@ -178,13 +195,33 @@ export const useDuplicateDataset = () => {
 export const useUpdateDataset = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; name: string; description?: string }) => {
+    mutationFn: async (input: {
+      id: string;
+      name: string;
+      description?: string;
+      entry_method?: string;
+      entry_notes?: string;
+    }) => {
       const { error } = await supabase
         .from("manual_datasets")
-        .update({ name: input.name, description: input.description ?? "" } as never)
+        .update({
+          name: input.name,
+          description: input.description ?? "",
+          entry_method: input.entry_method ?? "",
+          entry_notes: input.entry_notes ?? "",
+        } as never)
         .eq("id", input.id);
       if (error) throw new Error(error.message);
     },
+    onSuccess: () => invalidate(queryClient, ["manual-datasets"]),
+  });
+};
+
+/** Saves the order of the dataset list (Settings → Datasets). */
+export const useReorderDatasets = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => reorderRows("manual_datasets", ids),
     onSuccess: () => invalidate(queryClient, ["manual-datasets"]),
   });
 };
@@ -356,3 +393,27 @@ export const aggregateDataset = (
 };
 
 export { periodRank, comparePeriods };
+
+/** When each dataset's data last changed (null when it has no rows), for the dataset list. */
+export const useDatasetStats = (datasetIds: string[]) =>
+  useQuery({
+    // Under "manual-dataset-rows", so it refreshes whenever rows change.
+    queryKey: ["manual-dataset-rows", "stats", datasetIds.join("|")],
+    enabled: datasetIds.length > 0,
+    queryFn: async () => {
+      const entries = await Promise.all(
+        datasetIds.map(async (id) => {
+          const { data, error } = await supabase
+            .from("manual_dataset_rows")
+            .select("updated_at")
+            .eq("dataset_id", id)
+            .order("updated_at", { ascending: false })
+            .limit(1);
+          if (error) throw new Error(error.message);
+          const updatedAt = (data?.[0] as { updated_at?: string } | undefined)?.updated_at ?? null;
+          return [id, { updatedAt }] as const;
+        }),
+      );
+      return Object.fromEntries(entries) as Record<string, { updatedAt: string | null }>;
+    },
+  });

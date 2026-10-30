@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import express, { type NextFunction, type Request, type Response } from "express";
 import cookieParser from "cookie-parser";
 import cron from "node-cron";
-import { authRouter, readSession } from "./auth.ts";
+import { authRouter, hasRole, readSession } from "./auth.ts";
 import { applyDevAdminPassword, logAdminSetupLinks, passwordRouter } from "./passwords.ts";
 import { handleDbRequest } from "./dbapi.ts";
 import { handleRpc } from "./rpc.ts";
@@ -15,6 +15,7 @@ import { getdxTeamsAgeDays, refreshGetdxTeams } from "./functions/getdx-teams.ts
 import { syncCodeAdoption } from "./functions/code-adoption.ts";
 import { pool } from "./db.ts";
 import { localDevFlag } from "./devmode.ts";
+import { exportSnapshot } from "./snapshot.ts";
 import type { FnHandler } from "./functions/types.ts";
 
 const app = express();
@@ -48,6 +49,19 @@ app.post("/api/db", wrap(async (req, res) => {
 app.post("/api/rpc/:name", wrap(async (req, res) => {
   const out = await handleRpc(req.params.name, req.body ?? {}, await readSession(req));
   res.status(out.status).json(out);
+}));
+
+/** Admins only: the data as a file, for `npm run db:load` on a laptop (secrets left out). */
+app.get("/api/admin/snapshot", wrap(async (req, res) => {
+  const user = await readSession(req);
+  if (!(await hasRole(user?.id, "admin"))) {
+    res.status(403).json({ error: "Only admins can download the data" });
+    return;
+  }
+  const snapshot = await exportSnapshot();
+  res.setHeader("Content-Disposition", `attachment; filename="bloom-metrics-${snapshot.exported_at.slice(0, 10)}.json"`);
+  res.setHeader("Cache-Control", "no-store");
+  res.json(snapshot);
 }));
 
 /** Local development only: made-up Figma data (server/dev is not in the production image). */

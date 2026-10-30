@@ -6,7 +6,6 @@ import {
   SourceCard,
   SourceList,
   SourceListItem,
-  SourceShownIn,
   type SourceRun,
 } from "@/components/settings/source/SourceCard";
 import { useSaveDataSourceConfig } from "@/hooks/useDataSources";
@@ -152,11 +151,7 @@ const FigmaLibrariesCard = ({ saved, lastRun }: FigmaLibrariesCardProps) => {
       credentialsKey="figma"
       lastRun={lastRun}
     >
-      <SourceShownIn
-        value={saved?.metricGroupId as string | undefined}
-        onChange={(metricGroupId) => saveConfig({ metricGroupId }).catch(() => undefined)}
-        helperText="The Metrics tab that shows Figma adoption."
-      />
+      <p className="text-[12px] text-muted-foreground">Choose which views show Figma adoption in Metrics → Views.</p>
 
       <SourceList
         empty={{

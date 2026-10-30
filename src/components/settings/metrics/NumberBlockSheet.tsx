@@ -7,12 +7,10 @@ import { DesignSideSheet } from "@/components/ds/DesignSideSheet";
 import { DesignDataTable, type DataTableColumn } from "@/components/ds/DesignDataTable";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { DesignNote } from "@/components/ds/DesignNote";
-import { DesignCheckbox } from "@/components/ds/DesignCheckbox";
 import { useToast } from "@/hooks/use-toast";
 import {
   useSaveManualMetric,
   useDeleteManualMetric,
-  BREAKDOWN_VIEW_OPTIONS,
   SCALE_POINTS,
   type BreakdownView,
   type ManualMetric,
@@ -133,6 +131,10 @@ const NumberBlockSheet = ({
   duplicate = false,
   tabId,
   sortOrder,
+  datasetId,
+  inline = false,
+  onSaved,
+  onDeleted,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -143,6 +145,13 @@ const NumberBlockSheet = ({
   tabId?: string;
   /** Position of a new metric within its tab. */
   sortOrder?: number;
+  /** Dataset a new metric starts from (e.g. picked from Unused data). */
+  datasetId?: string;
+  /** Drawn in the page instead of a side sheet. */
+  inline?: boolean;
+  /** After saving, with the metric's slug (to select a new one). */
+  onSaved?: (slug: string) => void;
+  onDeleted?: () => void;
 }) => {
   const { toast } = useToast();
   const datasets = useManualDatasets();
@@ -167,7 +176,7 @@ const NumberBlockSheet = ({
   React.useEffect(() => {
     if (!open) return;
     if (!metric) {
-      setDraft({ ...emptyDraft, ...(tabId ? placement(tabId) : {}) });
+      setDraft({ ...emptyDraft, ...(tabId ? placement(tabId) : {}), ...(datasetId ? { dataset_id: datasetId } : {}) });
       return;
     }
     const next = draftFrom(metric);
@@ -178,7 +187,7 @@ const NumberBlockSheet = ({
     setDraft(duplicate ? { ...next, name: `${metric.name} (copy)` } : next);
     // Reset only when the sheet opens on a different metric.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, metric?.id, duplicate, tabId]);
+  }, [open, metric?.id, duplicate, tabId, datasetId]);
 
   const draftColumns = useDatasetColumns(draft.dataset_id || undefined);
   const columnOptions = (draftColumns.data ?? []).map((c) => ({ value: c.key, label: c.label }));
@@ -229,6 +238,7 @@ const NumberBlockSheet = ({
           : {},
       });
       onOpenChange(false);
+      onSaved?.(slugifyMetric(draft.name));
       toast({ title: "Metric saved" });
     } catch (err) {
       toast({ title: "Could not save metric", description: String(err), variant: "destructive" });
@@ -240,206 +250,172 @@ const NumberBlockSheet = ({
     try {
       await deleteMetric.mutateAsync(metric.id);
       onOpenChange(false);
+      onDeleted?.();
       toast({ title: "Metric deleted" });
     } catch (err) {
       toast({ title: "Could not delete metric", description: String(err), variant: "destructive" });
     }
   };
 
+  const footer = (
+    <div className="flex w-full justify-between gap-2">
+      <div>
+        {editingId && (
+          <DesignButton variant="flat" theme="error" icon={<Trash size={16} />} isLoading={deleteMetric.isPending} onClick={remove}>
+            Delete
+          </DesignButton>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <DesignButton variant="outlined" theme="primary" onClick={() => onOpenChange(false)}>
+          Cancel
+        </DesignButton>
+        <DesignButton variant="filled" theme="primary" isLoading={saveMetric.isPending} onClick={save}>
+          Save metric
+        </DesignButton>
+      </div>
+    </div>
+  );
+  const body = (
+    <div className={inline ? "space-y-4" : "p-4 space-y-4"}>
+      <DesignInputText label="Name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+      <DesignInputText
+        label="Unit"
+        placeholder="%, count, hours"
+        value={draft.unit}
+        onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
+      />
+      <DesignInputSelect
+        label="Group"
+        helperText="The Metrics area it belongs to. Where it's shown, and how often it's compared, is set in Metrics → Views."
+        placeholder={groupOptions.length ? "Pick a group" : "Create a view first"}
+        disabled={groupOptions.length === 0}
+        value={metricGroupId(allGroups, draft)}
+        onChange={(id) => setDraft({ ...draft, ...placement(id) })}
+        options={groupOptions}
+      />
+      <DesignInputText
+        label="Description"
+        value={draft.description}
+        onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+      />
+      <DesignInputSelect
+        label="Where the data comes from"
+        value={draft.source_type}
+        onChange={(source_type) =>
+          setDraft({ ...draft, source_type, dataset_id: "", value_column: "", period_column: "", source_key: "", source_field: "" })
+        }
+        options={[
+          { value: "dataset", label: "A dataset entered here" },
+          { value: "dynamic", label: "A connected live source" },
+        ]}
+      />
+
+      {draft.source_type === "dynamic" ? (
+        <>
+          <DesignInputSelect
+            label="Live source"
+            placeholder={liveSourceOptions.length ? "Pick a source" : "Nothing set up in Dynamic sources yet"}
+            disabled={liveSourceOptions.length === 0}
+            value={draft.source_key}
+            onChange={(source_key) => setDraft({ ...draft, source_key, source_field: "" })}
+            options={liveSourceOptions.map((s) => ({ value: s.value, label: s.label }))}
+          />
+          <DesignInputSelect
+            label="Value"
+            placeholder={draft.source_key ? "Pick a value" : "Pick a source first"}
+            disabled={!draft.source_key}
+            value={draft.source_field}
+            onChange={(source_field) => {
+              const unit = findDynamicField(draft.source_key, source_field)?.unit;
+              setDraft({ ...draft, source_field, unit: draft.unit || unit || "" });
+            }}
+            options={(findDynamicSource(draft.source_key)?.fields ?? []).map((f) => ({ value: f.key, label: f.label }))}
+          />
+          <DesignNote
+            text={
+              liveSourceOptions.length
+                ? "Lists the Figma libraries, GitHub reports and Google Analytics properties set up in Settings → Dynamic sources. Values refresh automatically — nothing to type in."
+                : "Add a Figma library, a GitHub report or a Google Analytics property in Settings → Dynamic sources, then pick it here."
+            }
+          />
+        </>
+      ) : (
+        <>
+          <DesignInputSelect
+            label="Dataset"
+            placeholder="Pick a dataset"
+            value={draft.dataset_id}
+            onChange={(dataset_id) => setDraft({ ...draft, dataset_id, value_column: "", period_column: "" })}
+            options={(datasets.data ?? []).map((d) => ({ value: d.id, label: d.name }))}
+          />
+          <DesignInputSelect
+            label="Value column"
+            placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
+            disabled={!draft.dataset_id}
+            value={draft.value_column}
+            onChange={(value_column) => setDraft({ ...draft, value_column })}
+            options={valueColumnOptions}
+          />
+          {valueIsRating && (
+            <div className="space-y-2">
+              <p className="text-[14px] font-medium text-foreground">What each score means</p>
+              <DesignNote text="Optional. Shown on the metric's card and next to the answer distribution, e.g. 4 = “Somewhat speeds me up”." />
+              {SCALE_POINTS.map((point) => (
+                <DesignInputText
+                  key={point}
+                  size="small"
+                  prefix={<span className="text-[14px] font-medium text-foreground w-4">{point}</span>}
+                  aria-label={`Meaning of ${point}`}
+                  placeholder={point === "1" ? "Lowest, e.g. “Much slower”" : point === "5" ? "Highest, e.g. “Over 40% faster”" : ""}
+                  value={draft.scale_labels[point] ?? ""}
+                  onChange={(e) => setDraft({ ...draft, scale_labels: { ...draft.scale_labels, [point]: e.target.value } })}
+                />
+              ))}
+            </div>
+          )}
+          <DesignInputSelect
+            label="Period column"
+            placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
+            disabled={!draft.dataset_id}
+            value={draft.period_column}
+            onChange={(period_column) => setDraft({ ...draft, period_column })}
+            options={columnOptions}
+          />
+          <DesignInputSelect
+            label="Combine rows by"
+            value={draft.aggregation}
+            onChange={(aggregation) => setDraft({ ...draft, aggregation })}
+            options={AGGREGATION_OPTIONS}
+          />
+
+        </>
+      )}
+
+      <ValuesPreview draft={draft} />
+    </div>
+  );
+
+  // In a page's main panel (Metrics → All metrics) instead of a side sheet.
+  if (inline) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h2 className="text-[16px] font-medium text-foreground">{editingId ? `Configure — ${metric?.name}` : "New quantitative metric"}</h2>
+        {body}
+        <div className="border-t border-border pt-4">{footer}</div>
+      </div>
+    );
+  }
+
   return (
     <DesignSideSheet
       open={open}
       onOpenChange={onOpenChange}
       minWidth="420px"
-      title={editingId ? `Configure — ${metric?.name}` : "New number"}
-      footer={
-        <div className="flex w-full justify-between gap-2">
-          <div>
-            {editingId && (
-              <DesignButton variant="flat" theme="error" icon={<Trash size={16} />} isLoading={deleteMetric.isPending} onClick={remove}>
-                Delete
-              </DesignButton>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <DesignButton variant="outlined" theme="primary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </DesignButton>
-            <DesignButton variant="filled" theme="primary" isLoading={saveMetric.isPending} onClick={save}>
-              Save metric
-            </DesignButton>
-          </div>
-        </div>
-      }
+      title={editingId ? `Configure — ${metric?.name}` : "New quantitative metric"}
+      footer={footer}
     >
-      <div className="p-4 space-y-4">
-        <DesignInputText label="Name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-        <DesignInputText
-          label="Unit"
-          placeholder="%, count, hours"
-          value={draft.unit}
-          onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
-        />
-        <DesignInputSelect
-          label="Tab"
-          placeholder={groupOptions.length ? "Pick a tab" : "Create a tab first"}
-          disabled={groupOptions.length === 0}
-          value={metricGroupId(allGroups, draft)}
-          onChange={(id) => setDraft({ ...draft, ...placement(id) })}
-          options={groupOptions}
-        />
-        <DesignInputText
-          label="Description"
-          value={draft.description}
-          onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-        />
-        <DesignInputSelect
-          label="Where the data comes from"
-          value={draft.source_type}
-          onChange={(source_type) =>
-            setDraft({ ...draft, source_type, dataset_id: "", value_column: "", period_column: "", source_key: "", source_field: "" })
-          }
-          options={[
-            { value: "dataset", label: "A dataset entered here" },
-            { value: "dynamic", label: "A connected live source" },
-          ]}
-        />
-
-        {draft.source_type === "dynamic" ? (
-          <>
-            <DesignInputSelect
-              label="Live source"
-              placeholder={liveSourceOptions.length ? "Pick a source" : "Nothing set up in Dynamic sources yet"}
-              disabled={liveSourceOptions.length === 0}
-              value={draft.source_key}
-              onChange={(source_key) => setDraft({ ...draft, source_key, source_field: "" })}
-              options={liveSourceOptions.map((s) => ({ value: s.value, label: s.label }))}
-            />
-            <DesignInputSelect
-              label="Value"
-              placeholder={draft.source_key ? "Pick a value" : "Pick a source first"}
-              disabled={!draft.source_key}
-              value={draft.source_field}
-              onChange={(source_field) => {
-                const unit = findDynamicField(draft.source_key, source_field)?.unit;
-                setDraft({ ...draft, source_field, unit: draft.unit || unit || "" });
-              }}
-              options={(findDynamicSource(draft.source_key)?.fields ?? []).map((f) => ({ value: f.key, label: f.label }))}
-            />
-            <DesignNote
-              text={
-                liveSourceOptions.length
-                  ? "Lists the Figma libraries, GitHub reports and Google Analytics properties set up in Settings → Dynamic sources. Values refresh automatically — nothing to type in."
-                  : "Add a Figma library, a GitHub report or a Google Analytics property in Settings → Dynamic sources, then pick it here."
-              }
-            />
-          </>
-        ) : (
-          <>
-            <DesignInputSelect
-              label="Dataset"
-              placeholder="Pick a dataset"
-              value={draft.dataset_id}
-              onChange={(dataset_id) => setDraft({ ...draft, dataset_id, value_column: "", period_column: "" })}
-              options={(datasets.data ?? []).map((d) => ({ value: d.id, label: d.name }))}
-            />
-            <DesignInputSelect
-              label="Value column"
-              placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
-              disabled={!draft.dataset_id}
-              value={draft.value_column}
-              onChange={(value_column) => setDraft({ ...draft, value_column })}
-              options={valueColumnOptions}
-            />
-            {valueIsRating && (
-              <div className="space-y-2">
-                <p className="text-[14px] font-medium text-foreground">What each score means</p>
-                <DesignNote text="Optional. Shown on the metric's card and next to the answer distribution, e.g. 4 = “Somewhat speeds me up”." />
-                {SCALE_POINTS.map((point) => (
-                  <DesignInputText
-                    key={point}
-                    size="small"
-                    prefix={<span className="text-[14px] font-medium text-foreground w-4">{point}</span>}
-                    aria-label={`Meaning of ${point}`}
-                    placeholder={point === "1" ? "Lowest, e.g. “Much slower”" : point === "5" ? "Highest, e.g. “Over 40% faster”" : ""}
-                    value={draft.scale_labels[point] ?? ""}
-                    onChange={(e) => setDraft({ ...draft, scale_labels: { ...draft.scale_labels, [point]: e.target.value } })}
-                  />
-                ))}
-              </div>
-            )}
-            <DesignInputSelect
-              label="Period column"
-              placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
-              disabled={!draft.dataset_id}
-              value={draft.period_column}
-              onChange={(period_column) => setDraft({ ...draft, period_column })}
-              options={columnOptions}
-            />
-            <DesignInputSelect
-              label="Combine rows by"
-              value={draft.aggregation}
-              onChange={(aggregation) => setDraft({ ...draft, aggregation })}
-              options={AGGREGATION_OPTIONS}
-            />
-
-            <div className="space-y-2">
-              <p className="text-[14px] font-medium text-foreground">Columns usable as filters</p>
-              <DesignNote text="Pick the columns people can filter this metric by on the Metrics page, such as Role or Business unit, and how each breakdown is shown." />
-              {!draft.dataset_id ? (
-                <p className="text-[14px] text-muted-foreground">Pick a dataset first.</p>
-              ) : columnOptions.length === 0 ? (
-                <p className="text-[14px] text-muted-foreground">This dataset has no columns yet.</p>
-              ) : (
-                <div className="space-y-3 pt-1">
-                  {columnOptions.map((option) => {
-                    const checked = draft.filter_columns.includes(option.value);
-                    return (
-                      <div key={option.value} className="space-y-2">
-                        <label className="flex items-center gap-3 cursor-pointer">
-                          <DesignCheckbox
-                            checked={checked}
-                            onCheckedChange={(next) =>
-                              setDraft((prev) => ({
-                                ...prev,
-                                filter_columns: next
-                                  ? [...prev.filter_columns, option.value]
-                                  : prev.filter_columns.filter((key) => key !== option.value),
-                                breakdown_views: next
-                                  ? { ...prev.breakdown_views, [option.value]: prev.breakdown_views[option.value] ?? "table" }
-                                  : prev.breakdown_views,
-                              }))
-                            }
-                          />
-                          <span className="text-[14px] text-foreground">{option.label}</span>
-                        </label>
-                        {checked && (
-                          <div className="pl-8">
-                            <DesignInputSelect
-                              size="small"
-                              className="w-[260px]"
-                              value={draft.breakdown_views[option.value] ?? "table"}
-                              onChange={(view) =>
-                                setDraft((prev) => ({
-                                  ...prev,
-                                  breakdown_views: { ...prev.breakdown_views, [option.value]: view as BreakdownView },
-                                }))
-                              }
-                              options={BREAKDOWN_VIEW_OPTIONS}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        <ValuesPreview draft={draft} />
-      </div>
+      {body}
     </DesignSideSheet>
   );
 };

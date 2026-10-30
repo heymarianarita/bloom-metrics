@@ -172,6 +172,9 @@ const QualitativeBlockSheet = ({
   source,
   tabName,
   sortOrder,
+  inline = false,
+  onSaved,
+  onDeleted,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -180,6 +183,11 @@ const QualitativeBlockSheet = ({
   /** Tab a new insight is placed in. */
   tabName?: string;
   sortOrder?: number;
+  /** Drawn in the page instead of a side sheet. */
+  inline?: boolean;
+  /** After saving, with the insight's id (to select a new one). */
+  onSaved?: (id: string) => void;
+  onDeleted?: () => void;
 }) => {
   const { toast } = useToast();
   const datasets = useManualDatasets();
@@ -231,6 +239,7 @@ const QualitativeBlockSheet = ({
         name: draft.name.trim(),
       });
       onOpenChange(false);
+      onSaved?.(id);
       toast({ title: "Saved", description: "Analysing the answers. This takes a few minutes." });
       await analyse(id);
     } catch (e) {
@@ -243,6 +252,7 @@ const QualitativeBlockSheet = ({
     try {
       await remove.mutateAsync(source.id);
       onOpenChange(false);
+      onDeleted?.();
       toast({ title: "Deleted" });
     } catch (e) {
       toast({ title: "Could not delete", description: errorText(e), variant: "destructive" });
@@ -253,131 +263,147 @@ const QualitativeBlockSheet = ({
   const breakdownColumns = profile.filter((c) => c.category && c.key !== draft.text_column && c.key !== draft.period_column);
   const hasBreakdown = (column: string) => draft.breakdowns.some((b) => b.column === column);
 
+  const footer = (
+    <div className="flex w-full justify-between gap-2">
+      <div>
+        {source && (
+          <DesignButton variant="flat" theme="error" icon={<Trash size={16} />} isLoading={remove.isPending} onClick={onDelete}>
+            Delete
+          </DesignButton>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <DesignButton variant="outlined" theme="primary" onClick={() => onOpenChange(false)}>
+          Cancel
+        </DesignButton>
+        <DesignButton variant="filled" theme="primary" isLoading={save.isPending} onClick={onSave}>
+          Save and analyse
+        </DesignButton>
+      </div>
+    </div>
+  );
+  const body = (
+    <div className={inline ? "space-y-4" : "p-4 space-y-4"}>
+      {source && <AnalysisStatus source={source} busy={run.isPending} onAnalyse={() => analyse(source.id)} />}
+      <DesignInputText
+        label="Name"
+        placeholder="What needs improvement"
+        helperText="Shown as the tab name on the metric group page."
+        value={draft.name}
+        onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+      />
+      <DesignInputSelect
+        label="Group"
+        placeholder="Pick a group"
+        helperText="The Metrics area it belongs to. Where it's shown, and how often it's compared, is set in Metrics → Views."
+        value={draft.group_name}
+        onChange={(group_name) => setDraft({ ...draft, group_name })}
+        options={(groups.data ?? []).filter((g) => !g.parent_id).map((g) => ({ value: g.name, label: g.name }))}
+      />
+      <DesignInputText
+        label="Description"
+        value={draft.description}
+        onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+      />
+      <DesignInputSelect
+        label="Dataset"
+        placeholder="Pick a dataset"
+        value={draft.dataset_id}
+        onChange={(dataset_id) => setDraft({ ...draft, dataset_id, text_column: "", period_column: "", breakdowns: [] })}
+        options={(datasets.data ?? []).filter((d) => !d.archived).map((d) => ({ value: d.id, label: d.name }))}
+      />
+      <DesignInputSelect
+        label="Answers column"
+        placeholder={draft.dataset_id ? "Pick the free-text column" : "Pick a dataset first"}
+        disabled={!draft.dataset_id}
+        value={draft.text_column}
+        onChange={(text_column) => {
+          const col = profile.find((c) => c.key === text_column);
+          setDraft({
+            ...draft,
+            text_column,
+            name: draft.name || col?.label || "",
+            tone: guessTone(`${text_column} ${col?.label ?? ""}`),
+            breakdowns: draft.breakdowns.filter((b) => b.column !== text_column),
+          });
+        }}
+        options={textColumns.map((c) => ({ value: c.key, label: c.freeText ? `${c.label} (${c.filled} answers)` : c.label }))}
+      />
+      <DesignInputSelect
+        label="Period column"
+        placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
+        disabled={!draft.dataset_id}
+        value={draft.period_column}
+        onChange={(period_column) => setDraft({ ...draft, period_column })}
+        options={profile.map((c) => ({ value: c.key, label: c.label }))}
+      />
+      <DesignInputSelect
+        label="Kind of answers"
+        helperText="Decides whether a growing theme is good or bad news."
+        value={draft.tone}
+        onChange={(tone) => setDraft({ ...draft, tone: tone as QuestionTone })}
+        options={TONES}
+      />
+
+      <div className="space-y-2">
+        <p className="text-[14px] font-medium text-foreground">Break down by</p>
+        <DesignNote text="Summaries are written for each value, such as each role. Team columns are grouped into business units with the GetDX team mapping." />
+        {!draft.dataset_id ? (
+          <p className="text-[14px] text-muted-foreground">Pick a dataset first.</p>
+        ) : breakdownColumns.length === 0 ? (
+          <p className="text-[14px] text-muted-foreground">No columns to break down by.</p>
+        ) : (
+          <div className="space-y-3 pt-1">
+            {breakdownColumns.map((c) => {
+              const team = isTeamLabel(c.label);
+              const breakdown: QualitativeBreakdown = team
+                ? { kind: "business_unit", column: c.key, label: "Business unit" }
+                : { kind: "column", column: c.key, label: c.label };
+              return (
+                <label key={c.key} className="flex items-center gap-3 cursor-pointer">
+                  <DesignCheckbox
+                    checked={hasBreakdown(c.key)}
+                    onCheckedChange={(next) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        breakdowns: next ? [...prev.breakdowns, breakdown] : prev.breakdowns.filter((b) => b.column !== c.key),
+                      }))
+                    }
+                  />
+                  <span className="text-[14px] text-foreground">{team ? `Business unit (from ${c.label})` : c.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {source && <Results source={source} />}
+
+      <DesignNote text="The AI finds the themes itself and keeps them up to date as new answers come in. Only the answers and breakdown values are sent to it, never emails or other columns; names, teams and emails are removed from the quotes people see." />
+    </div>
+  );
+
+  // In a page's main panel (Metrics → All metrics) instead of a side sheet.
+  if (inline) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h2 className="text-[16px] font-medium text-foreground">{editingId ? `Configure — ${source?.name}` : "New qualitative metric"}</h2>
+        {body}
+        <div className="border-t border-border pt-4">{footer}</div>
+      </div>
+    );
+  }
+
   return (
     <DesignSideSheet
       open={open}
       onOpenChange={onOpenChange}
       minWidth="420px"
-      title={editingId ? `Configure — ${source?.name}` : "New qualitative insight"}
-      footer={
-        <div className="flex w-full justify-between gap-2">
-          <div>
-            {source && (
-              <DesignButton variant="flat" theme="error" icon={<Trash size={16} />} isLoading={remove.isPending} onClick={onDelete}>
-                Delete
-              </DesignButton>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <DesignButton variant="outlined" theme="primary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </DesignButton>
-            <DesignButton variant="filled" theme="primary" isLoading={save.isPending} onClick={onSave}>
-              Save and analyse
-            </DesignButton>
-          </div>
-        </div>
-      }
+      title={editingId ? `Configure — ${source?.name}` : "New qualitative metric"}
+      footer={footer}
     >
-      <div className="p-4 space-y-4">
-        {source && <AnalysisStatus source={source} busy={run.isPending} onAnalyse={() => analyse(source.id)} />}
-        <DesignInputText
-          label="Name"
-          placeholder="What needs improvement"
-          helperText="Shown as the tab name on the metric group page."
-          value={draft.name}
-          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-        />
-        <DesignInputSelect
-          label="Tab"
-          placeholder="Pick a tab"
-          helperText="Qualitative insights show on top-level tabs."
-          value={draft.group_name}
-          onChange={(group_name) => setDraft({ ...draft, group_name })}
-          options={(groups.data ?? []).filter((g) => !g.parent_id).map((g) => ({ value: g.name, label: g.name }))}
-        />
-        <DesignInputText
-          label="Description"
-          value={draft.description}
-          onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-        />
-        <DesignInputSelect
-          label="Dataset"
-          placeholder="Pick a dataset"
-          value={draft.dataset_id}
-          onChange={(dataset_id) => setDraft({ ...draft, dataset_id, text_column: "", period_column: "", breakdowns: [] })}
-          options={(datasets.data ?? []).filter((d) => !d.archived).map((d) => ({ value: d.id, label: d.name }))}
-        />
-        <DesignInputSelect
-          label="Answers column"
-          placeholder={draft.dataset_id ? "Pick the free-text column" : "Pick a dataset first"}
-          disabled={!draft.dataset_id}
-          value={draft.text_column}
-          onChange={(text_column) => {
-            const col = profile.find((c) => c.key === text_column);
-            setDraft({
-              ...draft,
-              text_column,
-              name: draft.name || col?.label || "",
-              tone: guessTone(`${text_column} ${col?.label ?? ""}`),
-              breakdowns: draft.breakdowns.filter((b) => b.column !== text_column),
-            });
-          }}
-          options={textColumns.map((c) => ({ value: c.key, label: c.freeText ? `${c.label} (${c.filled} answers)` : c.label }))}
-        />
-        <DesignInputSelect
-          label="Period column"
-          placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
-          disabled={!draft.dataset_id}
-          value={draft.period_column}
-          onChange={(period_column) => setDraft({ ...draft, period_column })}
-          options={profile.map((c) => ({ value: c.key, label: c.label }))}
-        />
-        <DesignInputSelect
-          label="Kind of answers"
-          helperText="Decides whether a growing theme is good or bad news."
-          value={draft.tone}
-          onChange={(tone) => setDraft({ ...draft, tone: tone as QuestionTone })}
-          options={TONES}
-        />
-
-        <div className="space-y-2">
-          <p className="text-[14px] font-medium text-foreground">Break down by</p>
-          <DesignNote text="Summaries are written for each value, such as each role. Team columns are grouped into business units with the GetDX team mapping." />
-          {!draft.dataset_id ? (
-            <p className="text-[14px] text-muted-foreground">Pick a dataset first.</p>
-          ) : breakdownColumns.length === 0 ? (
-            <p className="text-[14px] text-muted-foreground">No columns to break down by.</p>
-          ) : (
-            <div className="space-y-3 pt-1">
-              {breakdownColumns.map((c) => {
-                const team = isTeamLabel(c.label);
-                const breakdown: QualitativeBreakdown = team
-                  ? { kind: "business_unit", column: c.key, label: "Business unit" }
-                  : { kind: "column", column: c.key, label: c.label };
-                return (
-                  <label key={c.key} className="flex items-center gap-3 cursor-pointer">
-                    <DesignCheckbox
-                      checked={hasBreakdown(c.key)}
-                      onCheckedChange={(next) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          breakdowns: next ? [...prev.breakdowns, breakdown] : prev.breakdowns.filter((b) => b.column !== c.key),
-                        }))
-                      }
-                    />
-                    <span className="text-[14px] text-foreground">{team ? `Business unit (from ${c.label})` : c.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {source && <Results source={source} />}
-
-        <DesignNote text="The AI finds the themes itself and keeps them up to date as new answers come in. Only the answers and breakdown values are sent to it, never emails or other columns; names, teams and emails are removed from the quotes people see." />
-      </div>
+      {body}
     </DesignSideSheet>
   );
 };

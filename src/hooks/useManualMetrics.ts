@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { removePlacements } from "@/hooks/useViewItems";
 
 export interface ManualMetric {
   id: string;
@@ -29,7 +30,7 @@ export interface ManualMetric {
   scale_labels: Record<string, string>;
 }
 
-/** Order of metrics on a tab: as arranged in Settings → Metrics, ties broken by name. */
+/** Order of metrics on a tab: as arranged in Metrics → All metrics, ties broken by name. */
 export const byTabOrder = (a: Pick<ManualMetric, "sort_order" | "name">, b: Pick<ManualMetric, "sort_order" | "name">) =>
   (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
 
@@ -121,10 +122,12 @@ export const useDeleteManualMetric = () => {
       if (valueError) throw new Error(valueError.message);
       const { error } = await supabase.from("manual_metrics").delete().eq("id", id);
       if (error) throw new Error(error.message);
+      await removePlacements("number", id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["manual-metrics"] });
       queryClient.invalidateQueries({ queryKey: ["manual-metric-values"] });
+      queryClient.invalidateQueries({ queryKey: ["view-items"] });
     },
   });
 };

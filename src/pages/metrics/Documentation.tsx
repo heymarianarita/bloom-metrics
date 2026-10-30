@@ -34,6 +34,7 @@ import {
   type Ga4Totals,
 } from "@/hooks/useGa4Analytics";
 import { formatDateTime } from "@/lib/formatDate";
+import { EditViewButton } from "@/components/metrics/EditViewButton";
 
 type DocumentationPlatformRow = Ga4Property & {
   rowTotals?: Ga4Totals;
@@ -677,6 +678,7 @@ const Documentation = () => {
     <AppShell>
       <div className="w-full max-w-[1440px] mx-auto">
         <DesignPageHeader
+          primaryAction={<EditViewButton tabSlug="documentation" />}
           title={selectedProperty?.label ?? "Documentation"}
           subtitle={
             selectedProperty

@@ -328,6 +328,8 @@ export type Database = {
           archived: boolean
           created_at: string
           description: string
+          entry_method: string
+          entry_notes: string
           id: string
           name: string
           slug: string
@@ -338,6 +340,8 @@ export type Database = {
           archived?: boolean
           created_at?: string
           description?: string
+          entry_method?: string
+          entry_notes?: string
           id?: string
           name: string
           slug: string
@@ -348,6 +352,8 @@ export type Database = {
           archived?: boolean
           created_at?: string
           description?: string
+          entry_method?: string
+          entry_notes?: string
           id?: string
           name?: string
           slug?: string
@@ -478,6 +484,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string
+          filters: Json
           id: string
           parent_id: string | null
           name: string
@@ -489,6 +496,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string
+          filters?: Json
           id?: string
           parent_id?: string | null
           name: string
@@ -500,6 +508,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string
+          filters?: Json
           id?: string
           parent_id?: string | null
           name?: string
@@ -507,6 +516,78 @@ export type Database = {
           slug?: string
           sort_order?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      view_rows: {
+        Row: {
+          created_at: string
+          id: string
+          layout: string
+          sort_order: number
+          updated_at: string
+          view_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          layout?: string
+          sort_order?: number
+          updated_at?: string
+          view_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          layout?: string
+          sort_order?: number
+          updated_at?: string
+          view_id?: string
+        }
+        Relationships: []
+      }
+      view_items: {
+        Row: {
+          created_at: string
+          hidden: boolean
+          id: string
+          kind: string
+          options: Json
+          ref: string
+          row_id: string | null
+          slot: number
+          section: string
+          sort_order: number
+          updated_at: string
+          view_id: string
+        }
+        Insert: {
+          created_at?: string
+          hidden?: boolean
+          id?: string
+          kind: string
+          options?: Json
+          ref?: string
+          row_id?: string | null
+          slot?: number
+          section?: string
+          sort_order?: number
+          updated_at?: string
+          view_id: string
+        }
+        Update: {
+          created_at?: string
+          hidden?: boolean
+          id?: string
+          kind?: string
+          options?: Json
+          ref?: string
+          row_id?: string | null
+          slot?: number
+          section?: string
+          sort_order?: number
+          updated_at?: string
+          view_id?: string
         }
         Relationships: []
       }

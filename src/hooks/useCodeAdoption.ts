@@ -46,7 +46,7 @@ export interface CodeAdoptionRepo {
   /** GitHub repository the report file lives in, and the metric (sub)group it's shown in. */
   repository: string | null;
   metricGroupId: string | null;
-  /** How its panel is drawn (Settings → Metrics). */
+  /** How its panel is drawn (Metrics → All metrics). */
   charts: CodeAdoptionCharts;
   snapshots: CodeAdoptionSnapshot[];
   latest: CodeAdoptionDetail | null;
@@ -78,6 +78,22 @@ export const useCodeAdoption = () =>
       const { data, error } = await supabase.functions.invoke("code-adoption", { method: "GET" });
       if (error) throw new Error(error.message);
       return data as CodeAdoptionData;
+    },
+  });
+
+/** One scan's team and Greenhouse breakdown; `undefined` skips the request. */
+export const useCodeAdoptionScan = (repo: string | undefined, generatedAt: string | undefined) =>
+  useQuery<CodeAdoptionDetail>({
+    queryKey: ["code-adoption-scan", repo, generatedAt],
+    enabled: Boolean(repo && generatedAt),
+    staleTime: Infinity,
+    // Keep the previous scan on screen while another period loads.
+    placeholderData: (previous) => previous,
+    queryFn: async () => {
+      const params = new URLSearchParams({ repo: repo!, scan: generatedAt! });
+      const { data, error } = await supabase.functions.invoke(`code-adoption?${params}`, { method: "GET" });
+      if (error) throw new Error(error.message);
+      return data as CodeAdoptionDetail;
     },
   });
 

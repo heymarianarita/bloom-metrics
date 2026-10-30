@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useSectionHeading } from "@/components/metrics/sectionHeading";
 import { CaretDown, CaretRight, Sparkle } from "@phosphor-icons/react";
 import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignBadge } from "@/components/ds/DesignBadge";
@@ -170,7 +171,9 @@ const GroupView = ({
     <section className="pt-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <p className="text-[16px] font-medium text-foreground">What people are saying</p>
+          <p className="text-[16px] font-medium text-foreground">
+            <QualitativeHeading />
+          </p>
           <p className="text-xs text-muted-foreground mt-0.5">
             {`${active ?? "No periods"}${compareLabel ? ` vs ${compareLabel}` : ""}${
               focus && hasThemes ? ` · ${focus.answered} answer${focus.answered === 1 ? "" : "s"}` : ""
@@ -264,22 +267,31 @@ const GroupView = ({
   );
 };
 
-/** Qualitative metrics configured for a metric group (Settings → Metrics). */
+/** Qualitative metrics configured for a metric group (Metrics → All metrics). */
 export const QualitativeSection = ({
   group,
   period,
   compare,
   segmentFilters = {},
+  sourceIds,
 }: {
   group: string;
   period?: string;
   compare?: string;
   segmentFilters?: Record<string, string>;
+  /** Only these qualitative metrics of the group, in this order (a view places them one by one). */
+  sourceIds?: string[];
 }) => {
   const view = useQualitativeGroup(group);
-  const sources = view.data?.sources ?? [];
+  const all = view.data?.sources ?? [];
+  const sources = sourceIds
+    ? sourceIds.map((id) => all.find((s) => s.id === id)).filter((s): s is Source => Boolean(s))
+    : all;
   if (sources.length === 0) return null;
   return <GroupView sources={sources} period={period} compare={compare} segmentFilters={segmentFilters} />;
 };
 
 export default QualitativeSection;
+
+/** "What people are saying", or the view section's own title. */
+const QualitativeHeading = () => <>{useSectionHeading("What people are saying")}</>;

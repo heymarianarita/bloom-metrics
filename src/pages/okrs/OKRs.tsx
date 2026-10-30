@@ -398,9 +398,9 @@ const OKRs = () => {
             <DesignInfoBanner
               type="warning"
               title="Atlassian Goals is not connected yet"
-              description="Connect Atlassian Goals in Settings → Dynamic sources and objectives will appear here automatically."
+              description="Connect Atlassian Goals in Settings → OKRs and objectives will appear here automatically."
               actionLabel="Open dynamic sources"
-              onAction={() => navigate("/settings/data-sources")}
+              onAction={() => navigate("/settings/okrs")}
               showCloseButton={false}
             />
             <DesignSpacer size="medium" />
