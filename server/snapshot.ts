@@ -3,7 +3,7 @@ import { query } from "./db.ts";
 
 /**
  * A copy of the production data for local development: an admin downloads it from
- * Settings → Users, and `npm run db:load -- <file>` puts it in the local database.
+ * Settings → Data history, and `npm run db:load -- <file>` puts it in the local database.
  * Secrets and sign-in data stay behind; local sign-in uses DEV_ADMIN_PASSWORD.
  */
 

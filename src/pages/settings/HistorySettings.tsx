@@ -13,6 +13,7 @@ import { DesignCell } from "@/components/ds/DesignCell";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useMyRole, useSession } from "@/hooks/useAuth";
 import { useSyncRuns, type SyncRun } from "@/hooks/useDataSources";
 import { formatDateTime } from "@/lib/formatDate";
 
@@ -67,6 +68,8 @@ const download = (name: string, content: string) => {
 
 const HistorySettings = () => {
   const { toast } = useToast();
+  const { user } = useSession();
+  const { data: myRole } = useMyRole(user);
   const runs = useSyncRuns(200);
   const [busy, setBusy] = React.useState<string | null>(null);
   const changes = useQuery({
@@ -167,6 +170,14 @@ const HistorySettings = () => {
             >
               Export everything
             </DesignButton>
+          }
+          secondaryActions={
+            // Admins only: a copy of the whole database (no secrets or passwords) for `npm run db:load`.
+            myRole === "admin" ? (
+              <DesignButton variant="outlined" theme="primary" size="medium" url="/api/admin/snapshot">
+                Download database copy
+              </DesignButton>
+            ) : undefined
           }
         />
         <DesignSpacer size="medium" />

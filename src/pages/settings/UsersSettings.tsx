@@ -267,12 +267,6 @@ const UsersSettingsInner = () => {
             </DesignButton>
           ) : undefined
         }
-        secondaryActions={
-          // A copy of all data except secrets and passwords, for `npm run db:load` on a laptop.
-          <DesignButton size="medium" variant="outlined" theme="primary" url="/api/admin/snapshot">
-            Download data
-          </DesignButton>
-        }
       />
       <AddPersonDialog
         open={adding}
