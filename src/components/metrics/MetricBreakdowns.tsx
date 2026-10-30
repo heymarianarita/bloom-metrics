@@ -21,14 +21,14 @@ import { compactNumber } from "@/lib/chartFormat";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignLoader } from "@/components/ds/DesignLoader";
 import {
-  aggregateDataset,
   comparePeriods,
   useDatasetColumns,
   useDatasetRows,
   type ManualDatasetRow,
 } from "@/hooks/useManualDatasets";
 import type { BreakdownView, ManualMetric } from "@/hooks/useManualMetrics";
-import { bucketSeries, type SeriesPoint } from "@/lib/periodBuckets";
+import { type SeriesPoint } from "@/lib/periodBuckets";
+import { periodSeries } from "../../../server/shared/aggregate.ts";
 import type { Periodicity } from "@/hooks/useMetricGroups";
 import { isTeamLabel, useTeamBusinessUnits } from "@/hooks/useTeamBusinessUnits";
 
@@ -101,7 +101,7 @@ const Breakdown = ({
     return Array.from(groups.entries())
       .map(([value, groupRows]) => ({
         value,
-        points: bucketSeries(aggregateDataset(groupRows, metric), periodicity),
+        points: periodSeries(groupRows.map((r) => r.data ?? {}), metric, periodicity),
       }))
       .filter((segment) => segment.points.length > 0)
       .sort((a, b) => a.value.localeCompare(b.value));

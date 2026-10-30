@@ -1,3 +1,5 @@
+import { bucketLabel, periodRank, type Periodicity } from "./periods.ts";
+
 /**
  * How a metric turns dataset rows into one value per period. Shared by the app and the
  * insights tools so both compute the same numbers.
@@ -7,7 +9,17 @@ export type Aggregation = "sum" | "avg" | "latest" | "count" | "ratio" | "count_
 
 export type CountOp = "eq" | "lt" | "lte" | "gt" | "gte";
 
+/**
+ * How a period's value is built from rows on several dates:
+ *   average — each date's value, averaged (the original behaviour)
+ *   total   — every row of the period at once (things that happen: insertions)
+ *   last    — only the period's latest date (snapshots: a scan's shares)
+ */
+export type OverTime = "average" | "total" | "last";
+
 export interface AggregationOptions {
+  /** How the rows of a period on different dates combine; "average" when left out. */
+  over_time?: OverTime;
   /** ratio: the column summed below the line (value = sum(value) ÷ sum(this) × 100). */
   denominator_column?: string;
   /** count_if: rows whose value compares this way to `threshold` are counted. */
@@ -76,4 +88,57 @@ export function aggregateRows(
     }
     return [{ period, value, rows: values.length }];
   });
+}
+
+/**
+ * One value per period of the given frequency (newest first): rows are put in their period,
+ * then combined as the metric's `over_time` says. `cutoffs` leaves out, per period label, the
+ * rows dated after a moment (comparing a running period with the same stretch of another).
+ */
+export function periodSeries(
+  rows: Record<string, unknown>[],
+  config: AggregationConfig,
+  periodicity: Periodicity,
+  cutoffs: Record<string, number> = {},
+): { period: string; value: number; rows: number }[] {
+  const groups = new Map<string, { rank: number; rows: { raw: string; rank: number | null; data: Record<string, unknown> }[] }>();
+  for (const data of rows) {
+    const raw = String(data?.[config.period_column] ?? "").trim();
+    if (!raw) continue;
+    const rank = periodRank(raw);
+    const label = rank === null ? raw : bucketLabel(rank, periodicity);
+    const cutoff = cutoffs[label];
+    if (cutoff !== undefined && rank !== null && rank > cutoff) continue;
+    const group = groups.get(label) ?? { rank: rank ?? 0, rows: [] };
+    group.rank = Math.min(group.rank, rank ?? group.rank);
+    group.rows.push({ raw, rank, data });
+    groups.set(label, group);
+  }
+  const overTime = config.aggregation_options?.over_time ?? "average";
+  const out: { period: string; value: number; rows: number; rank: number }[] = [];
+  for (const [period, group] of groups) {
+    let picked = group.rows;
+    if (overTime === "last") {
+      const latest = Math.max(...group.rows.map((r) => r.rank ?? -Infinity));
+      picked = group.rows.filter((r) => (r.rank ?? -Infinity) === latest);
+    }
+    if (overTime === "average") {
+      const perDate = aggregateRows(picked.map((r) => r.data), config);
+      if (!perDate.length) continue;
+      out.push({
+        period,
+        value: perDate.reduce((sum, p) => sum + p.value, 0) / perDate.length,
+        rows: perDate.reduce((sum, p) => sum + p.rows, 0),
+        rank: group.rank,
+      });
+      continue;
+    }
+    // Every picked row counts as one period.
+    const [point] = aggregateRows(
+      picked.map((r) => ({ ...r.data, [config.period_column]: period })),
+      config,
+    );
+    if (point) out.push({ ...point, period, rank: group.rank });
+  }
+  return out.sort((a, b) => b.rank - a.rank).map(({ period, value, rows: n }) => ({ period, value, rows: n }));
 }

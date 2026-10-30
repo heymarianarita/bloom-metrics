@@ -87,3 +87,55 @@ export const bucketPeriod = (period: string, periodicity: Periodicity) => {
   const rank = periodRank(period);
   return rank === null ? period.trim() : bucketLabel(rank, periodicity);
 };
+
+const DAY = 86400000;
+
+/** When a bucket label (2026-Q4, 2026-10, 2026-H2, 2026, 2026-W44, 2026-10-30) starts and ends (end exclusive). */
+export const bucketRange = (label: string, periodicity: Periodicity): { start: number; end: number } | null => {
+  const value = label.trim();
+  const week = value.match(/^(\d{4})-W(\d{2})$/);
+  if (periodicity === "weekly" && week) {
+    // ISO week: the week with January 4th is week 1; weeks start on Monday.
+    const jan4 = Date.UTC(Number(week[1]), 0, 4);
+    const monday = jan4 - (((new Date(jan4).getUTCDay() || 7) - 1) * DAY);
+    const start = monday + (Number(week[2]) - 1) * 7 * DAY;
+    return { start, end: start + 7 * DAY };
+  }
+  const half = value.match(/^(\d{4})-H([12])$/);
+  if (half) {
+    const year = Number(half[1]);
+    return half[2] === "1"
+      ? { start: Date.UTC(year, 0, 1), end: Date.UTC(year, 6, 1) }
+      : { start: Date.UTC(year, 6, 1), end: Date.UTC(year + 1, 0, 1) };
+  }
+  const start = periodRank(value);
+  if (start === null) return null;
+  const d = new Date(start);
+  const [y, m] = [d.getUTCFullYear(), d.getUTCMonth()];
+  switch (periodicity) {
+    case "daily":
+      return { start, end: start + DAY };
+    case "monthly":
+      return { start, end: Date.UTC(y, m + 1, 1) };
+    case "yearly":
+      return { start, end: Date.UTC(y + 1, 0, 1) };
+    case "quarterly":
+      return { start, end: Date.UTC(y, m + 3, 1) };
+    default:
+      return null;
+  }
+};
+
+/**
+ * While `period` is still running, the moment in `compare` that is as far into it as today is
+ * into `period` (rows dated after it are left out of the comparison). Null when `period` has
+ * ended, or either can't be placed in time.
+ */
+export const sameDayCutoff = (period: string, compare: string, periodicity: Periodicity, now = Date.now()) => {
+  const current = bucketRange(period, periodicity);
+  const previous = bucketRange(compare, periodicity);
+  if (!current || !previous || now >= current.end || now < current.start || previous.start >= current.start) return null;
+  const elapsed = Math.floor((now - current.start) / DAY) * DAY;
+  // Inclusive of that whole day; never past the end of the compared period.
+  return Math.min(previous.start + elapsed + DAY - 1, previous.end - 1);
+};

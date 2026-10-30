@@ -64,7 +64,8 @@ async function figmaFetchAllRows(path: string, token: string) {
     rows = rows.concat(res.json?.rows ?? []);
     cursor = res.json?.next_page ? res.json?.cursor ?? null : null;
     safety++;
-  } while (cursor && safety < 20);
+    // A year of weekly rows per component can run to many pages.
+  } while (cursor && safety < 200);
   return { ok, status, rows };
 }
 
@@ -265,6 +266,20 @@ const handler: FnHandler = async (req) => {
     if (!pages.some((p) => p.name === name)) pages.push({ name, componentCount });
   }
 
+  // Weekly activity per page (Figma reports actions per week), so history can be kept by week.
+  const pageByKey = new Map(components.map((c) => [c.key, resolvePage(c)]));
+  const pageByName = new Map(components.map((c) => [c.name, resolvePage(c)]));
+  const weekly = new Map<string, { week: string; page: string; inserts: number; detaches: number }>();
+  for (const row of actionRows) {
+    const week = typeof row.week === "string" ? row.week.slice(0, 10) : "";
+    if (!week) continue;
+    const page = pageByKey.get(row.component_key) ?? pageByName.get(row.component_name) ?? "—";
+    const entry = weekly.get(`${week}|${page}`) ?? { week, page, inserts: 0, detaches: 0 };
+    entry.inserts += Number(row.insertions) || 0;
+    entry.detaches += Number(row.detachments) || 0;
+    weekly.set(`${week}|${page}`, entry);
+  }
+
   const documentedCount = componentRows.filter((c) => c.documented).length;
   const totalInserts = actionRows.reduce((s, r) => s + (Number(r.insertions) || 0), 0);
   const totalDetaches = actionRows.reduce((s, r) => s + (Number(r.detachments) || 0), 0);
@@ -295,6 +310,7 @@ const handler: FnHandler = async (req) => {
           ? Math.round((totalDetaches / (totalInserts + totalDetaches)) * 100)
           : null,
     },
+    weeks: [...weekly.values()],
     analyticsAvailable,
     analyticsNote: analyticsAvailable
       ? null

@@ -700,6 +700,21 @@ async function metricDirection(conn: PoolConnection) {
   console.log(`metrics where less is better: ${(res as { affectedRows?: number }).affectedRows ?? 0}`);
 }
 
+/** One-off: code adoption metrics are snapshots, so a period shows its last scan, not an average. */
+const SNAPSHOT_METRICS_NAME = "2026-10-30-snapshot-metrics";
+
+async function snapshotMetrics(conn: PoolConnection) {
+  const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [SNAPSHOT_METRICS_NAME]);
+  if ((done as unknown[]).length) return;
+  const [res] = await conn.query(
+    `UPDATE manual_metrics m JOIN manual_datasets d ON d.id = m.dataset_id
+        SET m.aggregation_options = JSON_SET(m.aggregation_options, '$.over_time', 'last')
+      WHERE d.entry_method = 'github'`,
+  );
+  await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [SNAPSHOT_METRICS_NAME]);
+  console.log(`code adoption metrics use each period's last scan: ${(res as { affectedRows?: number }).affectedRows ?? 0}`);
+}
+
 /** The database may still be starting (dev db, or a restarting MySQL pod): retry for up to a minute. */
 async function connectWithRetry() {
   const deadline = Date.now() + 60_000;
@@ -777,6 +792,7 @@ async function main() {
       await figmaGeneric(conn);
       await codeGeneric(conn);
       await metricDirection(conn);
+      await snapshotMetrics(conn);
       return;
     }
     if (!existsSync(EXPORT_FILE)) {
@@ -823,6 +839,7 @@ async function main() {
     await figmaGeneric(conn);
     await codeGeneric(conn);
     await metricDirection(conn);
+    await snapshotMetrics(conn);
   } finally {
     conn.release();
     await pool.end();
