@@ -288,12 +288,46 @@ export type Database = {
           },
         ]
       }
+      dataset_imports: {
+        Row: {
+          created_at: string
+          created_columns: Json
+          dataset_id: string
+          file_name: string
+          id: string
+          row_count: number
+          undone_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_columns?: Json
+          dataset_id: string
+          file_name?: string
+          id?: string
+          row_count?: number
+          undone_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_columns?: Json
+          dataset_id?: string
+          file_name?: string
+          id?: string
+          row_count?: number
+          undone_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       manual_dataset_rows: {
         Row: {
           created_at: string
           data: Json
           dataset_id: string
           id: string
+          import_id: string | null
           sort_order: number
           updated_at: string
         }
@@ -302,6 +336,7 @@ export type Database = {
           data?: Json
           dataset_id: string
           id?: string
+          import_id?: string | null
           sort_order?: number
           updated_at?: string
         }
@@ -310,6 +345,7 @@ export type Database = {
           data?: Json
           dataset_id?: string
           id?: string
+          import_id?: string | null
           sort_order?: number
           updated_at?: string
         }

@@ -44,6 +44,8 @@ const ADDED_COLUMNS: { table: string; column: string; definition: string }[] = [
   { table: "manual_metrics", column: "direction", definition: "VARCHAR(16) NOT NULL DEFAULT 'up' AFTER `breakdown_views`" },
   // ratio: {denominator_column}; count_if: {op, threshold}.
   { table: "manual_metrics", column: "aggregation_options", definition: "JSON NOT NULL DEFAULT (JSON_OBJECT()) AFTER `aggregation`" },
+  // The CSV import (dataset_imports) a row came from; empty for rows typed or pasted in.
+  { table: "manual_dataset_rows", column: "import_id", definition: "CHAR(36) NULL AFTER `dataset_id`" },
 ];
 
 /**

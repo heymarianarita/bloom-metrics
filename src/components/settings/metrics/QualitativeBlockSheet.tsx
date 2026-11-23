@@ -156,7 +156,7 @@ const Results = ({ source }: { source: QualitativeSource }) => {
   return (
     <div className="space-y-2">
       <p className="text-[14px] font-medium text-foreground">Themes per period</p>
-      {question.trendSummary && <DesignNote text={`Over time: ${question.trendSummary}`} />}
+      {question.trendSummary && <DesignNote className="p-0" text={`Over time: ${question.trendSummary}`} />}
       <DesignDataTable columns={columns} data={rows} rowKey={(r) => r.period} hideToolbar />
     </div>
   );
@@ -347,7 +347,7 @@ const QualitativeBlockSheet = ({
 
       <div className="space-y-2">
         <p className="text-[14px] font-medium text-foreground">Break down by</p>
-        <DesignNote text="Summaries are written for each value, such as each role. Team columns are grouped into business units with the GetDX team mapping." />
+        <DesignNote className="p-0" text="Summaries are written for each value, such as each role. Team columns are grouped into business units with the GetDX team mapping." />
         {!draft.dataset_id ? (
           <p className="text-[14px] text-muted-foreground">Pick a dataset first.</p>
         ) : breakdownColumns.length === 0 ? (
@@ -380,7 +380,7 @@ const QualitativeBlockSheet = ({
 
       {source && <Results source={source} />}
 
-      <DesignNote text="The AI finds the themes itself and keeps them up to date as new answers come in. Only the answers and breakdown values are sent to it, never emails or other columns; names, teams and emails are removed from the quotes people see." />
+      <DesignNote className="p-0" text="The AI finds the themes itself and keeps them up to date as new answers come in. Only the answers and breakdown values are sent to it, never emails or other columns; names, teams and emails are removed from the quotes people see." />
     </div>
   );
 

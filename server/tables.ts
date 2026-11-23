@@ -92,8 +92,16 @@ export const TABLES: Record<string, TableDef> = {
     updatedAt: true,
   },
   manual_dataset_rows: {
-    columns: ["id", "dataset_id", "data", "sort_order", ...ts],
+    columns: ["id", "dataset_id", "import_id", "data", "sort_order", ...ts],
     json: ["data"],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  dataset_imports: {
+    columns: ["id", "dataset_id", "file_name", "row_count", "created_columns", "undone_at", ...ts],
+    json: ["created_columns"],
     read: "public",
     write: "editor",
     audited: true,
@@ -192,4 +200,4 @@ export const TABLES: Record<string, TableDef> = {
   },
 };
 
-export const DATETIME_COLUMNS = new Set(["created_at", "updated_at", "ran_at", "changed_at", "captured_at", "run_at"]);
+export const DATETIME_COLUMNS = new Set(["created_at", "updated_at", "ran_at", "changed_at", "captured_at", "run_at", "undone_at"]);

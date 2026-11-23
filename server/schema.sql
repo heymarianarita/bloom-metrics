@@ -110,6 +110,21 @@ CREATE TABLE IF NOT EXISTS `manual_dataset_rows` (
   CONSTRAINT `manual_dataset_rows_dataset_fk` FOREIGN KEY (`dataset_id`) REFERENCES `manual_datasets` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- One row per CSV import, so an import can be undone as a whole (its rows carry its id in import_id).
+CREATE TABLE IF NOT EXISTS `dataset_imports` (
+  `id` CHAR(36) NOT NULL DEFAULT (UUID()),
+  `dataset_id` CHAR(36) NOT NULL,
+  `file_name` TEXT NOT NULL DEFAULT (''),
+  `row_count` INT NOT NULL DEFAULT 0,
+  `created_columns` JSON NOT NULL DEFAULT (JSON_ARRAY()),
+  `undone_at` DATETIME(6) NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `dataset_imports_dataset_idx` (`dataset_id`),
+  CONSTRAINT `dataset_imports_dataset_fk` FOREIGN KEY (`dataset_id`) REFERENCES `manual_datasets` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `manual_metrics` (
   `id` CHAR(36) NOT NULL DEFAULT (UUID()),
   `slug` VARCHAR(191) NOT NULL,

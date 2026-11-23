@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Copy, DotsThree, Eraser, PencilSimple, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
+import { ClockCounterClockwise, Copy, DotsThree, Eraser, PencilSimple, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
 import AppShell from "@/components/layout/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import RequireRole from "@/components/auth/RequireRole";
@@ -16,10 +16,12 @@ import { DesignTooltip } from "@/components/ds/DesignTooltip";
 import { SelectList } from "@/components/settings/SelectList";
 import { SettingsLayout } from "@/components/settings/SettingsLayout";
 import { DesignInputTextArea } from "@/components/ds/DesignInput";
-import { formatDate } from "@/lib/formatDate";
+import { formatDate, formatDateTime } from "@/lib/formatDate";
+import { castCell } from "@/lib/cellValues";
 import { useManualMetrics } from "@/hooks/useManualMetrics";
 import { useQualitativeSources } from "@/hooks/useQualitative";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,8 +31,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import DatasetGrid from "@/components/datasets/DatasetGrid";
-import CsvImportSheet, { CSV_IGNORE, CSV_NEW_COLUMN, looksNumeric } from "@/components/datasets/CsvImportSheet";
-import { inferDateOrder, looksLikeDates, toIsoDate, type DateOrder } from "../../../server/shared/dates.ts";
+import CsvImportSheet, { looksNumeric } from "@/components/datasets/CsvImportSheet";
+import type { ImportPlan } from "@/components/datasets/importPlan";
+import { inferDateOrder, looksLikeDates, type DateOrder } from "../../../server/shared/dates.ts";
 import BulkCsvImportSheet, {
   BULK_IGNORE,
   BULK_NEW_COLUMN,
@@ -58,10 +61,14 @@ import {
   useReorderDatasets,
   useUpdateDataset,
   useUpdateDatasetRow,
+  useDatasetImports,
+  useUndoDatasetImport,
+  createDatasetImport,
   ENTRY_METHODS,
   SYNCED_SOURCES,
   isSyncedDataset,
   type DatasetColumnKind,
+  type DatasetImport,
   type ManualDataset,
   type ManualDatasetColumn,
   type ManualDatasetRow,
@@ -269,92 +276,89 @@ const DatasetsTab = () => {
     }
   };
 
-  /** Numbers become numbers; dates become YYYY-MM-DD when their order is known (or can only be read one way). */
   const castValue = (column: ManualDatasetColumn, value: string, dateOrder: DateOrder | null = null) =>
-    column.kind === "number" || column.kind === "rating"
-      ? value.trim() === "" ? null : Number(value) || 0
-      : column.kind === "date"
-        ? toIsoDate(value, dateOrder) ?? value
-        : value;
+    castCell(column.kind, value, dateOrder);
 
   /** Month-first or day-first per file column, worked out from all of its values. */
   const dateOrdersOf = (body: string[][], width: number) =>
     Array.from({ length: width }, (_, i) => inferDateOrder(body.map((row) => row[i] ?? "")).order);
 
-  const handleCsvImport = async ({
-    mapping,
-    header,
-    body,
-    dateOrders,
-  }: {
-    mapping: string[];
-    header: string[];
-    body: string[][];
-    /** Chosen in the import sheet for columns whose date order can't be told. */
-    dateOrders: (DateOrder | null)[];
-  }) => {
+  const metrics = useManualMetrics();
+  const metricUse = React.useMemo(() => {
+    const own = (metrics.data ?? []).filter((m) => m.dataset_id === datasetId);
+    return {
+      period: own.map((m) => m.period_column).filter(Boolean),
+      filters: own.flatMap((m) => m.filter_columns ?? []),
+    };
+  }, [metrics.data, datasetId]);
+
+  const imports = useDatasetImports(datasetId || undefined);
+  const undoImport = useUndoDatasetImport();
+  const [historySheet, setHistorySheet] = React.useState(false);
+
+  const undo = async (entry: DatasetImport) => {
+    try {
+      await undoImport.mutateAsync(entry);
+      toast({ title: "Import undone", description: `Removed the ${entry.row_count} rows from ${entry.file_name || "the file"}.` });
+    } catch (err) {
+      toast({ title: "Could not undo the import", description: String(err), variant: "destructive" });
+    }
+  };
+
+  /** Records the import, creates its new columns, then writes its rows tagged with the import's id. */
+  const handleCsvImport = async (plan: ImportPlan) => {
     if (!datasetId) return;
     setImporting(true);
+    let entry: DatasetImport | null = null;
     try {
-      const existingColumns = [...(columns.data ?? [])];
-      const keyByIndex: (string | null)[] = [];
-
-      for (let index = 0; index < mapping.length; index += 1) {
-        const choice = mapping[index];
-        if (!choice || choice === CSV_IGNORE) {
-          keyByIndex.push(null);
-          continue;
-        }
-        if (choice === CSV_NEW_COLUMN) {
-          const label = (header[index] || `Column ${index + 1}`).trim();
-          const sample = body.slice(0, 20).map((row) => (row[index] ?? "").trim()).filter(Boolean);
-          const kind: DatasetColumnKind = looksLikeDates(sample) ? "date" : looksNumeric(sample) ? "number" : "text";
-          await addColumn.mutateAsync({
-            dataset_id: datasetId,
-            label,
-            kind,
-            sort_order: existingColumns.length,
-          });
-          const key = slugify(label) || `col_${index}`;
-          existingColumns.push({
-            id: key,
-            dataset_id: datasetId,
-            key,
-            label,
-            kind,
-            sort_order: existingColumns.length,
-          });
-          keyByIndex.push(key);
-          continue;
-        }
-        keyByIndex.push(choice);
+      const id = await createDatasetImport({
+        dataset_id: datasetId,
+        file_name: importFileName,
+        row_count: plan.rows.length,
+        created_columns: plan.newColumns.map((c) => c.key),
+      });
+      entry = {
+        id,
+        dataset_id: datasetId,
+        file_name: importFileName,
+        row_count: plan.rows.length,
+        created_columns: plan.newColumns.map((c) => c.key),
+        undone_at: null,
+        created_at: new Date().toISOString(),
+      };
+      let order = columns.data?.length ?? 0;
+      for (const column of plan.newColumns) {
+        await addColumn.mutateAsync({ dataset_id: datasetId, label: column.label, kind: column.kind, sort_order: order });
+        order += 1;
       }
-
-      const kindByKey = new Map(existingColumns.map((column) => [column.key, column]));
-      const inferred = dateOrdersOf(body, mapping.length);
-      const newRows = body.map((cells) => {
-        const data: Record<string, unknown> = {};
-        keyByIndex.forEach((key, index) => {
-          if (!key) return;
-          const column = kindByKey.get(key);
-          const raw = (cells[index] ?? "").trim();
-          data[key] = column ? castValue(column, raw, dateOrders[index] ?? inferred[index]) : raw;
-        });
-        return data;
+      await addRows.mutateAsync({
+        dataset_id: datasetId,
+        rows: plan.rows,
+        startOrder: rows.data?.length ?? 0,
+        import_id: id,
       });
 
-      if (newRows.length) {
-        await addRows.mutateAsync({
-          dataset_id: datasetId,
-          rows: newRows,
-          startOrder: rows.data?.length ?? 0,
-        });
-      }
-
       setImportSheet(false);
-      toast({ title: `Imported ${newRows.length} rows` });
+      const done = entry;
+      toast({
+        title: `Added ${plan.rows.length} rows to ${activeDataset?.name ?? "the dataset"}`,
+        description: "Undo it here, or later from the dataset's menu → Import history.",
+        action: (
+          <ToastAction altText="Undo import" onClick={() => void undo(done)}>
+            Undo
+          </ToastAction>
+        ),
+      });
     } catch (err) {
-      toast({ title: "Could not import the file", description: String(err), variant: "destructive" });
+      // Leave nothing half-imported behind, not even the import's entry in Import history.
+      if (entry) {
+        const failed = entry;
+        await undoImport
+          .mutateAsync(failed)
+          .then(() => supabase.from("dataset_imports").delete().eq("id", failed.id))
+          .catch(() => undefined);
+      }
+      toast({ title: "Could not import the file", description: `Nothing was added. ${String(err)}`, variant: "destructive" });
     } finally {
       setImporting(false);
     }
@@ -449,6 +453,7 @@ const DatasetsTab = () => {
 
         const keyByIndex: (string | null)[] = [];
         const kindByKey = new Map(existing.map((column) => [column.key, column]));
+        const createdKeys: string[] = [];
         let order = existing.length;
 
         for (let index = 0; index < plan.mapping.length; index += 1) {
@@ -473,6 +478,7 @@ const DatasetsTab = () => {
                 sort_order: order,
               });
               order += 1;
+              createdKeys.push(key);
               kindByKey.set(key, {
                 id: key,
                 dataset_id: targetId,
@@ -501,7 +507,13 @@ const DatasetsTab = () => {
         });
 
         if (newRows.length) {
-          await addRows.mutateAsync({ dataset_id: targetId, rows: newRows, startOrder });
+          const importId = await createDatasetImport({
+            dataset_id: targetId,
+            file_name: plan.fileName,
+            row_count: newRows.length,
+            created_columns: createdKeys,
+          });
+          await addRows.mutateAsync({ dataset_id: targetId, rows: newRows, startOrder, import_id: importId });
           importedRows += newRows.length;
         }
         lastDatasetId = targetId;
@@ -697,6 +709,12 @@ const DatasetsTab = () => {
                     Edit details
                   </DropdownMenuItem>
                   )}
+                  {!synced && (
+                  <DropdownMenuItem onSelect={() => setHistorySheet(true)}>
+                    <ClockCounterClockwise size={16} className="mr-2" />
+                    Import history
+                  </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onSelect={() => duplicate(true)}>
                     <Copy size={16} className="mr-2" />
                     Duplicate with data
@@ -817,11 +835,30 @@ const DatasetsTab = () => {
       <CsvImportSheet
         open={importSheet}
         onOpenChange={setImportSheet}
+        datasetName={activeDataset?.name ?? "the dataset"}
         columns={columns.data ?? []}
+        metricUse={metricUse}
         importing={importing}
         source={importSource}
         fileName={importFileName}
         onImport={handleCsvImport}
+      />
+
+      <ImportHistorySheet
+        open={historySheet}
+        onOpenChange={setHistorySheet}
+        datasetName={activeDataset?.name ?? ""}
+        imports={imports.data ?? []}
+        undoingId={undoImport.isPending ? undoImport.variables?.id : undefined}
+        onUndo={(entry) => {
+          if (
+            !confirm(
+              `Remove the ${entry.row_count} rows added from “${entry.file_name || "this file"}”, including any edits made to them since? Columns the import created go too, unless other rows use them.`,
+            )
+          )
+            return;
+          void undo(entry);
+        }}
       />
 
       <BulkCsvImportSheet
@@ -874,6 +911,67 @@ const DatasetsTab = () => {
     </>
   );
 };
+
+/** Every CSV import into the dataset, newest first, each of which can be undone. */
+const ImportHistorySheet = ({
+  open,
+  onOpenChange,
+  datasetName,
+  imports,
+  undoingId,
+  onUndo,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  datasetName: string;
+  imports: DatasetImport[];
+  undoingId?: string;
+  onUndo: (entry: DatasetImport) => void;
+}) => (
+  <DesignSideSheet open={open} onOpenChange={onOpenChange} title="Import history">
+    <div className="p-4 space-y-3">
+      <p className="text-[14px] text-muted-foreground">
+        CSV imports into {datasetName}. Undoing one removes exactly the rows it added; they stay listed in Data history →
+        Change history.
+      </p>
+      {imports.length === 0 ? (
+        <DesignEmptyState
+          title="No imports yet"
+          body="Imports made from now on show up here, so you can undo one if something went wrong."
+        />
+      ) : (
+        imports.map((entry) => (
+          <div key={entry.id} className="flex items-center justify-between gap-3 rounded-[6px] border border-border p-3">
+            <div className="min-w-0">
+              <p className="truncate text-[14px] font-[500] text-foreground">{entry.file_name || "CSV file"}</p>
+              <p className="text-[12px] text-muted-foreground">
+                {formatDateTime(entry.created_at)} · {entry.row_count} rows
+                {entry.created_columns.length > 0 &&
+                  ` · ${entry.created_columns.length} new column${entry.created_columns.length === 1 ? "" : "s"}`}
+              </p>
+            </div>
+            {entry.undone_at ? (
+              <DesignBadge theme="muted" styling="light">
+                Undone {formatDate(entry.undone_at)}
+              </DesignBadge>
+            ) : (
+              <DesignButton
+                className="shrink-0 whitespace-nowrap"
+                variant="outlined"
+                theme="primary"
+                size="small"
+                isLoading={undoingId === entry.id}
+                onClick={() => onUndo(entry)}
+              >
+                Undo import
+              </DesignButton>
+            )}
+          </div>
+        ))
+      )}
+    </div>
+  </DesignSideSheet>
+);
 
 const NewDatasetSheet = ({
   open,

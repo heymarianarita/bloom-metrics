@@ -328,16 +328,106 @@ export const useAddDatasetRows = () => {
       dataset_id: string;
       rows: Record<string, unknown>[];
       startOrder: number;
+      /** The dataset_imports row these come from, so the import can be undone. */
+      import_id?: string;
     }) => {
       const payload = input.rows.map((data, index) => ({
         dataset_id: input.dataset_id,
+        ...(input.import_id ? { import_id: input.import_id } : {}),
         data,
         sort_order: input.startOrder + index,
       }));
       const { error } = await supabase.from("manual_dataset_rows").insert(payload as never);
       if (error) throw new Error(error.message);
     },
-    onSuccess: () => invalidate(queryClient, ["manual-dataset-rows"]),
+    onSuccess: () => invalidate(queryClient, ["manual-dataset-rows", "dataset-imports"]),
+  });
+};
+
+/** A CSV import into a dataset; its rows carry its id, so it can be undone as a whole. */
+export interface DatasetImport {
+  id: string;
+  dataset_id: string;
+  file_name: string;
+  row_count: number;
+  /** Keys of the columns the import created. */
+  created_columns: string[];
+  undone_at: string | null;
+  created_at: string;
+}
+
+export const useDatasetImports = (datasetId?: string) =>
+  useQuery({
+    queryKey: ["dataset-imports", datasetId ?? "none"],
+    enabled: Boolean(datasetId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("dataset_imports")
+        .select("*")
+        .eq("dataset_id", datasetId!)
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as DatasetImport[];
+    },
+  });
+
+/** Records an import before its rows are written; returns its id for the rows. */
+export const createDatasetImport = async (input: {
+  dataset_id: string;
+  file_name: string;
+  row_count: number;
+  created_columns: string[];
+}) => {
+  const { data, error } = await supabase
+    .from("dataset_imports")
+    .insert(input as never)
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  return (data as unknown as { id: string }).id;
+};
+
+/**
+ * Removes every row an import added (edits made to them since included) and the columns it
+ * created, unless someone has since filled them in on other rows. The removed rows stay in
+ * Data history → Change history.
+ */
+export const useUndoDatasetImport = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (entry: DatasetImport) => {
+      const { error } = await supabase.from("manual_dataset_rows").delete().eq("import_id", entry.id);
+      if (error) throw new Error(error.message);
+
+      if (entry.created_columns.length) {
+        const { data: remaining, error: rowsError } = await supabase
+          .from("manual_dataset_rows")
+          .select("data")
+          .eq("dataset_id", entry.dataset_id);
+        if (rowsError) throw new Error(rowsError.message);
+        const inUse = (key: string) =>
+          ((remaining ?? []) as unknown as { data: Record<string, unknown> | null }[]).some((row) => {
+            const value = row.data?.[key];
+            return value !== null && value !== undefined && value !== "";
+          });
+        const unused = entry.created_columns.filter((key) => !inUse(key));
+        if (unused.length) {
+          const { error: colError } = await supabase
+            .from("manual_dataset_columns")
+            .delete()
+            .eq("dataset_id", entry.dataset_id)
+            .in("key", unused);
+          if (colError) throw new Error(colError.message);
+        }
+      }
+
+      const { error: markError } = await supabase
+        .from("dataset_imports")
+        .update({ undone_at: new Date().toISOString() } as never)
+        .eq("id", entry.id);
+      if (markError) throw new Error(markError.message);
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-dataset-rows", "manual-dataset-columns", "dataset-imports"]),
   });
 };
 

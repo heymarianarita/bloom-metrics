@@ -62,6 +62,7 @@ const CASCADES: Record<string, { table: string; fk: string }[]> = {
   manual_datasets: [
     { table: "manual_dataset_columns", fk: "dataset_id" },
     { table: "manual_dataset_rows", fk: "dataset_id" },
+    { table: "dataset_imports", fk: "dataset_id" },
   ],
   manual_metrics: [{ table: "manual_metric_values", fk: "metric_id" }],
   ai_template_definitions: [{ table: "ai_template_metrics", fk: "template_id" }],
