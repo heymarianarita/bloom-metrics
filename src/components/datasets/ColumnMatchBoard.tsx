@@ -13,6 +13,7 @@ import {
 } from "@dnd-kit/core";
 import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignInputText } from "@/components/ds/DesignInput";
+import { DesignDateInput } from "@/components/ds/DesignDateInput";
 import { cn } from "@/lib/utils";
 import type { DatasetColumnKind, ManualDatasetColumn } from "@/hooks/useManualDatasets";
 import type { DateOrder } from "../../../server/shared/dates.ts";
@@ -258,14 +259,22 @@ const ColumnMatchBoard = ({
           </div>
         ) : showFixed ? (
           <div className="min-w-0 space-y-1" onClick={(e) => e.stopPropagation()}>
-            <DesignInputText
-              size="small"
-              type={column.kind === "date" ? "date" : "text"}
-              placeholder="Same for every row"
-              aria-label={`${column.label}, same for every row`}
-              value={fixedValue}
-              onChange={(e) => onFixed(column.key, e.target.value)}
-            />
+            {column.kind === "date" ? (
+              <DesignDateInput
+                size="small"
+                aria-label={`${column.label}, same for every row`}
+                value={fixedValue}
+                onChange={(value) => onFixed(column.key, value)}
+              />
+            ) : (
+              <DesignInputText
+                size="small"
+                placeholder="Same for every row"
+                aria-label={`${column.label}, same for every row`}
+                value={fixedValue}
+                onChange={(e) => onFixed(column.key, e.target.value)}
+              />
+            )}
             {isRequired && (
               <p className={cn("text-[12px]", fixedValue ? "text-muted-foreground" : "text-destructive")}>
                 {fixedValue ? "Used for every row, or drop a date column here" : "Pick a date, or drop a date column here"}

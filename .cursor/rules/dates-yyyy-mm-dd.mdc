@@ -1,0 +1,45 @@
+---
+description: Every date is YYYY-MM-DD — shown, typed, stored, exported and written in copy
+alwaysApply: true
+---
+
+# Dates are always YYYY-MM-DD
+
+Whatever the browser's or computer's locale, a date reads `2026-11-23`; a timestamp adds the
+time as `2026-11-23 14:05`. Never `23.11.2026`, `11/23/2026`, `23 Nov` or `November 23`.
+
+## Showing dates
+
+Use the helpers in `src/lib/formatDate.ts`; never the locale APIs.
+
+```tsx
+// ❌ BAD: follows the computer's regional format
+new Date(value).toLocaleDateString();
+new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" }).format(d);
+format(d, "d MMM"); // date-fns
+
+// ✅ GOOD
+formatDate(value);      // 2026-11-23
+formatDateTime(value);  // 2026-11-23 14:05
+new Date(utcMs).toISOString().slice(0, 10); // a UTC timestamp's calendar day
+```
+
+## Typing dates
+
+Never `<input type="date">` (or `datetime-local`): it shows the regional format. Use
+`DesignDateInput` from `src/components/ds/DesignDateInput.tsx` — value and `onChange` are
+`YYYY-MM-DD` strings, and it reads other typed formats into `YYYY-MM-DD`.
+
+## Storing and importing
+
+- Dataset and period values are saved as `YYYY-MM-DD`. Convert imported values with
+  `toIsoDate` / `normalizeDateColumn` from `server/shared/dates.ts`; when month-first vs
+  day-first can't be told, ask the person instead of guessing.
+- Excel dates go through `cellText` in `src/lib/spreadsheetFile.ts`.
+- A bare `YYYY-MM-DD` is a calendar day: don't pass it through `new Date()` and back via UTC
+  (it can shift a day); compare and sort the strings directly.
+
+## Copy
+
+Dates written in UI text, toasts, AI summaries, docs and placeholders use `YYYY-MM-DD` too
+(placeholder: `"YYYY-MM-DD"`). Quarters keep their own label (`2026-Q4`).

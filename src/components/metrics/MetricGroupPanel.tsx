@@ -380,7 +380,7 @@ const MetricStat = ({
   const previous = cutPoint ?? fullPrevious;
   const previousLabel =
     cutPoint && cutoff !== null
-      ? `${fullPrevious!.period} to ${new Date(cutoff).toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" })}`
+      ? `${fullPrevious!.period} to ${new Date(cutoff).toISOString().slice(0, 10)}`
       : previous?.period;
 
   const delta =
