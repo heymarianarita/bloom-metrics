@@ -121,12 +121,12 @@ const InputSelectDocs = () => {
           </div>
           <div className="w-44">
             <p className="text-xs text-muted-foreground mb-2">Hover</p>
-            <p className="text-[11px] text-muted-foreground mb-1 italic">Hover over to see</p>
+            <p className="text-[11px] text-muted-foreground mb-1">Hover over to see</p>
             <DesignInputSelect placeholder="Select" options={countryOptions} />
           </div>
           <div className="w-44">
             <p className="text-xs text-muted-foreground mb-2">Active/Focused</p>
-            <p className="text-[11px] text-muted-foreground mb-1 italic">Click to focus</p>
+            <p className="text-[11px] text-muted-foreground mb-1">Click to focus</p>
             <DesignInputSelect placeholder="Select" options={countryOptions} />
           </div>
           <div className="w-44">

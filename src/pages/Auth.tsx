@@ -73,12 +73,12 @@ const Auth = () => {
     <main className="min-h-screen bg-spacing-bg flex items-center justify-center p-4">
       <div className="w-full max-w-[400px]">
         <div className="flex items-center gap-2 mb-6 justify-center">
-          <img src={vintedIconRounded} alt="Bloom Metrics logo" className="h-8 w-8 rounded-[6px]" />
-          <span className="text-[18px] font-[580] text-foreground">Bloom Metrics</span>
+          <img src={vintedIconRounded} alt="Bloom Metrics logo" className="h-8 w-8 rounded-md" />
+          <span className="text-lg font-semibold text-foreground">Bloom Metrics</span>
         </div>
         <DesignCard className="p-6">
-          <h1 className="text-[22px] font-[580] text-foreground">Sign in</h1>
-          <p className="text-[14px] text-muted-foreground mt-1">
+          <h1 className="text-xl font-semibold text-foreground">Sign in</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Sign in to manage data sources and enter data. Reporting pages stay readable without an
             account.
           </p>
@@ -108,7 +108,7 @@ const Auth = () => {
               <DesignButton type="submit" fullWidth variant="filled" theme="primary" isLoading={busy}>
                 Sign in
               </DesignButton>
-              <p className="text-[12px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 No account yet, or forgot your password? Ask an admin for a sign-in link.
               </p>
             </form>

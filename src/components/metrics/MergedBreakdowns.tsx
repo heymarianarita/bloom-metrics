@@ -200,10 +200,10 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity, limit }: Props
         return (
           <section key={aspect.label} className="pt-2">
             <div className="flex items-baseline justify-between gap-3">
-              <p className="text-[16px] font-medium text-foreground">
+              <p className="text-base font-medium text-foreground">
                 <BreakdownHeading fallback={`${group} per ${aspect.label.toLowerCase()}`} />
               </p>
-              <p className="text-[12px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {filters.period === ALL ? "Latest period" : filters.period}
               </p>
             </div>
@@ -247,7 +247,7 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity, limit }: Props
             ) : (
               <div
                 style={{ height: horizontal ? Math.max(280, data.length * 28 + 60) : 300 }}
-                className="w-full rounded-[6px] border border-border p-4"
+                className="w-full rounded-md border border-border p-4"
               >
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart

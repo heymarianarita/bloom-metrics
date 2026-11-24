@@ -38,21 +38,21 @@ const AddNamePicker = ({ options, onPick }: { options: string[]; onPick: (v: str
         <button
           aria-label="Add name"
           disabled={options.length === 0}
-          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[6px] border border-border text-primary hover:bg-foreground/[0.06] disabled:opacity-[0.48] disabled:pointer-events-none"
+          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border border-border text-primary hover:bg-foreground/[0.06] disabled:opacity-[0.48] disabled:pointer-events-none"
         >
           <Plus size={14} />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[260px] p-[8px]">
+      <PopoverContent align="start" className="w-[260px] p-2">
         <DesignInputBar autoFocus placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
-        <div className="mt-[8px] max-h-[240px] overflow-y-auto">
+        <div className="mt-2 max-h-[240px] overflow-y-auto">
           {list.length === 0 ? (
-            <p className="px-[8px] py-[8px] text-[14px] text-muted-foreground">No names left</p>
+            <p className="px-2 py-2 text-sm text-muted-foreground">No names left</p>
           ) : (
             list.map((o) => (
               <button
                 key={o}
-                className="block w-full truncate rounded-[6px] px-[8px] py-[8px] text-left text-[14px] text-foreground hover:bg-foreground/[0.06]"
+                className="block w-full truncate rounded-md px-2 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.06]"
                 onClick={() => { onPick(o); setOpen(false); setQ(""); }}
               >
                 {o}
@@ -315,11 +315,11 @@ const ComponentsSettings = () => {
           <>
             {figmaPending && (
               <>
-                <p className="text-[14px] text-muted-foreground">Loading component names from Figma — the Figma column will fill in shortly.</p>
+                <p className="text-sm text-muted-foreground">Loading component names from Figma — the Figma column will fill in shortly.</p>
                 <DesignSpacer size="small" />
               </>
             )}
-            <div className="flex items-center justify-between gap-[12px]">
+            <div className="flex items-center justify-between gap-3">
               <div className="max-w-[360px] flex-1">
                 <DesignInputBar
                   className="bg-background border border-border focus-within:border-primary"
@@ -337,7 +337,7 @@ const ComponentsSettings = () => {
             {tables.length === 0 && (
               <DesignEmptyState icon={<Cube size={40} />} title="No tables yet" body="Add a table to start matching components." />
             )}
-            <div className="flex flex-col gap-[24px]">
+            <div className="flex flex-col gap-6">
               {tables.map((t) => {
                 const visible = q
                   ? t.rows.filter((r) => [r.name, ...Object.values(r.cells).flat()].some((n) => n.toLowerCase().includes(q)))
@@ -345,11 +345,11 @@ const ComponentsSettings = () => {
                 const usedCols = new Set(t.columns.map((c) => `${c.datasetId}::${c.columnKey}`));
                 return (
                   <DesignCard key={t.id} className="p-4">
-                    <div className="flex items-center gap-[12px] pb-3">
+                    <div className="flex items-center gap-3 pb-3">
                       <div className="max-w-[280px] flex-1">
                         <BlurInput value={t.name} onSave={(name) => updateTable(t.id, (x) => ({ ...x, name }))} />
                       </div>
-                      <div className="ml-auto flex items-center gap-[8px]">
+                      <div className="ml-auto flex items-center gap-2">
                         <div className="w-[260px]">
                           <DesignInputSelect
                             size="small"
@@ -380,14 +380,14 @@ const ComponentsSettings = () => {
                             <th className={`${ts.th} ${ts.thSticky} left-0 z-20 min-w-[200px]`}>Component</th>
                             {t.columns.map((c) => (
                               <th key={c.id} className={`${ts.th} ${ts.thSticky} min-w-[200px]`}>
-                                <div className="flex items-center gap-[4px]">
+                                <div className="flex items-center gap-1">
                                   <span className="truncate">
                                     {datasetName(c.datasetId)}
                                     {!c.datasetId.startsWith("figma:") && !/component/i.test(c.columnKey) && ` · ${columnLabel(c.datasetId, c.columnKey)}`}
                                   </span>
                                   <button
                                     aria-label="Remove column"
-                                    className="rounded-[6px] p-[4px] hover:bg-foreground/[0.06]"
+                                    className="rounded-md p-1 hover:bg-foreground/[0.06]"
                                     onClick={() =>
                                       updateTable(t.id, (x) => ({
                                         ...x,
@@ -421,18 +421,18 @@ const ComponentsSettings = () => {
                               </td>
                               {t.columns.map((c) => (
                                 <td key={c.id} className={ts.td}>
-                                  <div className="flex flex-wrap items-center gap-[4px]">
+                                  <div className="flex flex-wrap items-center gap-1">
                                     {(r.cells[c.id] ?? []).length > 0 && (
                                       <>
                                         {(r.cells[c.id] ?? []).map((n) => (
                                           <span
                                             key={n}
-                                            className="inline-flex items-center gap-[4px] rounded-[6px] bg-spacing-bg px-[8px] py-[4px] text-[12px] text-foreground"
+                                            className="inline-flex items-center gap-1 rounded-md bg-spacing-bg px-2 py-1 text-xs text-foreground"
                                           >
                                             {n}
                                             <button
                                               aria-label={`Remove ${n}`}
-                                              className="rounded-[4px] text-muted-foreground hover:text-destructive"
+                                              className="rounded-md text-muted-foreground hover:text-destructive"
                                               onClick={() =>
                                                 updateTable(t.id, (x) => ({
                                                   ...x,
@@ -471,7 +471,7 @@ const ComponentsSettings = () => {
                               <td className={`${ts.td} px-2`}>
                                 <button
                                   aria-label="Delete row"
-                                  className="rounded-[6px] p-[6px] text-muted-foreground hover:bg-foreground/[0.06] hover:text-destructive"
+                                  className="rounded-md p-1.5 text-muted-foreground hover:bg-foreground/[0.06] hover:text-destructive"
                                   onClick={() => updateTable(t.id, (x) => ({ ...x, rows: x.rows.filter((y) => y.id !== r.id) }))}
                                 >
                                   <Trash size={16} />

@@ -67,7 +67,7 @@ const DesignInputText = React.forwardRef<HTMLInputElement, DesignInputTextProps>
       <div className={cn("flex flex-col", className)}>
         {/* Label */}
         {resolvedLabel && (
-          <label className="text-[14px] leading-[18px] font-medium text-[var(--input-title)] mb-1">
+          <label className="text-sm leading-[18px] font-medium text-[var(--input-title)] mb-1">
             {resolvedLabel}
           </label>
         )}
@@ -117,7 +117,7 @@ const DesignInputText = React.forwardRef<HTMLInputElement, DesignInputTextProps>
             }}
             className={cn(
               "flex-1 bg-transparent outline-none min-w-0",
-              "text-[14px] leading-[18px]",
+              "text-sm leading-[18px]",
               "font-normal",
               "text-[var(--input-value)] placeholder:text-[var(--input-placeholder)]",
               "caret-[var(--primary)]",
@@ -138,7 +138,7 @@ const DesignInputText = React.forwardRef<HTMLInputElement, DesignInputTextProps>
         {validation && (
           <span
             className={cn(
-              "text-[12px] leading-[16px] font-normal mt-1",
+              "text-xs leading-[16px] font-normal mt-1",
               error
                 ? "text-[var(--error-default)]"
                 : success
@@ -152,7 +152,7 @@ const DesignInputText = React.forwardRef<HTMLInputElement, DesignInputTextProps>
 
         {/* Helper text */}
         {resolvedHelper && !validation && (
-          <span className="text-[12px] leading-[16px] font-normal mt-1 text-[var(--input-title)]">
+          <span className="text-xs leading-[16px] font-normal mt-1 text-[var(--input-title)]">
             {resolvedHelper}
           </span>
         )}
@@ -221,7 +221,7 @@ const DesignInputTextArea = React.forwardRef<
       <div className={cn("flex flex-col", className)}>
         {/* Label */}
         {resolvedLabel && (
-          <label className="text-[14px] leading-[18px] font-medium text-[var(--input-title)] mb-1">
+          <label className="text-sm leading-[18px] font-medium text-[var(--input-title)] mb-1">
             {resolvedLabel}
           </label>
         )}
@@ -255,7 +255,7 @@ const DesignInputTextArea = React.forwardRef<
             }}
             className={cn(
               "flex-1 bg-transparent outline-none resize-none min-w-0",
-              "text-[14px] leading-[18px] font-normal",
+              "text-sm leading-[18px] font-normal",
               "text-[var(--input-value)] placeholder:text-[var(--input-placeholder)]",
               "caret-[var(--primary)]",
               disabled && "cursor-not-allowed text-[var(--greyscale-3)]"
@@ -273,7 +273,7 @@ const DesignInputTextArea = React.forwardRef<
         {validation && (
           <span
             className={cn(
-              "text-[12px] leading-[16px] font-normal mt-1",
+              "text-xs leading-[16px] font-normal mt-1",
               error
                 ? "text-[var(--error-default)]"
                 : success
@@ -287,7 +287,7 @@ const DesignInputTextArea = React.forwardRef<
 
         {/* Helper text */}
         {resolvedHelper && !validation && (
-          <span className="text-[12px] leading-[16px] font-normal mt-1 text-[var(--input-title)]">
+          <span className="text-xs leading-[16px] font-normal mt-1 text-[var(--input-title)]">
             {resolvedHelper}
           </span>
         )}

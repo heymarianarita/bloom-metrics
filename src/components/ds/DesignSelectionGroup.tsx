@@ -55,7 +55,7 @@ const SelectionItem = React.forwardRef<HTMLButtonElement, SelectionItemProps>(
             )}
           </div>
           {body && (
-            <span className="text-base font-[375] leading-[22px] text-content-secondary">
+            <span className="text-base font-normal leading-[22px] text-content-secondary">
               {body}
             </span>
           )}

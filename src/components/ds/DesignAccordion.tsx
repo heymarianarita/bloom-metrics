@@ -64,11 +64,11 @@ const DesignAccordion = React.forwardRef<HTMLDivElement, DesignAccordionProps>(
           )}
         >
           <div className="flex flex-col gap-[2px] min-w-0 flex-1">
-            <span className="text-[16px] font-medium leading-[22px] text-content">
+            <span className="text-base font-medium leading-[22px] text-content">
               {title}
             </span>
             {subtitle && (
-              <span className="text-[14px] font-normal leading-[18px] text-content-secondary">
+              <span className="text-sm font-normal leading-[18px] text-content-secondary">
                 {subtitle}
               </span>
             )}
@@ -90,7 +90,7 @@ const DesignAccordion = React.forwardRef<HTMLDivElement, DesignAccordionProps>(
         >
           <div
             className={cn(
-              "text-[16px] font-normal leading-[22px] text-content-secondary",
+              "text-base font-normal leading-[22px] text-content-secondary",
               styles.body
             )}
           >

@@ -52,7 +52,7 @@ const DesignDateInput = ({ value, onChange, placeholder = "YYYY-MM-DD", onBlur, 
               type="button"
               disabled={disabled}
               aria-label="Pick a date"
-              className="rounded-[4px] p-0.5 hover:bg-[rgba(21,25,26,0.06)] hover:text-foreground"
+              className="rounded-md p-0.5 hover:bg-surface-hover hover:text-foreground"
             >
               <CalendarBlank size={16} />
             </button>

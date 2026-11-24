@@ -1,4 +1,5 @@
 import * as React from "react";
+import TextareaAutosize from "react-textarea-autosize";
 import { cn } from "@/lib/utils";
 
 export interface DesignInputBarProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
@@ -12,9 +13,11 @@ export interface DesignInputBarProps extends Omit<React.InputHTMLAttributes<HTML
   size?: "default" | "small";
 }
 
-export interface TextAreaBarProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+export interface TextAreaBarProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "style"> {
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  /** Bloom InputBar suffix slot, bottom-aligned: typically a flat icon DesignButton (e.g. send). */
+  suffix?: React.ReactNode;
   onLeftIconClick?: () => void;
   onRightIconClick?: () => void;
   maxRows?: number;
@@ -56,7 +59,7 @@ const DesignInputBar = React.forwardRef<HTMLInputElement, DesignInputBarProps>(
         <input
           className={cn(
             "flex-1 bg-transparent border-none outline-none",
-            size === "small" ? "text-[14px] font-normal leading-[18px] tracking-normal" : "text-base font-normal leading-[22px] tracking-normal",
+            size === "small" ? "text-sm font-normal leading-[18px] tracking-normal" : "text-base font-normal leading-[22px] tracking-normal",
             "text-inputbar-text placeholder:text-inputbar-placeholder",
             "caret-inputbar-cursor"
           )}
@@ -80,16 +83,17 @@ const DesignInputBar = React.forwardRef<HTMLInputElement, DesignInputBarProps>(
 );
 
 const DesignTextAreaBar = React.forwardRef<HTMLTextAreaElement, TextAreaBarProps>(
-  ({ className, leftIcon, rightIcon, onLeftIconClick, onRightIconClick, maxRows = 5, ...props }, ref) => {
+  ({ className, leftIcon, rightIcon, suffix, onLeftIconClick, onRightIconClick, rows = 1, maxRows = 5, ...props }, ref) => {
     return (
       <div className={cn(
-        "flex items-start gap-1 bg-inputbar rounded-md min-h-[36px] px-[11px] py-[7px]",
+        "flex items-end gap-1 bg-inputbar rounded-md min-h-[36px] pl-[11px]",
+        !suffix && "pr-[11px]",
         className
       )}>
         {leftIcon && (
           <span
             className={cn(
-              "flex-shrink-0 text-inputbar-icon w-4 h-4 flex items-center justify-center mt-[3px]",
+              "self-start flex-shrink-0 text-inputbar-icon w-4 h-4 flex items-center justify-center mt-[10px]",
               onLeftIconClick && "cursor-pointer hover:opacity-70"
             )}
             onClick={onLeftIconClick}
@@ -97,22 +101,24 @@ const DesignTextAreaBar = React.forwardRef<HTMLTextAreaElement, TextAreaBarProps
             {leftIcon}
           </span>
         )}
-        <textarea
-          className={cn(
-            "flex-1 bg-transparent border-none outline-none resize-none",
-            "text-base font-normal leading-[22px] tracking-normal",
-            "text-inputbar-text placeholder:text-inputbar-placeholder",
-            "caret-inputbar-cursor"
-          )}
-          ref={ref}
-          rows={1}
-          style={{ maxHeight: `${maxRows * 22}px` }}
-          {...props}
-        />
+        <div className="flex flex-1 min-w-0 self-stretch items-center py-[7px]">
+          <TextareaAutosize
+            className={cn(
+              "flex-1 min-w-0 bg-transparent border-none outline-none resize-none",
+              "text-base font-normal leading-[22px] tracking-normal",
+              "text-inputbar-text placeholder:text-inputbar-placeholder",
+              "caret-inputbar-cursor"
+            )}
+            ref={ref}
+            minRows={rows}
+            maxRows={maxRows}
+            {...props}
+          />
+        </div>
         {rightIcon && (
           <span
             className={cn(
-              "flex-shrink-0 text-primary w-4 h-4 flex items-center justify-center mt-[3px]",
+              "self-start flex-shrink-0 text-primary w-4 h-4 flex items-center justify-center mt-[10px]",
               onRightIconClick && "cursor-pointer hover:opacity-70"
             )}
             onClick={onRightIconClick}
@@ -120,6 +126,7 @@ const DesignTextAreaBar = React.forwardRef<HTMLTextAreaElement, TextAreaBarProps
             {rightIcon}
           </span>
         )}
+        {suffix && <div className="flex flex-shrink-0">{suffix}</div>}
       </div>
     );
   }

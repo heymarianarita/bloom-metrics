@@ -50,8 +50,8 @@ const Node = ({
         type="button"
         onClick={() => kids.length && setOpen((o) => !o)}
         className={cn(
-          "w-full flex items-center gap-2 h-8 px-2 rounded-[6px] text-left text-[14px] text-foreground",
-          kids.length ? "hover:bg-[rgba(21,25,26,0.06)] active:bg-[rgba(21,25,26,0.04)]" : "cursor-default",
+          "w-full flex items-center gap-2 h-8 px-2 rounded-md text-left text-sm text-foreground",
+          kids.length ? "hover:bg-surface-hover active:bg-surface-hover" : "cursor-default",
         )}
       >
         <CaretRight
@@ -64,9 +64,9 @@ const Node = ({
         />
         <span className="truncate flex-1">{team.name}</span>
         {kids.length > 0 && (
-          <span className="text-[12px] text-muted-foreground shrink-0">{kids.length} groups</span>
+          <span className="text-xs text-muted-foreground shrink-0">{kids.length} groups</span>
         )}
-        <span className="text-[12px] text-muted-foreground shrink-0 w-[88px] text-right">
+        <span className="text-xs text-muted-foreground shrink-0 w-[88px] text-right">
           {total} people
         </span>
       </button>
@@ -133,7 +133,7 @@ const GetDXTeamsCard = () => {
           description={data?.error ?? (error instanceof Error ? error.message : "Unknown error")}
         />
       ) : (
-        <div className="max-h-[480px] overflow-y-auto rounded-[6px] border border-border p-2">
+        <div className="max-h-[480px] overflow-y-auto rounded-md border border-border p-2">
           <ul>
             {roots.map((r) => (
               <Node key={r.id} team={r} childrenOf={childrenOf} depth={0} />

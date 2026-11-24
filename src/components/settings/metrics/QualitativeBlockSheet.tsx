@@ -100,11 +100,11 @@ const AnalysisStatus = ({
           ? source.run_message || "Themes are up to date."
           : "Themes and summaries appear after the analysis runs.";
   return (
-    <div className="rounded-[6px] border border-border p-3 flex items-start justify-between gap-3">
+    <div className="rounded-md border border-border p-3 flex items-start justify-between gap-3">
       <div className="min-w-0 space-y-1">
         <StatusBadge status={source.run_status} />
-        <p className={`text-[12px] ${source.run_status === "error" ? "text-destructive" : "text-muted-foreground"}`}>{message}</p>
-        <p className="text-[12px] text-muted-foreground">
+        <p className={`text-xs ${source.run_status === "error" ? "text-destructive" : "text-muted-foreground"}`}>{message}</p>
+        <p className="text-xs text-muted-foreground">
           {source.run_at && source.run_status !== "running" ? `Last run ${formatDateTime(source.run_at)}. ` : ""}
           Runs again on its own shortly after its dataset changes.
         </p>
@@ -160,7 +160,7 @@ const Results = ({ source }: { source: QualitativeSource }) => {
   ];
   return (
     <div className="space-y-2">
-      <p className="text-[14px] font-medium text-foreground">Themes per period</p>
+      <p className="text-sm font-medium text-foreground">Themes per period</p>
       {question.trendSummary && <DesignNote className="p-0" text={`Over time: ${question.trendSummary}`} />}
       <DesignDataTable columns={columns} data={rows} rowKey={(r) => r.period} hideToolbar />
     </div>
@@ -360,12 +360,12 @@ const QualitativeBlockSheet = ({
       />
 
       <div className="space-y-2">
-        <p className="text-[14px] font-medium text-foreground">Break down by</p>
+        <p className="text-sm font-medium text-foreground">Break down by</p>
         <DesignNote className="p-0" text="Summaries are written for each value, such as each role. Team columns are grouped into business units with the GetDX team mapping." />
         {!draft.dataset_id ? (
-          <p className="text-[14px] text-muted-foreground">Pick a dataset first.</p>
+          <p className="text-sm text-muted-foreground">Pick a dataset first.</p>
         ) : breakdownColumns.length === 0 ? (
-          <p className="text-[14px] text-muted-foreground">No columns to break down by.</p>
+          <p className="text-sm text-muted-foreground">No columns to break down by.</p>
         ) : (
           <div className="space-y-3 pt-1">
             {breakdownColumns.map((c) => {
@@ -384,7 +384,7 @@ const QualitativeBlockSheet = ({
                       }))
                     }
                   />
-                  <span className="text-[14px] text-foreground">{team ? `Business unit (from ${c.label})` : c.label}</span>
+                  <span className="text-sm text-foreground">{team ? `Business unit (from ${c.label})` : c.label}</span>
                 </label>
               );
             })}
@@ -402,7 +402,7 @@ const QualitativeBlockSheet = ({
   if (inline) {
     return (
       <div className="flex flex-col gap-4">
-        <h2 className="text-[16px] font-medium text-foreground">{editingId ? `Configure — ${source?.name}` : "New qualitative metric"}</h2>
+        <h2 className="text-base font-medium text-foreground">{editingId ? `Configure — ${source?.name}` : "New qualitative metric"}</h2>
         {body}
         <div className="border-t border-border pt-4">{footer}</div>
       </div>

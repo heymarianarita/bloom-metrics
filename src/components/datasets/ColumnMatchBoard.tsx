@@ -88,8 +88,8 @@ const Chip = ({
     <div
       ref={overlay ? undefined : setNodeRef}
       className={cn(
-        "inline-flex h-8 max-w-full items-center gap-0.5 rounded-full border bg-background text-[13px] text-foreground",
-        onRemove ? "pl-2.5 pr-1" : "px-2.5",
+        "inline-flex h-8 max-w-full items-center gap-0.5 rounded-full border bg-background text-sm text-foreground",
+        onRemove ? "pl-3 pr-1" : "px-3",
         selected ? "border-primary shadow-[0_0_0_1px_var(--primary)]" : "border-border hover:border-[rgba(21,25,26,0.3)]",
         isDragging && "opacity-40",
         overlay && "cursor-grabbing shadow-lg",
@@ -112,7 +112,7 @@ const Chip = ({
         <button
           type="button"
           aria-label={`Leave out “${name}”`}
-          className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-[rgba(21,25,26,0.06)] hover:text-foreground"
+          className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-surface-hover hover:text-foreground"
           onClick={onRemove}
         >
           <X size={12} />
@@ -143,8 +143,8 @@ const DropArea = ({
       onClick={onClick}
       className={cn(
         "transition-colors",
-        isOver && "bg-[rgba(0,119,130,0.08)]",
-        !isOver && highlight && "cursor-pointer hover:bg-[rgba(0,119,130,0.04)]",
+        isOver && "bg-surface-primary-selected",
+        !isOver && highlight && "cursor-pointer hover:bg-surface-primary-active",
         className,
       )}
     >
@@ -249,10 +249,10 @@ const ColumnMatchBoard = ({
         className="group grid grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] items-center gap-3 px-3 py-2"
       >
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-[500] text-foreground" title={column.label}>
+          <p className="truncate text-sm font-medium text-foreground" title={column.label}>
             {column.label}
           </p>
-          {meta && <p className="truncate text-[12px] text-muted-foreground">{meta}</p>}
+          {meta && <p className="truncate text-xs text-muted-foreground">{meta}</p>}
         </div>
         {placed >= 0 ? (
           <div className="min-w-0 space-y-1.5" onClick={(e) => e.stopPropagation()}>
@@ -289,18 +289,18 @@ const ColumnMatchBoard = ({
               />
             )}
             {isRequired && (
-              <p className={cn("text-[12px]", fixedValue ? "text-muted-foreground" : "text-destructive")}>
+              <p className={cn("text-xs", fixedValue ? "text-muted-foreground" : "text-destructive")}>
                 {fixedValue ? "Used for every row, or drop a date column here" : "Pick a date, or drop a date column here"}
               </p>
             )}
           </div>
         ) : (
           <div className="flex h-8 min-w-0 items-center justify-between gap-2 rounded-full border border-dashed border-border px-3">
-            <span className="truncate text-[12px] text-muted-foreground">{emptyHint}</span>
+            <span className="truncate text-xs text-muted-foreground">{emptyHint}</span>
             {dragging === null && selected === null && (
               <button
                 type="button"
-                className="shrink-0 text-[12px] text-primary opacity-0 hover:underline focus-visible:opacity-100 group-hover:opacity-100"
+                className="shrink-0 text-xs text-primary opacity-0 hover:underline focus-visible:opacity-100 group-hover:opacity-100"
                 onClick={(e) => {
                   e.stopPropagation();
                   setFixedOpen((prev) => ({ ...prev, [column.key]: true }));
@@ -325,10 +325,10 @@ const ColumnMatchBoard = ({
       <div className="grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-start gap-6">
         <section className="sticky top-0 space-y-2">
           <div>
-            <h3 className="text-[14px] font-[580] text-foreground">
+            <h3 className="text-sm font-semibold text-foreground">
               Not used yet <span className="font-normal text-muted-foreground">· {unused.length}</span>
             </h3>
-            <p className="text-[12px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Drag each column of your file onto the matching column on the right, or click it and then the column. Anything
               left here isn't imported.
             </p>
@@ -347,14 +347,14 @@ const ColumnMatchBoard = ({
             id={LEFT_OUT}
             highlight={selected !== null && mapping[selected] !== IGNORE}
             onClick={clickTarget(IGNORE)}
-            className="flex max-h-[min(60vh,520px)] min-h-[64px] flex-wrap content-start gap-1.5 overflow-y-auto rounded-[6px] border border-dashed border-border p-2"
+            className="flex max-h-[min(60vh,520px)] min-h-[64px] flex-wrap content-start gap-1.5 overflow-y-auto rounded-md border border-dashed border-border p-2"
           >
             {shownUnused.map((i) => chip(i))}
             {!unused.length && (
-              <p className="w-full p-2 text-center text-[12px] text-muted-foreground">Every column of the file is used.</p>
+              <p className="w-full p-2 text-center text-xs text-muted-foreground">Every column of the file is used.</p>
             )}
             {unused.length > 0 && !shownUnused.length && (
-              <p className="w-full p-2 text-center text-[12px] text-muted-foreground">No column matches “{query.trim()}”.</p>
+              <p className="w-full p-2 text-center text-xs text-muted-foreground">No column matches “{query.trim()}”.</p>
             )}
           </DropArea>
         </section>
@@ -362,13 +362,13 @@ const ColumnMatchBoard = ({
         <section className="space-y-4">
           {required.length > 0 && (
             <div className="space-y-1.5">
-              <h3 className="text-[14px] font-[580] text-foreground">Needed for charts</h3>
-              <div className="divide-y divide-border rounded-[6px] border border-border">{required.map((c) => row(c, true))}</div>
+              <h3 className="text-sm font-semibold text-foreground">Needed for charts</h3>
+              <div className="divide-y divide-border rounded-md border border-border">{required.map((c) => row(c, true))}</div>
             </div>
           )}
 
           <div className="space-y-1.5">
-            <h3 className="text-[14px] font-[580] text-foreground">
+            <h3 className="text-sm font-semibold text-foreground">
               {datasetName} columns{" "}
               {others.length > 0 && (
                 <span className="font-normal text-muted-foreground">
@@ -376,22 +376,22 @@ const ColumnMatchBoard = ({
                 </span>
               )}
             </h3>
-            <div className="divide-y divide-border rounded-[6px] border border-border">
+            <div className="divide-y divide-border rounded-md border border-border">
               {others.map((c) => row(c))}
               {newOnes.map((i) => {
                 const clash = plan.clashes.find((c) => c.header === nameOf(header, i).trim());
                 return (
                   <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] items-center gap-3 px-3 py-2">
                     <div className="min-w-0">
-                      <p className="truncate text-[13px] font-[500] text-foreground" title={nameOf(header, i)}>
+                      <p className="truncate text-sm font-medium text-foreground" title={nameOf(header, i)}>
                         {nameOf(header, i)}
                       </p>
-                      <p className="text-[12px] text-primary">New column</p>
+                      <p className="text-xs text-primary">New column</p>
                     </div>
                     <div className="min-w-0 space-y-1.5">
                       {chip(i, true)}
                       {clash ? (
-                        <p className="text-[12px] text-destructive">
+                        <p className="text-xs text-destructive">
                           {datasetName} already has “{clash.existing}”. Drag it there instead.
                         </p>
                       ) : (
@@ -410,7 +410,7 @@ const ColumnMatchBoard = ({
                 id={slotId(NEW_COLUMN)}
                 highlight={selected !== null && mapping[selected] !== NEW_COLUMN}
                 onClick={clickTarget(NEW_COLUMN)}
-                className="flex items-center gap-2 px-3 py-2.5 text-[12px] text-muted-foreground"
+                className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground"
               >
                 <Plus size={14} className="shrink-0" />
                 {dragging !== null || selected !== null

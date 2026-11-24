@@ -61,7 +61,7 @@ const DesignBottomNavigation = React.forwardRef<HTMLElement, DesignBottomNavigat
                   <span className="absolute -top-1 -right-1.5 flex items-center justify-center min-w-[8px] h-2 bg-destructive rounded-full" />
                 )}
               </div>
-              <span className="text-[11px] leading-[14px] font-medium">{item.label}</span>
+              <span className="text-xs font-medium">{item.label}</span>
             </button>
           );
         })}

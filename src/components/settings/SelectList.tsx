@@ -1,6 +1,17 @@
 import * as React from "react";
 import { DesignCard } from "@/components/ds/DesignCard";
+import { DesignTooltip } from "@/components/ds/DesignTooltip";
 import { SortableList } from "@/components/settings/SortableList";
+
+export interface SelectListItem {
+  id: string;
+  label: string;
+  /** Items with a `group` get a small heading wherever the group changes. */
+  group?: string;
+  /** A small icon before the label telling kinds of item apart; `iconLabel` names it. */
+  icon?: React.ReactNode;
+  iconLabel?: string;
+}
 
 /**
  * The left-hand list of a settings page that shows one item at a time (Datasets, Dynamic
@@ -16,8 +27,7 @@ export const SelectList = ({
   actions = [],
 }: {
   title: string;
-  /** Items with a `group` get a small heading wherever the group changes. */
-  items: { id: string; label: string; group?: string; detail?: string }[];
+  items: SelectListItem[];
   selectedId: string;
   onSelect: (id: string) => void;
   /** Saves a new order (all ids, first to last). */
@@ -26,22 +36,28 @@ export const SelectList = ({
   actions?: { label: string; icon: React.ReactNode; onClick: () => void }[];
 }) => {
   const rowClass = (selected: boolean) =>
-    `w-full text-left px-3 py-2 rounded-[6px] transition-colors min-w-0 ${
-      selected ? "bg-[rgba(0,119,130,0.08)]" : "hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]"
+    `w-full text-left px-3 py-2 rounded-md transition-colors min-w-0 ${
+      selected ? "bg-surface-primary-selected" : "hover:bg-surface-primary-hover active:bg-surface-primary-active"
     }`;
-  const itemButton = (item: { id: string; label: string; detail?: string }) => {
+  const itemButton = (item: SelectListItem) => {
     const selected = item.id === selectedId;
     return (
-      <button type="button" className={rowClass(selected)} onClick={() => onSelect(item.id)}>
-        <p className={`text-sm truncate ${selected ? "font-medium text-[var(--primary-extra-dark)]" : "text-foreground"}`}>
+      <button type="button" className={`${rowClass(selected)} flex items-center gap-2`} onClick={() => onSelect(item.id)}>
+        {item.icon && (
+          <DesignTooltip content={item.iconLabel} side="left">
+            <span className="flex shrink-0 text-muted-foreground" aria-label={item.iconLabel} role="img">
+              {item.icon}
+            </span>
+          </DesignTooltip>
+        )}
+        <span className={`min-w-0 truncate text-sm ${selected ? "font-medium text-[var(--primary-extra-dark)]" : "text-foreground"}`}>
           {item.label}
-        </p>
-        {item.detail && <p className="text-[12px] text-muted-foreground truncate">{item.detail}</p>}
+        </span>
       </button>
     );
   };
   const heading = (group: string, first: boolean) => (
-    <p className={`px-3 pb-1 text-[12px] text-muted-foreground ${first ? "pt-1" : "pt-3"}`}>{group}</p>
+    <p className={`px-3 pb-1 text-xs text-muted-foreground ${first ? "pt-1" : "pt-3"}`}>{group}</p>
   );
   // Runs of items that share a group, in list order.
   const groups = items.reduce<{ group?: string; items: typeof items }[]>((acc, item) => {
@@ -53,7 +69,7 @@ export const SelectList = ({
   return (
     <DesignCard className="p-2">
       {/* The page's title lives here, at the top of its list (the pages have no header above the columns). */}
-      <h1 className="px-3 pt-2 pb-3 text-[22px] font-[580] text-foreground truncate">{title}</h1>
+      <h1 className="px-3 pt-2 pb-3 text-xl font-semibold text-foreground truncate">{title}</h1>
       <div className="flex flex-col gap-0.5">
         {onReorder ? (
           groups.map((g, gi) => (
@@ -66,7 +82,7 @@ export const SelectList = ({
                 onReorder={(ids) => onReorder(groups.flatMap((other, oi) => (oi === gi ? ids : other.items.map((i) => i.id))))}
               >
                 {(item, row) => (
-                  <div key={item.id} ref={row.ref} style={row.style} className="flex items-center gap-0.5 rounded-[6px]">
+                  <div key={item.id} ref={row.ref} style={row.style} className="flex items-center gap-0.5 rounded-md">
                     {row.handle}
                     {itemButton(item)}
                   </div>

@@ -160,7 +160,7 @@ const AddPersonDialog = ({
           options={ROLE_OPTIONS.filter((o) => o.value !== "none")}
           onChange={(value) => setRole(value as AppRole)}
         />
-        {error && <p className="text-[12px] text-destructive">{error}</p>}
+        {error && <p className="text-xs text-destructive">{error}</p>}
         <DesignButton type="submit" fullWidth variant="filled" theme="primary" isLoading={add.isPending}>
           {slackOn ? "Add and send sign-in link on Slack" : "Add and create sign-in link"}
         </DesignButton>
@@ -222,8 +222,8 @@ const UsersSettingsInner = () => {
       width: "1fr",
       render: (row) => (
         <div className="flex flex-col">
-          <span className="text-[14px] leading-[18px] text-foreground">{row.display_name || row.email || "—"}</span>
-          <span className="text-[12px] leading-[16px] text-muted-foreground">{row.email}</span>
+          <span className="text-sm text-foreground">{row.display_name || row.email || "—"}</span>
+          <span className="text-xs text-muted-foreground">{row.email}</span>
         </div>
       ),
     },

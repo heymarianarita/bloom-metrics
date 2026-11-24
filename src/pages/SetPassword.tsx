@@ -53,8 +53,8 @@ const SetPassword = () => {
     <main className="min-h-screen bg-spacing-bg flex items-center justify-center p-4">
       <div className="w-full max-w-[400px]">
         <div className="flex items-center gap-2 mb-6 justify-center">
-          <img src={vintedIconRounded} alt="Bloom Metrics logo" className="h-8 w-8 rounded-[6px]" />
-          <span className="text-[18px] font-[580] text-foreground">Bloom Metrics</span>
+          <img src={vintedIconRounded} alt="Bloom Metrics logo" className="h-8 w-8 rounded-md" />
+          <span className="text-lg font-semibold text-foreground">Bloom Metrics</span>
         </div>
         <DesignCard className="p-6">
           {info.isLoading ? (
@@ -63,8 +63,8 @@ const SetPassword = () => {
             </div>
           ) : invalid ? (
             <>
-              <h1 className="text-[22px] font-[580] text-foreground">Link not valid</h1>
-              <p className="text-[14px] text-muted-foreground mt-1">
+              <h1 className="text-xl font-semibold text-foreground">Link not valid</h1>
+              <p className="text-sm text-muted-foreground mt-1">
                 {info.error instanceof Error ? info.error.message : "This link is incomplete."}
               </p>
               <DesignSpacer size="medium" />
@@ -74,10 +74,10 @@ const SetPassword = () => {
             </>
           ) : (
             <>
-              <h1 className="text-[22px] font-[580] text-foreground">
+              <h1 className="text-xl font-semibold text-foreground">
                 {info.data?.purpose === "reset" ? "Choose a new password" : "Set up your account"}
               </h1>
-              <p className="text-[14px] text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 For <span className="text-foreground">{info.data?.email}</span>. This link works once.
               </p>
               <DesignSpacer size="medium" />

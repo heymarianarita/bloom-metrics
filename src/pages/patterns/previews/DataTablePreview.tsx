@@ -338,7 +338,7 @@ const DataTablePreview = () => {
         <nav className="h-14 w-full bg-primary-dark flex items-center justify-between px-4 shrink-0">
           <div className="flex items-center gap-12">
             <div className="flex items-center gap-2">
-              <img src={vintedIconRounded} alt="Vinted" className="h-8 w-8 rounded-[6px] shrink-0" />
+              <img src={vintedIconRounded} alt="Vinted" className="h-8 w-8 rounded-md shrink-0" />
               <span className="text-white font-medium text-sm">Vinted Admin</span>
             </div>
             <NavigationMenu>
@@ -347,7 +347,7 @@ const DataTablePreview = () => {
                   <NavigationMenuItem key={item}>
                     <NavigationMenuLink
                       onClick={() => { setActiveNav(item); setActiveTab("all"); setSelected([]); }}
-                      className={`px-4 py-2 rounded-[6px] text-sm font-medium transition-colors min-h-[32px] cursor-pointer
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors min-h-[32px] cursor-pointer
                         ${activeNav === item
                           ? "bg-white/[0.12] text-white"
                           : "text-white/70 hover:bg-white/[0.06] active:bg-white/[0.08]"
@@ -361,7 +361,7 @@ const DataTablePreview = () => {
             </NavigationMenu>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" className="flex items-center gap-2 px-3 py-1.5 rounded-[6px] hover:bg-white/10 active:bg-white/25 h-auto">
+            <Button variant="ghost" className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-white/10 active:bg-white/25 h-auto">
               <Avatar className="w-8 h-8">
                 <AvatarFallback className="bg-white/20 text-white text-xs font-medium">JD</AvatarFallback>
               </Avatar>
@@ -371,7 +371,7 @@ const DataTablePreview = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="w-9 h-9 rounded-[6px] text-white hover:bg-white/10 active:bg-white/25">
+                    <Button variant="ghost" size="icon" className="w-9 h-9 rounded-md text-white hover:bg-white/10 active:bg-white/25">
                       <MoreVertical className="w-5 h-5" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -398,7 +398,7 @@ const DataTablePreview = () => {
       {/* Content */}
       <DesignGrid columns={false} className="flex-1 flex flex-col gap-6 py-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-[22px] font-[580] text-foreground">
+          <h1 className="text-xl font-semibold text-foreground">
             {isFlagged ? "Flagged Items" : "Orders"}
           </h1>
           {!isFlagged && (
@@ -406,7 +406,7 @@ const DataTablePreview = () => {
           )}
         </div>
 
-        <div className="border border-[var(--border)] rounded-[6px] bg-[var(--background)] p-3 flex-1 flex flex-col min-h-0">
+        <div className="border border-[var(--border)] rounded-md bg-[var(--background)] p-3 flex-1 flex flex-col min-h-0">
           <DesignDataTable
             columns={isFlagged ? flaggedColumns : columns}
             data={isFlagged ? [] : sampleOrders}

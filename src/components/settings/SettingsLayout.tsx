@@ -7,7 +7,7 @@ import { DesignTooltip } from "@/components/ds/DesignTooltip";
 
 /** Same look as the sidebar's collapse button (AppShell), mirrored for the right side. */
 const toggleClass =
-  "h-8 w-8 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1";
+  "h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1";
 
 const STORAGE_KEY = "bloom.settings.contextPanel";
 
@@ -93,11 +93,11 @@ export const SettingsLayout = ({
           } as React.CSSProperties
         }
       >
-        {list && <div className="min-w-0 xl:min-h-0 xl:overflow-y-auto xl:rounded-[12px] xl:[&>*]:min-h-full">{list}</div>}
+        {list && <div className="min-w-0 xl:min-h-0 xl:overflow-y-auto xl:rounded-xl xl:[&>*]:min-h-full">{list}</div>}
         <div
           // The main card reaches the bottom of the window even when its content is short.
           className={`min-w-0 flex flex-col gap-3 xl:min-h-0 ${
-            fillMain ? "xl:overflow-hidden" : "xl:overflow-y-auto xl:rounded-[12px] xl:[&>*:last-child]:flex-[1_0_auto]"
+            fillMain ? "xl:overflow-hidden" : "xl:overflow-y-auto xl:rounded-xl xl:[&>*:last-child]:flex-[1_0_auto]"
           }`}
         >
           {context && !hideContextButton && (
@@ -113,8 +113,8 @@ export const SettingsLayout = ({
             <DesignCard className="hidden xl:flex flex-col overflow-hidden min-h-0">
               <div className="px-4 pt-4 pb-2 flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h2 className="text-[16px] font-medium text-foreground">{context.title}</h2>
-                  {context.subtitle && <p className="text-[14px] text-muted-foreground mt-1">{context.subtitle}</p>}
+                  <h2 className="text-base font-medium text-foreground">{context.title}</h2>
+                  {context.subtitle && <p className="text-sm text-muted-foreground mt-1">{context.subtitle}</p>}
                 </div>
                 <DesignTooltip content={`Collapse ${context.title}`} side="left">
                   <button type="button" className={`${toggleClass} shrink-0 -mr-1 -mt-1`} aria-label={`Collapse ${context.title}`} onClick={toggle}>
@@ -131,10 +131,10 @@ export const SettingsLayout = ({
                 type="button"
                 onClick={expand}
                 aria-label={`Expand ${context.title}`}
-                className={`hidden lg:flex ${open ? "xl:hidden" : ""} flex-col items-center gap-3 py-3 self-start rounded-[12px] border border-design-card-border bg-design-card text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)] transition-colors`}
+                className={`hidden lg:flex ${open ? "xl:hidden" : ""} flex-col items-center gap-3 py-3 self-start rounded-xl border border-design-card-border bg-design-card text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active transition-colors`}
               >
                 <PanelRightOpen className="w-4 h-4" />
-                <span className="text-[13px] [writing-mode:vertical-rl]">{context.title}</span>
+                <span className="text-sm [writing-mode:vertical-rl]">{context.title}</span>
               </button>
             </DesignTooltip>
         )}
@@ -143,7 +143,7 @@ export const SettingsLayout = ({
       {context && (
         <DesignSideSheet open={sheet} onOpenChange={setSheet} title={context.title} minWidth="360px">
           <div className="p-4">
-            {context.subtitle && <p className="text-[14px] text-muted-foreground mb-3">{context.subtitle}</p>}
+            {context.subtitle && <p className="text-sm text-muted-foreground mb-3">{context.subtitle}</p>}
             {context.content}
           </div>
         </DesignSideSheet>

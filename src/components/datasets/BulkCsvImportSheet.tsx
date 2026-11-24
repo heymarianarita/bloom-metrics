@@ -178,7 +178,7 @@ const BulkCsvImportSheet = ({
       className="sm:max-w-none"
       footer={
         <div className="flex items-center justify-end gap-3">
-          {firstProblem && <p className="mr-auto min-w-0 truncate text-[12px] text-destructive">{firstProblem}</p>}
+          {firstProblem && <p className="mr-auto min-w-0 truncate text-xs text-destructive">{firstProblem}</p>}
           <DesignButton variant="outlined" theme="primary" onClick={onAddFiles}>
             Add more files
           </DesignButton>
@@ -201,8 +201,8 @@ const BulkCsvImportSheet = ({
             <div key={draft.id} className="space-y-4">
               {planIndex > 0 && <DesignDivider />}
               <div className="flex items-center justify-between gap-3">
-                <p className="min-w-0 truncate text-[14px] text-foreground" title={draft.fileName}>
-                  <span className="font-[500]">{draft.fileName}</span>
+                <p className="min-w-0 truncate text-sm text-foreground" title={draft.fileName}>
+                  <span className="font-medium">{draft.fileName}</span>
                   <span className="text-muted-foreground">
                     {" "}
                     · {body.length} {body.length === 1 ? "row" : "rows"}
@@ -212,7 +212,7 @@ const BulkCsvImportSheet = ({
                   type="button"
                   aria-label={`Remove ${draft.fileName}`}
                   onClick={() => setDrafts((prev) => prev.filter((d) => d.id !== draft.id))}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-[rgba(208,69,85,0.08)] hover:text-destructive"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[rgba(208,69,85,0.08)] hover:text-destructive"
                 >
                   <Trash size={16} />
                 </button>
@@ -237,7 +237,7 @@ const BulkCsvImportSheet = ({
                     />
                   </div>
                 )}
-                <label className="ml-auto flex shrink-0 items-center gap-2 pb-2 text-[14px] text-foreground">
+                <label className="ml-auto flex shrink-0 items-center gap-2 pb-2 text-sm text-foreground">
                   <DesignCheckbox
                     checked={draft.hasHeader}
                     onCheckedChange={(checked) => update(draft.id, resetChoices(draft, { hasHeader: Boolean(checked) }))}
@@ -247,7 +247,7 @@ const BulkCsvImportSheet = ({
               </div>
 
               {body.length === 0 ? (
-                <p className="text-[14px] text-destructive">No rows found in this file.</p>
+                <p className="text-sm text-destructive">No rows found in this file.</p>
               ) : (
                 <ColumnMatchBoard
                   datasetName={isNew ? draft.datasetName.trim() || "The new dataset" : target?.name ?? "The dataset"}

@@ -20,7 +20,7 @@ interface AnswerCleanupStepProps {
 const AnswerCleanupStep = ({ header, cleanups, onOverride }: AnswerCleanupStepProps) => {
   if (!cleanups.length) {
     return (
-      <p className="text-[14px] text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Nothing to clean up: no score or number columns are filled from the file. Extra spaces around answers are trimmed
         either way.
       </p>
@@ -33,7 +33,7 @@ const AnswerCleanupStep = ({ header, cleanups, onOverride }: AnswerCleanupStepPr
 
   return (
     <div className="space-y-5">
-      <p className="text-[14px] text-foreground">
+      <p className="text-sm text-foreground">
         {polished > 0 && (
           <>
             {polished === 1 ? "1 answer was" : `${polished} answers were`} written with a label, like “{labelled[0].raw}”.
@@ -53,8 +53,8 @@ const AnswerCleanupStep = ({ header, cleanups, onOverride }: AnswerCleanupStepPr
       {cleanups.map(({ column, answers }) => (
         <section key={column.key} className="space-y-2">
           <div className="flex flex-wrap items-baseline gap-x-2">
-            <h3 className="text-[14px] font-[580] text-foreground">{column.label}</h3>
-            <p className="min-w-0 truncate text-[12px] text-muted-foreground">
+            <h3 className="text-sm font-semibold text-foreground">{column.label}</h3>
+            <p className="min-w-0 truncate text-xs text-muted-foreground">
               from “{header[column.fileIndex!] || `Column ${column.fileIndex! + 1}`}”
             </p>
           </div>
@@ -103,8 +103,8 @@ const AnswerCleanupStep = ({ header, cleanups, onOverride }: AnswerCleanupStepPr
                             );
                           }}
                         />
-                        {outOfScale && <p className="mt-1 text-[12px] text-destructive">Ratings go from 1 to 5.</p>}
-                        {notANumber && <p className="mt-1 text-[12px] text-destructive">Type a number, or clear it.</p>}
+                        {outOfScale && <p className="mt-1 text-xs text-destructive">Ratings go from 1 to 5.</p>}
+                        {notANumber && <p className="mt-1 text-xs text-destructive">Type a number, or clear it.</p>}
                       </td>
                     </tr>
                   );

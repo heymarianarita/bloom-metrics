@@ -100,7 +100,7 @@ export const FigmaRangeControls = ({
       />
       {onCompareChange && preset !== "custom" && (
         <>
-          <span className="text-[12px] text-muted-foreground whitespace-nowrap">vs</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">vs</span>
           <DesignInputSelect
             className="w-[140px]"
             size="small"
@@ -120,7 +120,7 @@ export const FigmaRangeControls = ({
             value={from}
             onChange={(e) => setFrom(e.target.value)}
           />
-          <span className="text-[12px] text-muted-foreground">to</span>
+          <span className="text-xs text-muted-foreground">to</span>
           <DesignInputText
             className="w-[160px]"
             aria-label="To"

@@ -106,7 +106,7 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
       >
         {/* Label */}
         {resolvedLabel && (
-          <label className="text-[14px] leading-[18px] font-medium text-[var(--input-title)] mb-1">
+          <label className="text-sm leading-[18px] font-medium text-[var(--input-title)] mb-1">
             {resolvedLabel}
           </label>
         )}
@@ -159,7 +159,7 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
             <span
               className={cn(
                 "flex-1 text-left truncate",
-                "text-[14px] leading-[18px]",
+                "text-sm leading-[18px]",
                 "font-normal",
                 disabled
                   ? "text-[var(--greyscale-3)]"
@@ -209,7 +209,7 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
                     onClick={() => handleSelect(option.value)}
                     className={cn(
                       "w-full text-left px-4 flex items-center gap-2 transition-colors cursor-pointer",
-                      "py-2 text-[14px] leading-[18px]",
+                      "py-2 text-sm leading-[18px]",
                       "font-normal",
                       "hover:bg-[var(--surface-hover)] active:bg-[var(--surface-active)]",
                       isSelected
@@ -235,7 +235,7 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
         {validation && (
           <span
             className={cn(
-              "text-[12px] leading-[16px] font-normal mt-1",
+              "text-xs leading-[16px] font-normal mt-1",
               error ? "text-[var(--error-default)]" : "text-[var(--input-title)]"
             )}
           >
@@ -245,7 +245,7 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
 
         {/* Helper text */}
         {resolvedHelper && !validation && (
-          <span className="text-[12px] leading-[16px] font-normal mt-1 text-[var(--input-title)]">
+          <span className="text-xs leading-[16px] font-normal mt-1 text-[var(--input-title)]">
             {resolvedHelper}
           </span>
         )}

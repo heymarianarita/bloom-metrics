@@ -253,7 +253,7 @@ const TableSectionHeader = ({
   children?: React.ReactNode;
 }) => (
   <div className="flex items-center justify-between gap-3">
-    <p className="text-[16px] font-medium text-foreground">{title}</p>
+    <p className="text-base font-medium text-foreground">{title}</p>
     <div className="flex items-center gap-2">
       <div className="w-[200px]">
         <DesignInputBar
@@ -698,7 +698,7 @@ const Documentation = () => {
         />
         <DesignSpacer size="medium" />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-[12px] items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
         <DesignCard variant="default" className="lg:col-span-2 min-w-0 p-5">
         <div className="flex flex-wrap items-end gap-3">
           <DesignInputSelect
@@ -737,7 +737,7 @@ const Documentation = () => {
           </>
         )}
 
-        <div className="rounded-[6px] border border-border grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-[rgba(21,25,26,0.06)] overflow-hidden items-stretch auto-rows-fr">
+        <div className="rounded-md border border-border grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-surface-hover overflow-hidden items-stretch auto-rows-fr">
           <DesignStatCard
             className="border-0 rounded-none bg-background"
             label="Active users"
@@ -793,7 +793,7 @@ const Documentation = () => {
 
         <DesignSpacer size="medium" />
 
-        <div className="rounded-[6px] border border-border grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-[rgba(21,25,26,0.06)] overflow-hidden items-stretch auto-rows-fr">
+        <div className="rounded-md border border-border grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-surface-hover overflow-hidden items-stretch auto-rows-fr">
           <DesignStatCard
             className="border-0 rounded-none bg-background"
             label="Page views"
@@ -860,9 +860,9 @@ const Documentation = () => {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               {chartCards.map((card) => (
                 <section key={card.title} className="pt-2">
-                  <p className="text-[16px] font-medium text-foreground">{card.title}</p>
+                  <p className="text-base font-medium text-foreground">{card.title}</p>
                   <DesignSpacer size="small" />
-                  <div className="h-[292px] w-full rounded-[6px] border border-border p-4">
+                  <div className="h-[292px] w-full rounded-md border border-border p-4">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={dailySeries} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                         <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />

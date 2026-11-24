@@ -53,7 +53,7 @@ const DesignSideSheet = ({
         {/* Header */}
         {title && (
           <div className="px-4 h-[60px] flex items-center justify-between shrink-0 border-b border-[var(--border)]">
-            <span className="text-[18px] font-[580] text-[var(--foreground)]">{title}</span>
+            <span className="text-lg font-semibold text-[var(--foreground)]">{title}</span>
             <button
               onClick={() => onOpenChange?.(false)}
               className="w-8 h-8 flex items-center justify-center rounded-[6px] text-[var(--foreground)] hover:bg-[rgba(21,25,26,0.04)] cursor-pointer"

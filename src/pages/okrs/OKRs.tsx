@@ -72,7 +72,7 @@ function GoalStatusBadge({ status, score: raw }: { status?: string; score?: numb
     <DesignBadge theme={badgeThemeFor(status)} styling="light">
       <span className="inline-flex items-center gap-1">
         {statusLabel(status)}
-        {scored && score && <span className="rounded-[3px] bg-foreground/10 px-1">{score}</span>}
+        {scored && score && <span className="rounded-md bg-foreground/10 px-1">{score}</span>}
       </span>
     </DesignBadge>
   );
@@ -85,7 +85,7 @@ const ProgressBar = ({ value, size = "regular" }: { value?: number | null; size?
     <div className={`flex-1 rounded-full bg-spacing-bg overflow-hidden ${size === "small" ? "h-1" : "h-1.5"}`}>
       <div className="h-full rounded-full bg-primary" style={{ width: `${clamp(value)}%` }} />
     </div>
-    <span className="text-[12px] text-muted-foreground w-9 text-right tabular-nums">
+    <span className="text-xs text-muted-foreground w-9 text-right tabular-nums">
       {value === null || value === undefined ? "—" : `${Math.round(value)}%`}
     </span>
   </div>
@@ -147,7 +147,7 @@ const KR_BRANCH = "relative before:content-[''] before:absolute before:left-[-15
 
 /** Short outline label: O1, KR1… */
 const Tag = ({ children }: { children: React.ReactNode }) => (
-  <span className="w-[36px] shrink-0 text-[12px] font-[500] text-muted-foreground tabular-nums pt-[2px]">{children}</span>
+  <span className="w-[36px] shrink-0 text-xs font-medium text-muted-foreground tabular-nums pt-[2px]">{children}</span>
 );
 
 const pct = (n?: number | null) => (n === null || n === undefined ? "—" : `${Math.round(n)}%`);
@@ -156,7 +156,7 @@ const dotFor = (status?: string) =>
   status === "On track" || status === "Done"
     ? "bg-btn-success"
     : status === "At risk"
-      ? "bg-[var(--warning,#E0A100)]"
+      ? "bg-highlight-default"
       : status === "Off track"
         ? "bg-destructive"
         : "bg-muted-foreground";
@@ -168,14 +168,14 @@ const metricMeta = (m: { start: number | null; target: number | null }) =>
 const KrRow = ({ name, meta, progress }: { name: string; meta?: string; progress?: number | null }) => (
   <div className="flex items-start justify-between gap-6">
     <div className="min-w-0 flex flex-col gap-1">
-      <span className="text-[12px] text-foreground">{name}</span>
-      {meta && <span className="text-[12px] text-muted-foreground">{meta}</span>}
+      <span className="text-xs text-foreground">{name}</span>
+      {meta && <span className="text-xs text-muted-foreground">{meta}</span>}
     </div>
     <div className="shrink-0 flex items-center gap-2 pt-1">
-      <div className="h-1 w-12 rounded-full bg-[rgba(21,25,26,0.1)] overflow-hidden">
+      <div className="h-1 w-12 rounded-full bg-surface-active overflow-hidden">
         <div className="h-full rounded-full bg-primary" style={{ width: `${clamp(progress)}%` }} />
       </div>
-      <span className="w-10 text-left text-[12px] font-[500] text-foreground tabular-nums">{pct(progress)}</span>
+      <span className="w-10 text-left text-xs font-medium text-foreground tabular-nums">{pct(progress)}</span>
     </div>
   </div>
 );
@@ -188,16 +188,16 @@ const ObjectiveBlock = ({ node, onOpen, selected }: { node: ObjectiveNode; index
       type="button"
       onClick={() => onOpen(node)}
       aria-pressed={selected}
-      className={`relative w-full text-left rounded-[6px] px-4 py-4 flex flex-col gap-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${selected ? "bg-[rgba(0,119,130,0.08)]" : "hover:bg-[rgba(21,25,26,0.06)] active:bg-[rgba(21,25,26,0.04)]"}`}
+      className={`relative w-full text-left rounded-md px-4 py-4 flex flex-col gap-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${selected ? "bg-surface-primary-selected" : "hover:bg-surface-hover active:bg-surface-hover"}`}
     >
       <div className="flex items-start justify-between gap-6">
-        <span className="min-w-0 text-[14px] font-[580] text-foreground">{goal.name}</span>
+        <span className="min-w-0 text-sm font-semibold text-foreground">{goal.name}</span>
         <div className="shrink-0 flex items-center gap-4">
           <GoalStatusBadge status={goal.status} score={goal.score} />
-          <div className="h-1 w-24 rounded-full bg-[rgba(21,25,26,0.1)] overflow-hidden">
+          <div className="h-1 w-24 rounded-full bg-surface-active overflow-hidden">
             <div className="h-full rounded-full bg-primary" style={{ width: `${clamp(goal.progress)}%` }} />
           </div>
-          <span className="-ml-2 w-10 text-left text-[14px] font-[580] text-foreground tabular-nums">{pct(goal.progress)}</span>
+          <span className="-ml-2 w-10 text-left text-sm font-semibold text-foreground tabular-nums">{pct(goal.progress)}</span>
         </div>
       </div>
       {hasKrs && (
@@ -222,8 +222,8 @@ const ObjectiveBlock = ({ node, onOpen, selected }: { node: ObjectiveNode; index
 
 const PanelSection = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div className="flex flex-col gap-2">
-    <span className="text-[12px] text-muted-foreground">{label}</span>
-    <div className="text-[14px] text-foreground">{children}</div>
+    <span className="text-xs text-muted-foreground">{label}</span>
+    <div className="text-sm text-foreground">{children}</div>
   </div>
 );
 
@@ -238,7 +238,7 @@ const ObjectivePanel = ({ node, onClose }: { node: ObjectiveNode | null; onClose
     <DesignCard className="p-0 overflow-hidden">
       {goal && (
         <div className="px-6 pt-5 flex items-center justify-between gap-4">
-          <span className="text-[12px] font-[500] text-muted-foreground">Objective details</span>
+          <span className="text-xs font-medium text-muted-foreground">Objective details</span>
           <DesignButton variant="flat" theme="muted" size="small" aria-label="Clear selection" onClick={onClose} className="-mr-3" icon={<X size={16} />} />
         </div>
       )}
@@ -252,7 +252,7 @@ const ObjectivePanel = ({ node, onClose }: { node: ObjectiveNode | null; onClose
       {goal && (
         <div className="p-6 pt-4 flex flex-col gap-6 max-h-[calc(100vh-140px)] overflow-y-auto">
           <div className="flex flex-col gap-3">
-            <h2 className="text-[18px] font-[580] text-foreground">
+            <h2 className="text-lg font-semibold text-foreground">
               {goal.url ? (
                 <a href={goal.url} target="_blank" rel="noreferrer" className="group hover:text-primary transition-colors">
                   {goal.name}
@@ -262,7 +262,7 @@ const ObjectivePanel = ({ node, onClose }: { node: ObjectiveNode | null; onClose
             </h2>
             <div className="flex items-center gap-3">
               <GoalStatusBadge status={goal.status} score={goal.score} />
-              <span className="text-[14px] text-muted-foreground tabular-nums">{pct(goal.progress)} complete</span>
+              <span className="text-sm text-muted-foreground tabular-nums">{pct(goal.progress)} complete</span>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-6">
@@ -411,8 +411,8 @@ const OKRs = () => {
         {isLoading && (
           <DesignCard className="p-12 flex flex-col items-center gap-3 text-center">
             <DesignLoader />
-            <p className="text-[16px] font-medium text-foreground">Fetching goals from Atlassian…</p>
-            <p className="text-[14px] text-muted-foreground">This can take a few seconds while themes, objectives and key results load.</p>
+            <p className="text-base font-medium text-foreground">Fetching goals from Atlassian…</p>
+            <p className="text-sm text-muted-foreground">This can take a few seconds while themes, objectives and key results load.</p>
           </DesignCard>
         )}
 
@@ -444,19 +444,19 @@ const OKRs = () => {
                   <DesignCard key={theme.goal?.id ?? theme.name} className="p-0 overflow-hidden">
                     <div className="px-6 py-4 flex items-center gap-3">
                       <div className="min-w-0 flex flex-col gap-1">
-                        <span className="text-[12px] font-[500] uppercase tracking-wider text-muted-foreground">Theme</span>
+                        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Theme</span>
                         {theme.goal?.url ? (
                           <a
                             href={theme.goal.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="group min-w-0 inline-flex items-center gap-2 text-[16px] font-[580] text-foreground hover:text-primary transition-colors"
+                            className="group min-w-0 inline-flex items-center gap-2 text-base font-semibold text-foreground hover:text-primary transition-colors"
                           >
                             {theme.name}
                             <ArrowSquareOut size={16} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </a>
                         ) : (
-                          <h2 className="min-w-0 text-[16px] font-[580] text-foreground">{theme.name}</h2>
+                          <h2 className="min-w-0 text-base font-semibold text-foreground">{theme.name}</h2>
                         )}
                       </div>
                       {theme.goal && (

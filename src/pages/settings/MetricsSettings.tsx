@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useSearchParams } from "react-router-dom";
-import { Copy, Plus } from "@phosphor-icons/react";
+import { ChartBar, ChatText, Copy, Plus } from "@phosphor-icons/react";
 import AppShell from "@/components/layout/AppShell";
 import RequireRole from "@/components/auth/RequireRole";
 import { DesignCard } from "@/components/ds/DesignCard";
@@ -148,9 +148,11 @@ const MetricLibrary = () => {
     return g ? (parent ? `${parent.name} › ${g.name}` : g.name) : "No group";
   };
   const qualitativeGroupId = (name: string) => allGroups.find((g) => !g.parent_id && g.name === name)?.id ?? "";
-  const entries: { id: string; label: string; groupId: string; detail?: string }[] = [
-    ...numbers.map((m) => ({ id: `metric:${m.id}`, label: m.name, groupId: metricGroupId(allGroups, m), detail: "Quantitative" })),
-    ...insights.map((q) => ({ id: `insight:${q.id}`, label: q.name, groupId: qualitativeGroupId(q.group_name), detail: "Qualitative" })),
+  const quantitativeIcon = { icon: <ChartBar size={16} />, iconLabel: "Quantitative" };
+  const qualitativeIcon = { icon: <ChatText size={16} />, iconLabel: "Qualitative" };
+  const entries = [
+    ...numbers.map((m) => ({ id: `metric:${m.id}`, label: m.name, groupId: metricGroupId(allGroups, m), ...quantitativeIcon })),
+    ...insights.map((q) => ({ id: `insight:${q.id}`, label: q.name, groupId: qualitativeGroupId(q.group_name), ...qualitativeIcon })),
   ];
   const rank = (groupId: string) => {
     const i = ordered.findIndex((g) => g.id === groupId);
@@ -159,7 +161,7 @@ const MetricLibrary = () => {
   const items = entries
     .map((e, i) => ({ ...e, i, group: groupName(e.groupId) }))
     .sort((a, b) => rank(a.groupId) - rank(b.groupId) || a.i - b.i)
-    .map(({ id, label, group, detail }) => ({ id, label, group, detail }));
+    .map(({ id, label, group, icon, iconLabel }) => ({ id, label, group, icon, iconLabel }));
   const select = (id: string) => {
     const [kind, ...rest] = id.split(":");
     const ref = rest.join(":");
@@ -201,14 +203,14 @@ const MetricLibrary = () => {
       }}
     />
   );
-  const placement = (text: string) => <p className="text-[12px] text-muted-foreground">{text}</p>;
+  const placement = (text: string) => <p className="text-xs text-muted-foreground">{text}</p>;
 
   const editor = (() => {
     switch (selection.kind) {
       case "number":
       case "duplicate": {
         const metric = numbers.find((m) => m.id === selection.id);
-        if (!metric) return metrics.isLoading ? <DesignLoader /> : <p className="text-[14px] text-muted-foreground">This metric no longer exists.</p>;
+        if (!metric) return metrics.isLoading ? <DesignLoader /> : <p className="text-sm text-muted-foreground">This metric no longer exists.</p>;
         const duplicate = selection.kind === "duplicate";
         return (
           <>
@@ -262,7 +264,7 @@ const MetricLibrary = () => {
         );
       case "insight": {
         const source = insights.find((q) => q.id === selection.id);
-        if (!source) return qualitative.isLoading ? <DesignLoader /> : <p className="text-[14px] text-muted-foreground">This metric no longer exists.</p>;
+        if (!source) return qualitative.isLoading ? <DesignLoader /> : <p className="text-sm text-muted-foreground">This metric no longer exists.</p>;
         return (
           <>
             <div className="flex items-start justify-between gap-3">
@@ -298,7 +300,7 @@ const MetricLibrary = () => {
           </>
         );
       default:
-        return metrics.isLoading ? <DesignLoader /> : <p className="text-[14px] text-muted-foreground">No metrics yet.</p>;
+        return metrics.isLoading ? <DesignLoader /> : <p className="text-sm text-muted-foreground">No metrics yet.</p>;
     }
   })();
 

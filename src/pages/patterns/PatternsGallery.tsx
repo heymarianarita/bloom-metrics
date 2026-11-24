@@ -153,7 +153,7 @@ const PatternsGallery = () => {
             {group.title === "Content patterns" && (
               <>
                 <DesignDivider className="mb-10" />
-                <h2 className="text-[22px] font-[580] text-foreground mb-6">Internal tools patterns</h2>
+                <h2 className="text-xl font-semibold text-foreground mb-6">Internal tools patterns</h2>
               </>
             )}
             <h3 className="text-base font-semibold text-foreground mb-4">{group.title}</h3>

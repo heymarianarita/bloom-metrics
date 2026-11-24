@@ -126,7 +126,7 @@ const Impact = () => {
         />
         <DesignSpacer size="medium" />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-[12px] items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
           <DesignCard variant="default" className="lg:col-span-2 min-w-0">
             {impactView && (
               <ViewBlocks view={impactView} groups={groups.data ?? []} showResponses onSeriesChange={setMetricSeries} />

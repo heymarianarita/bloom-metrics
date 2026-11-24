@@ -84,7 +84,7 @@ const DesignRating: React.FC<DesignRatingProps> = ({
         })}
       </div>
       {(showRating || reviewCount !== undefined) && (
-        <span className={cn(config.fontSize, config.lineHeight, "font-[375] text-rating-text")}>
+        <span className={cn(config.fontSize, config.lineHeight, "font-normal text-rating-text")}>
           {showRating && formatRating(value)}
           {showRating && reviewCount !== undefined && " "}
           {reviewCount !== undefined && `(${reviewCount})`}

@@ -255,7 +255,7 @@ const TeamsChartView = ({ detail, rows }: { detail?: CodeAdoptionDetail | null; 
     });
   if (data.length === 0) return null;
   return (
-    <div style={{ height: data.length * BAR_ROW + 72 }} className="w-full rounded-[6px] border border-border p-4">
+    <div style={{ height: data.length * BAR_ROW + 72 }} className="w-full rounded-md border border-border p-4">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }} barCategoryGap={6}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
@@ -277,7 +277,7 @@ const GreenhouseChartView = ({ rows }: { rows: { name: string; count: number }[]
   const data = [...rows].sort((a, b) => b.count - a.count).slice(0, MAX_BARS);
   if (data.length === 0) return null;
   return (
-    <div style={{ height: data.length * BAR_ROW + 48 }} className="w-full rounded-[6px] border border-border p-4">
+    <div style={{ height: data.length * BAR_ROW + 48 }} className="w-full rounded-md border border-border p-4">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }} barCategoryGap={6}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
@@ -294,8 +294,8 @@ const GreenhouseChartView = ({ rows }: { rows: { name: string; count: number }[]
 /** A section heading with a short note on the right, as used above each chart. */
 const SectionTitle = ({ title, note }: { title: string; note?: string }) => (
   <div className="flex items-baseline justify-between gap-3">
-    <p className="text-[16px] font-medium text-foreground shrink-0">{useSectionHeading(title)}</p>
-    {note && <p className="text-[12px] text-muted-foreground">{note}</p>}
+    <p className="text-base font-medium text-foreground shrink-0">{useSectionHeading(title)}</p>
+    {note && <p className="text-xs text-muted-foreground">{note}</p>}
   </div>
 );
 
@@ -508,7 +508,7 @@ const CodeAdoptionPanel = ({
                 note={`One ${trendChart === "stacked_bar" ? "bar" : "point"} per weekly scan${rangeNote}`}
               />
               <DesignSpacer size="small" />
-              <div className="h-[256px] w-full rounded-[6px] border border-border p-4">
+              <div className="h-[256px] w-full rounded-md border border-border p-4">
                 <TrendChartView kind={trendChart} data={chartData} />
               </div>
             </section>
@@ -612,7 +612,7 @@ const CodeAdoptionPanel = ({
                 </DesignButton>
               ))}
             {last && (
-              <p className="text-[12px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {repo?.repo} · scanned {formatDate(last.generated_at)} · {last.summary.totalFiles.toLocaleString()} files ·{" "}
                 {snaps.length} weekly report{snaps.length === 1 ? "" : "s"}
                 {filtered ? ` shown, of ${allSnaps.length}` : ""} from {repo?.repository}

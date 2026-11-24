@@ -126,13 +126,13 @@ const ValuesPreview = ({ draft }: { draft: Draft }) => {
 
   return (
     <div className="space-y-2">
-      <p className="text-[14px] font-medium text-foreground">Values</p>
+      <p className="text-sm font-medium text-foreground">Values</p>
       {!ready ? (
-        <p className="text-[14px] text-muted-foreground">Pick where the data comes from to preview its values.</p>
+        <p className="text-sm text-muted-foreground">Pick where the data comes from to preview its values.</p>
       ) : isDynamic && !dynamic.configured ? (
         <DesignEmptyState title="Source not connected yet" body="Connect it in Settings → Dynamic sources." />
       ) : results.length === 0 ? (
-        <p className="text-[14px] text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {dynamic.isLoading || rows.isLoading ? "Loading…" : "No values yet."}
         </p>
       ) : (
@@ -403,13 +403,13 @@ const NumberBlockSheet = ({
           />
           {valueIsRating && (
             <div className="space-y-2">
-              <p className="text-[14px] font-medium text-foreground">What each score means</p>
+              <p className="text-sm font-medium text-foreground">What each score means</p>
               <DesignNote text="Optional. Shown on the metric's card and next to the answer distribution, e.g. 4 = “Somewhat speeds me up”." />
               {SCALE_POINTS.map((point) => (
                 <DesignInputText
                   key={point}
                   size="small"
-                  prefix={<span className="text-[14px] font-medium text-foreground w-4">{point}</span>}
+                  prefix={<span className="text-sm font-medium text-foreground w-4">{point}</span>}
                   aria-label={`Meaning of ${point}`}
                   placeholder={point === "1" ? "Lowest, e.g. “Much slower”" : point === "5" ? "Highest, e.g. “Over 40% faster”" : ""}
                   value={draft.scale_labels[point] ?? ""}
@@ -488,7 +488,7 @@ const NumberBlockSheet = ({
   if (inline) {
     return (
       <div className="flex flex-col gap-4">
-        <h2 className="text-[16px] font-medium text-foreground">{editingId ? `Configure — ${metric?.name}` : "New quantitative metric"}</h2>
+        <h2 className="text-base font-medium text-foreground">{editingId ? `Configure — ${metric?.name}` : "New quantitative metric"}</h2>
         {body}
         <div className="border-t border-border pt-4">{footer}</div>
       </div>

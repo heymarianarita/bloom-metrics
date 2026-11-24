@@ -81,7 +81,7 @@ const SideNavSinglePanelPatternPage = () => {
           <Link to="/patterns/side-nav" className="block group">
             <DesignCard variant="default" className="p-4 transition-shadow hover:shadow-card-lifted flex items-center justify-between">
               <div>
-                <p className="text-sm font-[580] text-foreground group-hover:text-primary transition-colors">Side navigation layout</p>
+                <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Side navigation layout</p>
                 <p className="text-xs text-muted-foreground mt-1">Guidelines for vertical sidebar navigation with collapsible menus, badges, and visual separation.</p>
               </div>
               <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-4" />
@@ -95,7 +95,7 @@ const SideNavSinglePanelPatternPage = () => {
           <Link to="/patterns/single-panel" className="block group">
             <DesignCard variant="default" className="p-4 transition-shadow hover:shadow-card-lifted flex items-center justify-between">
               <div>
-                <p className="text-sm font-[580] text-foreground group-hover:text-primary transition-colors">Single panel layout</p>
+                <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Single panel layout</p>
                 <p className="text-xs text-muted-foreground mt-1">Guidelines for single-panel content areas with 1280px max-width, padding, and grid alignment rules.</p>
               </div>
               <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-4" />
@@ -121,7 +121,7 @@ const SideNavSinglePanelPatternPage = () => {
             {componentsList.map((comp) => (
               <Link key={comp.name} to={comp.docsPath} className="block group">
                 <DesignCard variant="default" className="p-4 transition-shadow hover:shadow-card-lifted">
-                  <p className="text-sm font-[580] text-foreground group-hover:text-primary transition-colors">{comp.name}</p>
+                  <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{comp.name}</p>
                   <p className="text-xs text-muted-foreground mt-1">{comp.description}</p>
                 </DesignCard>
               </Link>

@@ -132,12 +132,12 @@ const CsvImportSheet = ({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[14px] text-foreground">
-            <span className="font-[500]">{fileName || "Selected file"}</span>
+          <p className="truncate text-sm text-foreground">
+            <span className="font-medium">{fileName || "Selected file"}</span>
             <span className="text-muted-foreground"> · {plural(body.length, "response")}</span>
           </p>
         </div>
-        <label className="flex shrink-0 items-center gap-2 text-[14px] text-foreground">
+        <label className="flex shrink-0 items-center gap-2 text-sm text-foreground">
           <DesignCheckbox checked={hasHeader} onCheckedChange={(checked) => setHasHeader(Boolean(checked))} />
           First row has column names
         </label>
@@ -182,8 +182,8 @@ const CsvImportSheet = ({
   const reviewStep = (
     <div className="space-y-5">
       <section className="space-y-2">
-        <h3 className="text-[14px] font-[580] text-foreground">What will happen</h3>
-        <ul className="list-disc space-y-1 pl-5 text-[14px] text-foreground">
+        <h3 className="text-sm font-semibold text-foreground">What will happen</h3>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
           <li>
             Adds {plural(body.length, "new row")} to {datasetName}. Rows already there aren't changed.
           </li>
@@ -211,7 +211,7 @@ const CsvImportSheet = ({
 
       {warnings.length > 0 && (
         <section className="space-y-2">
-          <h3 className="text-[14px] font-[580] text-foreground">
+          <h3 className="text-sm font-semibold text-foreground">
             {warnings.length === 1 ? "Check this before adding" : `Check these ${warnings.length} things before adding`}
           </h3>
           {warnings.map((w) => (
@@ -221,7 +221,7 @@ const CsvImportSheet = ({
       )}
 
       <section className="space-y-2">
-        <h3 className="text-[14px] font-[580] text-foreground">
+        <h3 className="text-sm font-semibold text-foreground">
           How the first {Math.min(PREVIEW_ROWS, plan.rows.length)} rows will be saved
         </h3>
         <div className={`${tableStyles.container} overflow-x-auto`}>
@@ -261,7 +261,7 @@ const CsvImportSheet = ({
         </div>
       </section>
 
-      <p className="text-[12px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Made a mistake? Undo this import from the dataset's menu → Import history. It removes exactly these rows.
       </p>
     </div>
@@ -281,11 +281,11 @@ const CsvImportSheet = ({
       className="sm:max-w-none"
       footer={
         <div className="flex items-center justify-end gap-3">
-          {footerNote && <p className="mr-auto text-[12px] text-destructive">{footerNote}</p>}
+          {footerNote && <p className="mr-auto text-xs text-destructive">{footerNote}</p>}
           {step === "clean" && unanswered.length > 0 && !footerNote && (
             <button
               type="button"
-              className="mr-auto text-[14px] text-primary hover:underline"
+              className="mr-auto text-sm text-primary hover:underline"
               onClick={() => unanswered.forEach(({ index, raw }) => setOverride(index, raw, ""))}
             >
               Leave {unanswered.length === 1 ? "the answer" : `all ${unanswered.length} answers`} without a number empty
@@ -317,20 +317,20 @@ const CsvImportSheet = ({
       }
     >
       <div className="p-4">
-        <ol className="mb-4 flex items-center gap-2 text-[12px]">
+        <ol className="mb-4 flex items-center gap-2 text-xs">
           {STEPS.map((s, i) => (
             <li key={s.id} className="flex items-center gap-2">
               {i > 0 && <span className="h-px w-6 bg-border" aria-hidden="true" />}
               <span
                 className={cn(
                   "flex items-center gap-1.5",
-                  i === stepIndex ? "font-[580] text-foreground" : i < stepIndex ? "text-primary" : "text-muted-foreground",
+                  i === stepIndex ? "font-semibold text-foreground" : i < stepIndex ? "text-primary" : "text-muted-foreground",
                 )}
                 aria-current={i === stepIndex ? "step" : undefined}
               >
                 <span
                   className={cn(
-                    "flex h-5 w-5 items-center justify-center rounded-full border text-[11px]",
+                    "flex h-5 w-5 items-center justify-center rounded-full border text-xs",
                     i === stepIndex ? "border-primary bg-primary text-primary-foreground" : "border-border",
                   )}
                 >

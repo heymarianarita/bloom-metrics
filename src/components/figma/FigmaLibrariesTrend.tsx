@@ -54,12 +54,12 @@ export const FigmaLibrariesTrend = () => {
   return (
     <section className="pt-2">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[16px] font-medium text-foreground">Evolution over time</p>
-        <p className="text-[12px] text-muted-foreground">Quarterly insertions, last 12 months</p>
+        <p className="text-base font-medium text-foreground">Evolution over time</p>
+        <p className="text-xs text-muted-foreground">Quarterly insertions, last 12 months</p>
       </div>
       <DesignSpacer size="small" />
       {history.isLoading ? (
-        <div className="h-[256px] flex items-center justify-center rounded-[6px] border border-border">
+        <div className="h-[256px] flex items-center justify-center rounded-md border border-border">
           <DesignLoader />
         </div>
       ) : data.length === 0 ? (
@@ -69,7 +69,7 @@ export const FigmaLibrariesTrend = () => {
           body="Past quarters are fetched from Figma when the app starts and daily after that. Refresh in a few minutes."
         />
       ) : (
-        <div className="h-[256px] w-full rounded-[6px] border border-border p-4">
+        <div className="h-[256px] w-full rounded-md border border-border p-4">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />

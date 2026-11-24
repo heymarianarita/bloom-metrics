@@ -5,7 +5,7 @@ import { DesignCheckbox } from "@/components/ds/DesignCheckbox";
 import { DesignToggle } from "@/components/ds/DesignToggle";
 
 export interface DesignCellProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title' | 'prefix'> {
-  title: React.ReactNode;
+  title?: React.ReactNode;
   subtitle?: React.ReactNode;
   bodyText?: string;
   prefix?: React.ReactNode;
@@ -60,8 +60,10 @@ const DesignCell = React.forwardRef<HTMLDivElement, DesignCellProps>(
         {prefix && <div className="mr-4 flex-shrink-0 flex items-center">{prefix}</div>}
         {Icon && <Icon className={cn("w-6 h-6 text-muted-foreground mr-4 flex-shrink-0", iconClassName)} />}
         <div className="flex-1 min-w-0">
-          <span className="text-base font-medium leading-[22px] text-foreground">{title}</span>
-          {bodyText && <p className="text-sm font-normal leading-[18px] text-muted-foreground mt-0.5">{bodyText}</p>}
+          {title && <span className="text-base font-medium leading-[22px] text-foreground">{title}</span>}
+          {bodyText && (
+            <p className={cn("text-sm font-normal leading-[18px] text-muted-foreground", title && "mt-0.5")}>{bodyText}</p>
+          )}
         </div>
         {subtitle && <span className="text-sm font-normal leading-[18px] text-muted-foreground ml-2 flex-shrink-0">{subtitle}</span>}
         {suffix && <div className="ml-2 flex-shrink-0">{suffix}</div>}

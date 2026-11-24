@@ -100,7 +100,7 @@ const TwoLevelMultiPanelPatternPage = () => {
           <Link to="/patterns/two-level-side-nav" className="block group">
             <DesignCard variant="default" className="p-4 transition-shadow hover:shadow-card-lifted flex items-center justify-between">
               <div>
-                <p className="text-sm font-[580] text-foreground group-hover:text-primary transition-colors">Two-level side navigation layout</p>
+                <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Two-level side navigation layout</p>
                 <p className="text-xs text-muted-foreground mt-1">Guidelines for dual-panel sidebar navigation with icon rail and collapsible sub-navigation.</p>
               </div>
               <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-4" />
@@ -114,7 +114,7 @@ const TwoLevelMultiPanelPatternPage = () => {
           <Link to="/patterns/multi-panel" className="block group">
             <DesignCard variant="default" className="p-4 transition-shadow hover:shadow-card-lifted flex items-center justify-between">
               <div>
-                <p className="text-sm font-[580] text-foreground group-hover:text-primary transition-colors">Multi-panel layout</p>
+                <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Multi-panel layout</p>
                 <p className="text-xs text-muted-foreground mt-1">Guidelines for multi-panel content areas with hierarchy, independent scrolling, and responsive stacking rules.</p>
               </div>
               <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-4" />
@@ -139,7 +139,7 @@ const TwoLevelMultiPanelPatternPage = () => {
             {componentsList.map((comp) => (
               <Link key={comp.name} to={comp.docsPath} className="block group">
                 <DesignCard variant="default" className="p-4 transition-shadow hover:shadow-card-lifted">
-                  <p className="text-sm font-[580] text-foreground group-hover:text-primary transition-colors">{comp.name}</p>
+                  <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{comp.name}</p>
                   <p className="text-xs text-muted-foreground mt-1">{comp.description}</p>
                 </DesignCard>
               </Link>

@@ -54,7 +54,7 @@ const orderColumns = [
   { key: "id", header: "Order", width: "120px", sortable: true, render: (row: typeof recentOrders[0]) => <span className="font-medium">{row.id}</span> },
   { key: "item", header: "Item", sortable: true, render: (row: typeof recentOrders[0]) => row.item },
   { key: "buyer", header: "Buyer", sortable: true, render: (row: typeof recentOrders[0]) => <span className="text-[var(--muted-foreground)]">{row.buyer}</span> },
-  { key: "price", header: "Price", width: "100px", sortable: true, render: (row: typeof recentOrders[0]) => <span className="font-[580]">{row.price}</span> },
+  { key: "price", header: "Price", width: "100px", sortable: true, render: (row: typeof recentOrders[0]) => <span className="font-semibold">{row.price}</span> },
   { key: "status", header: "Status", width: "110px", sortable: true, render: (row: typeof recentOrders[0]) => <DesignBadge theme={statusTheme(row.status)} styling="light">{row.status}</DesignBadge> },
 ];
 
@@ -70,7 +70,7 @@ const listingColumns = [
       <ArrowUpRight className="w-3 h-3" /> {row.favorites}
     </span>
   )},
-  { key: "price", header: "Price", width: "70px", sortable: true, render: (row: typeof topListings[0]) => <span className="font-[580]">{row.price}</span> },
+  { key: "price", header: "Price", width: "70px", sortable: true, render: (row: typeof topListings[0]) => <span className="font-semibold">{row.price}</span> },
 ];
 
 const SideNavDashboardContent = () => {
@@ -90,12 +90,12 @@ const SideNavDashboardContent = () => {
           iconActions={
             <>
               <DesignTooltip content="Search" side="bottom">
-                <button className="w-9 h-9 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-spacing-bg transition-colors">
+                <button className="w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-spacing-bg transition-colors">
                   <Search className="w-4 h-4" />
                 </button>
               </DesignTooltip>
               <DesignTooltip content="Notifications" side="bottom">
-                <button className="relative w-9 h-9 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-spacing-bg transition-colors">
+                <button className="relative w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-spacing-bg transition-colors">
                   <Bell className="w-4 h-4" />
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive" />
                 </button>

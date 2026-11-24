@@ -26,24 +26,24 @@ export const TabTree = ({
   counts: (group: MetricGroup) => number;
 }) => {
   const rowClass = (selected: boolean, child = false) =>
-    `flex items-center gap-3 px-3 ${child ? "py-1.5" : "py-2"} rounded-[6px] text-sm transition-colors w-full text-left min-w-0 ${
+    `flex items-center gap-3 px-3 ${child ? "py-1.5" : "py-2"} rounded-md text-sm transition-colors w-full text-left min-w-0 ${
       selected
-        ? "text-[var(--primary-extra-dark)] font-medium bg-[rgba(0,119,130,0.08)]"
-        : "text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]"
+        ? "text-[var(--primary-extra-dark)] font-medium bg-surface-primary-selected"
+        : "text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active"
     }`;
   const count = (group: MetricGroup) => (
-    <span className="text-[12px] text-muted-foreground font-normal">{counts(group) || ""}</span>
+    <span className="text-xs text-muted-foreground font-normal">{counts(group) || ""}</span>
   );
   const tree = groupTree(all);
   return (
     <DesignCard className="p-2">
-      <h1 className="px-3 pt-2 pb-3 text-[22px] font-[580] text-foreground">Views</h1>
+      <h1 className="px-3 pt-2 pb-3 text-xl font-semibold text-foreground">Views</h1>
       <div className="flex flex-col gap-0.5">
         <SortableList items={tree} getId={(t) => t.group.id} getLabel={(t) => t.group.name} onReorder={onReorder}>
           {({ group, children }, row) => {
             const Icon = TAB_ICONS[group.slug] ?? SquaresFour;
             return (
-              <div key={group.id} ref={row.ref} style={row.style} className="rounded-[6px]">
+              <div key={group.id} ref={row.ref} style={row.style} className="rounded-md">
                 <div className="flex items-center gap-0.5">
                   {row.handle}
                   <button type="button" className={rowClass(group.id === selectedId)} onClick={() => onSelect(group.id)}>
@@ -56,7 +56,7 @@ export const TabTree = ({
                   <div className="ml-[43px] mt-0.5 mb-1 flex flex-col gap-0.5 border-l border-border pl-1">
                     <SortableList items={children} getId={(c) => c.id} getLabel={(c) => c.name} onReorder={onReorder}>
                       {(child, childRow) => (
-                        <div key={child.id} ref={childRow.ref} style={childRow.style} className="flex items-center gap-0.5 rounded-[6px]">
+                        <div key={child.id} ref={childRow.ref} style={childRow.style} className="flex items-center gap-0.5 rounded-md">
                           {childRow.handle}
                           <button
                             type="button"

@@ -506,7 +506,7 @@ const Adoption = () => {
       footer={
         isCode ? (
           <div className="mt-auto pt-4">
-            <div className="p-3 rounded-[6px] bg-[var(--spacing-bg)]">
+            <div className="p-3 rounded-md bg-[var(--spacing-bg)]">
               <p className="text-sm font-medium text-foreground">Weekly scans from GitHub</p>
               <p className="text-xs text-muted-foreground mt-1">
                 ds-analyzer reports, checked every morning. Shares count UI elements, with Bloom compositions
@@ -516,13 +516,13 @@ const Adoption = () => {
           </div>
         ) : isDesign && (
           <div className="mt-auto pt-4 space-y-3">
-            <div className="p-3 rounded-[6px] bg-[var(--spacing-bg)]">
+            <div className="p-3 rounded-md bg-[var(--spacing-bg)]">
               <p className="text-sm font-medium text-foreground">Snapshots every 1st and 15th</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Figma is range-based, so quarters are stored as they close.
               </p>
             </div>
-            <div className="p-3 rounded-[6px] bg-[var(--spacing-bg)]">
+            <div className="p-3 rounded-md bg-[var(--spacing-bg)]">
               <p className="text-sm font-medium text-foreground">{q.label} in progress</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Quarter-to-date figures compare against the same weeks last quarter.
@@ -543,7 +543,7 @@ const Adoption = () => {
           primaryAction={<EditViewButton tabSlug={subgroup?.slug ?? adoptionGroup?.slug} />}
         />
         <DesignSpacer size="medium" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-[12px] items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
           {primaryPanel}
           {insightsPanel}
         </div>

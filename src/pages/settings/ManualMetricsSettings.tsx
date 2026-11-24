@@ -114,7 +114,7 @@ const DatasetMeta = ({ dataset, onEdit }: { dataset: ManualDataset; onEdit: () =
   const hasSteps = Boolean(dataset.entry_notes.trim());
   const dot = <span aria-hidden="true">·</span>;
   return (
-    <p className="text-[12px] text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5">
+    <p className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5">
       {method && (
         <>
           <span>{method}</span>
@@ -617,7 +617,7 @@ const DatasetsTab = () => {
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           <div className="min-w-[200px] flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-[16px] font-medium text-foreground">{activeDataset?.name}</h2>
+              <h2 className="text-base font-medium text-foreground">{activeDataset?.name}</h2>
               {activeDataset?.one_off && (
                 <DesignBadge theme="highlight" styling="light">
                   One-off
@@ -630,7 +630,7 @@ const DatasetsTab = () => {
               )}
             </div>
             {activeDataset?.description && (
-              <p className="text-[14px] text-muted-foreground mt-1">{activeDataset.description}</p>
+              <p className="text-sm text-muted-foreground mt-1">{activeDataset.description}</p>
             )}
             {activeDataset && <DatasetMeta dataset={activeDataset} onEdit={openEdit} />}
           </div>
@@ -654,7 +654,7 @@ const DatasetsTab = () => {
                   <button
                     type="button"
                     aria-label="Dataset actions"
-                    className="flex h-9 w-9 items-center justify-center rounded-[6px] border border-border text-foreground transition-colors hover:bg-[rgba(21,25,26,0.06)] active:bg-[rgba(21,25,26,0.04)]"
+                    className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-surface-hover active:bg-surface-hover"
                   >
                     <DotsThree size={20} weight="bold" />
                   </button>
@@ -725,7 +725,7 @@ const DatasetsTab = () => {
         </div>
 
         {synced && (
-          <p className="text-[14px] text-muted-foreground mt-3">
+          <p className="text-sm text-muted-foreground mt-3">
             Read-only: this data is synced automatically. {activeDataset?.entry_notes}
           </p>
         )}
@@ -892,7 +892,7 @@ const ImportHistorySheet = ({
 }) => (
   <DesignSideSheet open={open} onOpenChange={onOpenChange} title="Import history">
     <div className="p-4 space-y-3">
-      <p className="text-[14px] text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         CSV imports into {datasetName}. Undoing one removes exactly the rows it added; they stay listed in Data history →
         Change history.
       </p>
@@ -903,10 +903,10 @@ const ImportHistorySheet = ({
         />
       ) : (
         imports.map((entry) => (
-          <div key={entry.id} className="flex items-center justify-between gap-3 rounded-[6px] border border-border p-3">
+          <div key={entry.id} className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
             <div className="min-w-0">
-              <p className="truncate text-[14px] font-[500] text-foreground">{entry.file_name || "Imported file"}</p>
-              <p className="text-[12px] text-muted-foreground">
+              <p className="truncate text-sm font-medium text-foreground">{entry.file_name || "Imported file"}</p>
+              <p className="text-xs text-muted-foreground">
                 {formatDateTime(entry.created_at)} · {entry.row_count} rows
                 {entry.created_columns.length > 0 &&
                   ` · ${entry.created_columns.length} new column${entry.created_columns.length === 1 ? "" : "s"}`}
@@ -998,7 +998,7 @@ const NewDatasetSheet = ({
         <DesignCheckbox checked={draft.one_off} onCheckedChange={(on) => setDraft({ ...draft, one_off: Boolean(on) })} />
         <span className="pt-0.5">
           <span className="block text-sm text-foreground">One-off questions</span>
-          <span className="block text-[12px] text-muted-foreground">
+          <span className="block text-xs text-muted-foreground">
             Questions asked once, not tracked over time. Their qualitative metrics show in a view's “One-off questions” section, only
             for the period they were asked.
           </span>

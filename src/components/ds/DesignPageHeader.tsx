@@ -89,7 +89,7 @@ export const DesignPageHeader = React.forwardRef<HTMLDivElement, DesignPageHeade
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3">
               <h1
-                className="text-[22px] font-[580] text-foreground truncate"
+                className="text-xl font-semibold text-foreground truncate"
                 title={title}
               >
                 {title}

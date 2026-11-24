@@ -157,11 +157,11 @@ const Breakdown = ({
   return (
     <section className="pt-2">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[16px] font-medium text-foreground">
+        <p className="text-base font-medium text-foreground">
           <BreakdownHeading fallback={`${metric.surface || metric.name} per ${label.toLowerCase()}`} />
         </p>
 
-        <p className="text-[12px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {period === ALL ? "Latest period" : period}
         </p>
       </div>
@@ -202,7 +202,7 @@ const Breakdown = ({
         </table></div>
       ) : view === "bar" ? (
         current.length > 10 ? (
-          <div style={{ height: Math.max(280, current.length * 28 + 40) }} className="w-full rounded-[6px] border border-border p-4">
+          <div style={{ height: Math.max(280, current.length * 28 + 40) }} className="w-full rounded-md border border-border p-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={current}

@@ -38,7 +38,7 @@ const Row = ({
     <button
       type="button"
       aria-label={`Reorder ${label}`}
-      className={`shrink-0 -ml-1 flex h-8 w-6 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-[rgba(0,119,130,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+      className={`shrink-0 -ml-1 flex h-8 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
         disabled ? "invisible" : isDragging ? "cursor-grabbing" : "cursor-grab"
       }`}
       {...attributes}

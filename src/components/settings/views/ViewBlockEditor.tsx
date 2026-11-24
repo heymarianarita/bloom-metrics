@@ -163,16 +163,16 @@ const MetricChecklist = ({
       </p>
       {metrics.length > 8 && <DesignInputText placeholder="Search metrics" value={q} onChange={(e) => setQ(e.target.value)} />}
       <div className="-mx-2 max-h-[320px] overflow-y-auto">
-        {shown.length === 0 && <p className="text-[12px] text-muted-foreground px-2 py-1">No metrics match.</p>}
+        {shown.length === 0 && <p className="text-xs text-muted-foreground px-2 py-1">No metrics match.</p>}
         {shown.map((m) => (
-          <label key={m.id} className="flex items-center gap-3 rounded-[6px] px-2 py-1.5 cursor-pointer hover:bg-[rgba(0,119,130,0.04)]">
+          <label key={m.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 cursor-pointer hover:bg-surface-primary-active">
             <DesignCheckbox
               checked={selected.includes(m.id)}
               onCheckedChange={(next) => toggle(m.id, Boolean(next))}
             />
             <span className="min-w-0">
               <span className="block text-sm leading-5">{m.name}</span>
-              <span className="block text-[12px] text-muted-foreground">
+              <span className="block text-xs text-muted-foreground">
                 {m.surface}
                 {inView.has(m.id) && !selected.includes(m.id) ? " · already on this page" : ""}
               </span>
@@ -215,7 +215,7 @@ const TypePicker = ({ onPick }: { onPick: (kind: WidgetKind) => void }) => (
         <button
           type="button"
           onClick={() => onPick(kind)}
-          className="w-full text-left flex items-center gap-3 rounded-[8px] px-2 py-2 transition-colors hover:bg-[rgba(0,119,130,0.06)]"
+          className="w-full text-left flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-surface-primary-hover"
         >
           <span className="w-[72px] h-[40px] shrink-0 overflow-hidden pointer-events-none [&_svg]:h-[40px] [&_p]:hidden">
             <SectionPreview
@@ -226,7 +226,7 @@ const TypePicker = ({ onPick }: { onPick: (kind: WidgetKind) => void }) => (
           </span>
           <span className="min-w-0">
             <span className="block text-sm text-foreground">{WIDGET_LABELS[kind]}</span>
-            <span className="block text-[12px] text-muted-foreground leading-4">{description}</span>
+            <span className="block text-xs text-muted-foreground leading-4">{description}</span>
           </span>
         </button>
       </li>
@@ -238,7 +238,7 @@ const TypePicker = ({ onPick }: { onPick: (kind: WidgetKind) => void }) => (
 
 
 const fill = (o: number) => `rgba(0,119,130,${o})`;
-const grey = "bg-[rgba(21,25,26,0.08)]";
+const grey = "bg-surface-active";
 
 const LinesPreview = ({ count, bars }: { count: number; bars: boolean }) => {
   const series = [
@@ -271,14 +271,14 @@ const RowsPreview = ({ table }: { table: boolean }) => (
   <div className="flex flex-col gap-2">
     {[100, 80, 55, 30].map((w, i) => (
       <div key={w} className="flex items-center gap-2">
-        <div className={`${grey} h-3 w-14 rounded-[3px] shrink-0`} />
+        <div className={`${grey} h-3 w-14 rounded-md shrink-0`} />
         {table ? (
           <>
-            <div className={`${grey} h-3 flex-1 rounded-[3px]`} />
-            <div className={`${grey} h-3 w-10 rounded-[3px]`} />
+            <div className={`${grey} h-3 flex-1 rounded-md`} />
+            <div className={`${grey} h-3 w-10 rounded-md`} />
           </>
         ) : (
-          <div className="h-3 rounded-[3px]" style={{ width: `${w}%`, background: fill(1 - i * 0.22) }} />
+          <div className="h-3 rounded-md" style={{ width: `${w}%`, background: fill(1 - i * 0.22) }} />
         )}
       </div>
     ))}
@@ -287,9 +287,9 @@ const RowsPreview = ({ table }: { table: boolean }) => (
 
 const NumberTile = ({ name }: { name?: string }) => (
   <div className="min-w-0 flex-1">
-    {name && <p className="text-[12px] text-muted-foreground truncate">{name}</p>}
-    <div className={`${grey} mt-1 h-6 w-14 rounded-[4px]`} />
-    <div className="mt-1.5 h-2 w-10 rounded-[3px]" style={{ background: fill(0.2) }} />
+    {name && <p className="text-xs text-muted-foreground truncate">{name}</p>}
+    <div className={`${grey} mt-1 h-6 w-14 rounded-md`} />
+    <div className="mt-1.5 h-2 w-10 rounded-md" style={{ background: fill(0.2) }} />
   </div>
 );
 
@@ -330,7 +330,7 @@ const SectionPreview = ({
       return (
         <div className={`flex items-end gap-1.5 ${compact ? "h-[40px]" : "h-[96px]"}`}>
           {[12, 28, 55, 90, 60, 30, 14].map((h, i) => (
-            <div key={i} className="flex-1 rounded-t-[3px]" style={{ height: `${h}%`, background: fill(0.3 + (h / 90) * 0.7) }} />
+            <div key={i} className="flex-1 rounded-t-md" style={{ height: `${h}%`, background: fill(0.3 + (h / 90) * 0.7) }} />
           ))}
         </div>
       );
@@ -347,7 +347,7 @@ const SectionPreview = ({
         <div className={`flex flex-col ${compact ? "gap-1" : "gap-3"}`}>
           {[0, 1].map((q) => (
             <div key={q} className={`flex flex-col ${compact ? "gap-1" : "gap-2"}`}>
-              <div className={`${grey} ${compact ? "h-1.5 w-8" : "h-2.5 w-24"} rounded-[3px]`} />
+              <div className={`${grey} ${compact ? "h-1.5 w-8" : "h-2.5 w-24"} rounded-md`} />
               <div className="flex gap-1.5">
                 {[72, 48, 96].map((w, i) => (
                   <div
@@ -365,7 +365,7 @@ const SectionPreview = ({
       return item.options?.style === "note" ? (
         <p className="text-sm text-muted-foreground whitespace-pre-line line-clamp-4">{item.options?.text || "Empty note"}</p>
       ) : (
-        <p className="text-[18px] font-[580] leading-6 line-clamp-2">{item.options?.text || "Empty heading"}</p>
+        <p className="text-lg font-semibold leading-6 line-clamp-2">{item.options?.text || "Empty heading"}</p>
       );
     case "figma":
       return (
@@ -391,7 +391,7 @@ const SectionPreview = ({
         return (
           <div className="flex flex-col gap-2">
             {[[60, 25], [45, 35], [30, 40]].map(([a, b], i) => (
-              <div key={i} className="flex h-3 rounded-[3px] overflow-hidden">
+              <div key={i} className="flex h-3 rounded-md overflow-hidden">
                 <div style={{ width: `${a}%`, background: fill(1) }} />
                 <div style={{ width: `${b}%`, background: fill(0.45) }} />
                 <div className={`flex-1 ${grey}`} />
@@ -421,7 +421,7 @@ const Segmented = ({
   options: { value: string; label: string; title?: string }[];
   onChange: (value: string) => void;
 }) => (
-  <div className="flex rounded-[8px] border border-border p-0.5" role="radiogroup" aria-label={label}>
+  <div className="flex rounded-md border border-border p-0.5" role="radiogroup" aria-label={label}>
     {options.map((o) => {
       const on = o.value === value;
       return (
@@ -431,8 +431,8 @@ const Segmented = ({
           role="radio"
           aria-checked={on}
           title={o.title}
-          className={`h-8 flex-1 rounded-[6px] text-sm transition-colors ${
-            on ? "bg-[rgba(0,119,130,0.1)] text-primary font-medium" : "text-muted-foreground hover:text-foreground"
+          className={`h-8 flex-1 rounded-md text-sm transition-colors ${
+            on ? "bg-surface-primary-selected text-primary font-medium" : "text-muted-foreground hover:text-foreground"
           }`}
           onClick={() => onChange(o.value)}
         >
@@ -463,20 +463,20 @@ const OneOffList = () => {
               <span className="block text-sm leading-5 truncate" title={q.name}>
                 {q.name}
               </span>
-              <span className="block text-[12px] text-muted-foreground">
+              <span className="block text-xs text-muted-foreground">
                 {[oneOff.get(q.dataset_id), (periods.get(q.id) ?? []).join(", ") || "No answers yet"].join(" · ")}
               </span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-[12px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {oneOff.size > 0
             ? "The one-off datasets have no qualitative metrics yet. Create one from a dataset's text column."
             : "No dataset is marked one-off yet. In Datasets, edit the dataset and tick “One-off questions”."}
         </p>
       )}
-      <p className="text-[12px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Each shows only while the page shows a period it was asked in; with none, the section stays off the page.
       </p>
       <div>
@@ -612,7 +612,7 @@ const SectionForm = ({
         ) : (
           <div className="flex flex-col gap-2">
             <p className="text-sm text-foreground">Qualitative metric</p>
-            <p className="text-[12px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               No qualitative metrics are set up yet. Create one from a survey dataset's text column, then pick it here.
             </p>
             <div>
@@ -668,7 +668,7 @@ const SectionForm = ({
       {draft.kind === "card" && ids.length > 0 && (
         <div className="flex flex-col gap-2">
           <p className="text-sm text-foreground">When a number changes</p>
-          <p className="text-[12px] text-muted-foreground -mt-1">
+          <p className="text-xs text-muted-foreground -mt-1">
             Its change is green when it moves the good way. Saved on the metric, so it applies on every page.
           </p>
           {ids.map((id) => {
@@ -700,7 +700,7 @@ const SectionForm = ({
             options={[{ value: "0", label: "Auto" }, ...[1, 2, 3, 4, 5, 6].filter((n) => n <= ids.length).map((n) => ({ value: String(n), label: String(n) }))]}
             onChange={(v) => setOption({ columns: Number(v) || undefined })}
           />
-          <p className="text-[12px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {(() => {
               const perRow = cardsPerRow(draft, ids.length);
               const rows = Math.ceil(ids.length / perRow);
@@ -718,7 +718,7 @@ const SectionForm = ({
           options={SECTION_WIDTHS.map((w) => ({ value: w.value, label: WIDTH_SHORT[w.value], title: w.label }))}
           onChange={(width) => setOption({ width: width as SectionWidth })}
         />
-        <p className="text-[12px] text-muted-foreground">Narrower sections sit side by side.</p>
+        <p className="text-xs text-muted-foreground">Narrower sections sit side by side.</p>
       </div>
     </div>
   );
@@ -891,7 +891,7 @@ const SectionCard = ({
         {...listeners}
         aria-label={`${title}. Click to edit, drag to move.`}
         aria-pressed={selected}
-        className={`h-full rounded-[12px] border bg-background p-4 flex flex-col gap-3 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+        className={`h-full rounded-xl border bg-background p-4 flex flex-col gap-3 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary ${
           isDragging
             ? "shadow-md border-primary cursor-grabbing"
             : selected
@@ -906,14 +906,14 @@ const SectionCard = ({
             </p>
             {/* Which metrics a chart shows (number cards name them in their tiles). */}
             {item.kind !== "card" && names.length > 0 && (
-              <p className="text-[12px] text-muted-foreground line-clamp-1 mt-0.5" title={names.join(", ")}>
+              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5" title={names.join(", ")}>
                 {names.join(", ")}
               </p>
             )}
           </div>
           {/* The type, unless the title already says it. */}
           {(item.hidden || item.options?.onlyPeriod || WIDGET_LABELS[item.kind] !== title) && (
-            <span className="shrink-0 text-[12px] text-muted-foreground">
+            <span className="shrink-0 text-xs text-muted-foreground">
               {[
                 item.hidden && "Hidden",
                 item.options?.onlyPeriod && `Only ${item.options.onlyPeriod}`,
@@ -927,7 +927,7 @@ const SectionCard = ({
         {ready ? (
           <SectionPreview item={item} names={names} charts={charts} />
         ) : (
-          <p className="text-[12px] text-[var(--warning,#B4690E)]">Not on the page yet: choose what it shows in the panel on the right.</p>
+          <p className="text-xs text-highlight-extra-dark">Not on the page yet: choose what it shows in the panel on the right.</p>
         )}
       </div>
       {selected && !isDragging && (
@@ -978,17 +978,17 @@ const PageFilters = ({
     toast({ title, description: (err as Error).message, variant: "destructive" });
   const setFilters = (filters: string[]) => save.mutateAsync({ id: view.id, filters }).catch(fail("Could not save the filters"));
   const chip =
-    "inline-flex h-9 items-center gap-1 rounded-[6px] border border-border px-3 text-sm text-foreground";
+    "inline-flex h-9 items-center gap-1 rounded-md border border-border px-3 text-sm text-foreground";
   return (
     <section className="mt-5">
-      <h3 className="text-[14px] font-medium text-foreground">Page filters</h3>
+      <h3 className="text-sm font-medium text-foreground">Page filters</h3>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               aria-label={parent ? `Benchmark frequency, shared with ${parent.name}` : "Benchmark frequency"}
-              className={`${chip} hover:bg-[rgba(21,25,26,0.04)]`}
+              className={`${chip} hover:bg-surface-hover`}
             >
               {periodLabel(periodView.periodicity ?? "quarterly")}
               <CaretDown size={14} className="ml-1 text-muted-foreground" />
@@ -1015,7 +1015,7 @@ const PageFilters = ({
             <button
               type="button"
               aria-label={`Remove the ${label} filter`}
-              className="-mr-1 flex h-6 w-6 items-center justify-center rounded-[4px] text-muted-foreground hover:bg-[rgba(21,25,26,0.06)]"
+              className="-mr-1 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-hover"
               onClick={() => setFilters(saved.filter((l) => l !== label))}
             >
               <X size={14} />
@@ -1205,7 +1205,7 @@ export const ViewBlockEditor = ({
                     e.stopPropagation();
                     select(null);
                   }}
-                  className={`col-span-6 flex min-h-[64px] items-center justify-center gap-2 rounded-[12px] border border-dashed text-sm transition-colors ${
+                  className={`col-span-6 flex min-h-[64px] items-center justify-center gap-2 rounded-xl border border-dashed text-sm transition-colors ${
                     selectedId === null
                       ? "border-primary text-primary"
                       : "border-[rgba(21,25,26,0.24)] text-muted-foreground hover:border-primary hover:text-primary"

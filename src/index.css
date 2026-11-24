@@ -1,4 +1,31 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* V-Inter, as web-ui loads it (packages/web-ui/.storybook/preview-head.html). Bloom only has 375, 500
+   and 580; the ranges send any other requested weight to the nearest of those three files. */
+@font-face {
+  font-family: 'V-Inter';
+  src:
+    url('https://web-ui-assets.vinted.com/fonts/V-Inter-Regular-375.woff2') format('woff2'),
+    url('https://web-ui-assets.vinted.com/fonts/V-Inter-Regular-375.woff') format('woff');
+  font-weight: 100 449;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'V-Inter';
+  src:
+    url('https://web-ui-assets.vinted.com/fonts/V-Inter-Medium-500.woff2') format('woff2'),
+    url('https://web-ui-assets.vinted.com/fonts/V-Inter-Medium-500.woff') format('woff');
+  font-weight: 450 549;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'V-Inter';
+  src:
+    url('https://web-ui-assets.vinted.com/fonts/V-Inter-Semibold-580.woff2') format('woff2'),
+    url('https://web-ui-assets.vinted.com/fonts/V-Inter-Semibold-580.woff') format('woff');
+  font-weight: 550 900;
+  font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;
@@ -72,6 +99,10 @@
     /* Interactive surface hover/active (shared) */
     --surface-hover: rgba(21, 25, 26, 0.04);
     --surface-active: rgba(21, 25, 26, 0.08);
+    /* Primary-tinted rows (side nav, select lists): hover, pressed, selected */
+    --surface-primary-hover: rgba(0, 119, 130, 0.06);
+    --surface-primary-active: rgba(0, 119, 130, 0.04);
+    --surface-primary-selected: rgba(0, 119, 130, 0.08);
     --overlay-bg: rgba(21, 25, 26, 0.64);
     --overlay-bg-light: rgba(15, 18, 18, 0.48);
     --sheet-overlay-bg: rgba(21, 25, 26, 0.7);
@@ -502,7 +533,6 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: 'Figtree', 'Inter', system-ui, sans-serif;
+    @apply bg-background text-foreground antialiased font-sans font-normal;
   }
 }

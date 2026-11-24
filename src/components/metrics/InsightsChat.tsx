@@ -5,6 +5,7 @@ import { ArrowClockwise, PaperPlaneRight, Sparkle, Stop } from "@phosphor-icons/
 import { Link } from "react-router-dom";
 import { DesignTextAreaBar } from "@/components/ds/DesignInputBar";
 import { DesignButton } from "@/components/ds/DesignButton";
+import { DesignBubble } from "@/components/ds/DesignBubble";
 import { useSession } from "@/hooks/useAuth";
 import type { useInsightsChat } from "@/hooks/useInsightsChat";
 
@@ -22,10 +23,10 @@ const markdown: Components = {
       {children}
     </a>
   ),
-  code: ({ children }) => <code className="rounded bg-muted px-1 text-[12px]">{children}</code>,
+  code: ({ children }) => <code className="rounded bg-muted px-1 text-xs">{children}</code>,
   table: ({ children }) => (
     <div className="overflow-x-auto mb-2 last:mb-0">
-      <table className="w-full text-[12px] border-collapse">{children}</table>
+      <table className="w-full text-xs border-collapse">{children}</table>
     </div>
   ),
   th: ({ children }) => <th className="text-left font-medium border-b border-border py-1 pr-2">{children}</th>,
@@ -90,32 +91,40 @@ export const InsightsChat = ({ chat, suggestions }: InsightsChatProps) => {
     <div className="flex flex-col flex-1 min-h-0">
       <div ref={scrollRef} className="px-5 flex flex-col gap-3 flex-1 overflow-y-auto min-h-0" aria-live="polite">
         {messages.length === 0 && (
-          <div className="flex flex-col gap-3 pb-2">
+          <div className="flex flex-col gap-3 flex-1 pb-2">
             <p className="text-sm text-muted-foreground">
               Ask about anything in Bloom Metrics: drill into a segment, compare periods or libraries, or get a summary
               for a status update.
             </p>
-            <div className="flex flex-col gap-2">
+            <div className="mt-auto flex flex-col items-end gap-2">
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Sparkle size={12} weight="fill" className="text-primary" />
+                Suggested questions
+              </span>
               {suggestions.map((s) => (
-                <DesignButton
-                  key={s}
-                  variant="outlined"
-                  theme="muted"
-                  size="small"
-                  className="justify-start text-left h-auto"
-                  icon={<Sparkle size={14} weight="fill" className="shrink-0 text-primary" />}
-                  onClick={() => submit(s)}
-                >
-                  {s}
-                </DesignButton>
+                <div key={s} className="max-w-[85%]">
+                  <DesignBubble
+                    text={s}
+                    role="button"
+                    tabIndex={0}
+                    className="cursor-pointer transition-colors hover:bg-[var(--bubble-sent-bg)]"
+                    onClick={() => submit(s)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        submit(s);
+                      }
+                    }}
+                  />
+                </div>
               ))}
             </div>
           </div>
         )}
         {messages.map((m, i) =>
           m.role === "user" ? (
-            <div key={i} className="self-end max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm text-foreground whitespace-pre-wrap">
-              {m.content}
+            <div key={i} className="self-end max-w-[85%]">
+              <DesignBubble text={m.content} inverse />
             </div>
           ) : (
             <div
@@ -126,7 +135,7 @@ export const InsightsChat = ({ chat, suggestions }: InsightsChatProps) => {
                 {m.content}
               </ReactMarkdown>
               {m.stats && (
-                <p className="mt-1.5 text-[11px] text-muted-foreground/80 tabular-nums">
+                <p className="mt-1.5 text-xs text-muted-foreground/80 tabular-nums">
                   {statsLine(m.stats.seconds, m.stats.inputTokens, m.stats.outputTokens)}
                 </p>
               )}
@@ -154,8 +163,17 @@ export const InsightsChat = ({ chat, suggestions }: InsightsChatProps) => {
               submit();
             }
           }}
-          rightIcon={pending ? <Stop size={16} weight="fill" /> : <PaperPlaneRight size={16} weight="fill" />}
-          onRightIconClick={pending ? stop : () => submit()}
+          suffix={
+            <DesignButton
+              variant="flat"
+              theme="primary"
+              className="w-9 px-0"
+              aria-label={pending ? "Stop answering" : "Send question"}
+              disabled={!pending && !draft.trim()}
+              icon={pending ? <Stop size={16} weight="fill" /> : <PaperPlaneRight size={16} weight="fill" />}
+              onClick={pending ? stop : () => submit()}
+            />
+          }
         />
         {messages.length > 0 && !pending && (
           <DesignButton

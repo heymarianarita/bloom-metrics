@@ -178,7 +178,7 @@ const CodeAdoptionSourceCard = ({
                       if (branch !== report.branch) persist(updateRow(key, { branch }));
                     }}
                   />
-                  <p className="md:col-span-2 text-[12px] text-muted-foreground">
+                  <p className="md:col-span-2 text-xs text-muted-foreground">
                     File: {report.repository} / {report.path}
                   </p>
                 </div>

@@ -42,7 +42,7 @@ const DesignChip = React.forwardRef<HTMLButtonElement, DesignChipProps>(
         className={cn(
           chipVariants({ variant, radius }),
           size === "small"
-            ? "h-8 py-1 px-3 gap-1 text-[14px] font-normal leading-[20px] whitespace-nowrap max-w-[240px]"
+            ? "h-8 py-1 px-3 gap-1 text-sm font-normal leading-[20px] whitespace-nowrap max-w-[240px]"
             : "min-h-[36px] py-2 px-3 text-base font-medium leading-[22px] whitespace-nowrap max-w-[120px] sm:max-w-[160px] md:max-w-[200px]",
           isActive && (variant === "outlined" || !variant) && "bg-chip-active-bg border-chip-active-border",
           isActive && variant === "filled" && "bg-chip-filled-active-bg",

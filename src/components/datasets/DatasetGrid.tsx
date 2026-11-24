@@ -40,7 +40,7 @@ const dense = {
   /** Cell holding a small icon button, so the button doesn't make the row taller. */
   tdAction: cn(ts.td, "px-1 py-0"),
   input: cn(ts.cellInput, "px-2 py-1"),
-  iconButton: "flex h-6 w-6 items-center justify-center rounded-[6px] text-muted-foreground",
+  iconButton: "flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground",
 };
 
 const kindLabels: { kind: DatasetColumnKind; label: string }[] = [
@@ -92,14 +92,14 @@ const ColumnHeader = ({
                 setEditing(false);
               }
             }}
-            className="w-full bg-transparent text-[14px] text-foreground outline-none"
+            className="w-full bg-transparent text-sm text-foreground outline-none"
           />
         ) : (
           <button
             type="button"
             disabled={readOnly}
             onClick={() => !readOnly && setEditing(true)}
-            className="flex-1 truncate text-left text-[14px] hover:text-foreground"
+            className="flex-1 truncate text-left text-sm hover:text-foreground"
             title={`${column.label} · ${column.kind}`}
           >
             {column.label}

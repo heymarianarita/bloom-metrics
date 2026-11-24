@@ -97,8 +97,8 @@ const AiPrototyping = () => {
           <DesignSpacer size="medium" />
 
           <DesignCard className="p-4">
-            <h2 className="text-[18px] font-[580] text-foreground">Trend</h2>
-            <p className="text-[14px] text-muted-foreground">
+            <h2 className="text-lg font-semibold text-foreground">Trend</h2>
+            <p className="text-sm text-muted-foreground">
               Prototypes created per quarter, with the share built on Bloom templates.
             </p>
             <DesignSpacer size="small" />
@@ -135,7 +135,7 @@ const AiPrototyping = () => {
           <DesignSpacer size="medium" />
 
           <DesignCard className="p-4">
-            <h2 className="text-[18px] font-[580] text-foreground">Per template — {quarter}</h2>
+            <h2 className="text-lg font-semibold text-foreground">Per template — {quarter}</h2>
             <DesignSpacer size="small" />
             <DesignDataTable
               columns={columns}

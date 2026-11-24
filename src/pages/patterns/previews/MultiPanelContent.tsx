@@ -206,9 +206,9 @@ const MultiPanelContent = () => {
   const [activeTab, setActiveTab] = useState("all");
 
   return (
-    <div className="flex-1 flex flex-col gap-[12px] min-h-0 w-full">
+    <div className="flex-1 flex flex-col gap-3 min-h-0 w-full">
       {/* Two panels: Primary (2/3) + Secondary (1/3) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-[12px] flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 flex-1 min-h-0">
         {/* Primary panel (2/3) — Orders */}
         <DesignCard variant="default" className="lg:col-span-2 flex flex-col overflow-y-auto min-h-0">
           <div className="px-5 pt-5 pb-3">
@@ -292,14 +292,14 @@ const MultiPanelContent = () => {
 
             {/* Quick stats at bottom */}
             <div className="mt-auto pt-4 space-y-3">
-              <div className="p-3 rounded-[6px] bg-[var(--spacing-bg)]">
+              <div className="p-3 rounded-md bg-[var(--spacing-bg)]">
                 <div className="flex items-center gap-2 mb-1">
                   <AlertTriangle className="w-4 h-4 text-[var(--highlight)]" />
                   <p className="text-sm font-medium text-foreground">3 disputes pending</p>
                 </div>
                 <p className="text-xs text-muted-foreground">Requires attention within 24h</p>
               </div>
-              <div className="p-3 rounded-[6px] bg-[var(--spacing-bg)]">
+              <div className="p-3 rounded-md bg-[var(--spacing-bg)]">
                 <div className="flex items-center gap-2 mb-1">
                   <TrendingUp className="w-4 h-4 text-[var(--btn-success)]" />
                   <p className="text-sm font-medium text-foreground">Revenue up 23%</p>

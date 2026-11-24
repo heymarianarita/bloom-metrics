@@ -141,7 +141,7 @@ const QuarterSheetPanel = () => {
       {chart && chart.keys.length > 0 && (
         <>
           <DesignCard className="p-4">
-            <h3 className="text-[18px] font-[580] text-foreground">
+            <h3 className="text-lg font-semibold text-foreground">
               {activeQuarter.quarter} overview
             </h3>
             <DesignSpacer size="small" />

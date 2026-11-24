@@ -90,7 +90,7 @@ const ViewsConfigurator = () => {
               <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                 <div className="min-w-[200px] flex-1">
                   <div className="flex items-center gap-1">
-                    <h2 className="text-[16px] font-medium text-foreground">
+                    <h2 className="text-base font-medium text-foreground">
                       {parent ? `${parent.name} › ${selected.name}` : selected.name}
                     </h2>
                     <DesignButton
@@ -105,7 +105,7 @@ const ViewsConfigurator = () => {
                     />
                   </div>
                   {selected.description && (
-                    <p className="text-[14px] text-muted-foreground mt-1">{selected.description}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{selected.description}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">

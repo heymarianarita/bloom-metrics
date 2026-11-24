@@ -34,16 +34,16 @@ const LibraryPages = ({
   const pages = data?.pages ?? [];
   if (isLoading) return <div className="py-3 flex justify-center"><DesignLoader /></div>;
   if (pages.length === 0)
-    return <p className="text-[14px] text-muted-foreground py-2">No pages found for this library.</p>;
+    return <p className="text-sm text-muted-foreground py-2">No pages found for this library.</p>;
   return (
     <div className="pb-3">
-      <p className="text-[12px] text-muted-foreground pb-2">
+      <p className="text-xs text-muted-foreground pb-2">
         {pages.length - excluded.length}/{pages.length} pages count towards adoption. Untick pages
         like covers, archives or work in progress.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
         {pages.map((page) => (
-          <label key={page.name} className="flex items-center gap-2 text-[14px] text-foreground cursor-pointer">
+          <label key={page.name} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
           <DesignCheckbox
             checked={!excluded.includes(page.name)}
             onCheckedChange={(checked) =>
@@ -55,7 +55,7 @@ const LibraryPages = ({
             }
           />
             <span className="truncate">{page.name}</span>
-            <span className="text-[12px] text-muted-foreground">{page.componentCount}</span>
+            <span className="text-xs text-muted-foreground">{page.componentCount}</span>
           </label>
         ))}
       </div>
@@ -151,7 +151,7 @@ const FigmaLibrariesCard = ({ saved, lastRun }: FigmaLibrariesCardProps) => {
       credentialsKey="figma"
       lastRun={lastRun}
     >
-      <p className="text-[12px] text-muted-foreground">Choose which views show Figma adoption in Metrics → Views.</p>
+      <p className="text-xs text-muted-foreground">Choose which views show Figma adoption in Metrics → Views.</p>
 
       <SourceList
         empty={{

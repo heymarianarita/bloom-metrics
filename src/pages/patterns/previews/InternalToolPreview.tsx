@@ -224,7 +224,7 @@ const InternalToolPreview = () => {
       <nav className="h-14 w-full bg-primary-dark flex items-center justify-between px-4 shrink-0">
           <div className="flex items-center gap-12">
             <div className="flex items-center gap-2">
-              <img src={vintedIconRounded} alt="Vinted" className="h-8 w-8 rounded-[6px] shrink-0" />
+              <img src={vintedIconRounded} alt="Vinted" className="h-8 w-8 rounded-md shrink-0" />
               <span className="text-white font-medium text-sm">Vinted Admin</span>
             </div>
             <NavigationMenu>
@@ -233,7 +233,7 @@ const InternalToolPreview = () => {
                   <NavigationMenuItem key={item}>
                     <NavigationMenuLink
                       onClick={() => setActiveNav(item)}
-                      className={`px-4 py-2 rounded-[6px] text-sm font-medium transition-colors min-h-[32px] cursor-pointer
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors min-h-[32px] cursor-pointer
                         ${activeNav === item
                           ? "bg-white/[0.12] text-white"
                           : "text-white/70 hover:bg-white/[0.06] active:bg-white/[0.08]"
@@ -248,7 +248,7 @@ const InternalToolPreview = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" className="flex items-center gap-2 px-3 py-1.5 rounded-[6px] hover:bg-white/10 active:bg-white/25 h-auto">
+            <Button variant="ghost" className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-white/10 active:bg-white/25 h-auto">
               <Avatar className="w-8 h-8">
                 <AvatarFallback className="bg-white/20 text-white text-xs font-medium">JD</AvatarFallback>
               </Avatar>
@@ -258,7 +258,7 @@ const InternalToolPreview = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="w-9 h-9 rounded-[6px] text-white hover:bg-white/10 active:bg-white/25">
+                    <Button variant="ghost" size="icon" className="w-9 h-9 rounded-md text-white hover:bg-white/10 active:bg-white/25">
                       <MoreVertical className="w-5 h-5" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -295,17 +295,17 @@ const InternalToolPreview = () => {
           iconActions={
             <>
               <DesignTooltip content="Approve" side="bottom">
-                <button className="w-9 h-9 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-spacing-bg transition-colors">
+                <button className="w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-spacing-bg transition-colors">
                   <ShieldCheck className="w-[18px] h-[18px]" />
                 </button>
               </DesignTooltip>
               <DesignTooltip content="Comments" side="bottom">
-                <button className="w-9 h-9 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-spacing-bg transition-colors">
+                <button className="w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-spacing-bg transition-colors">
                   <MessageSquare className="w-[18px] h-[18px]" />
                 </button>
               </DesignTooltip>
               <DesignTooltip content="Details" side="bottom">
-                <button className="w-9 h-9 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-spacing-bg transition-colors">
+                <button className="w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-spacing-bg transition-colors">
                   <Columns3 className="w-[18px] h-[18px]" />
                 </button>
               </DesignTooltip>
@@ -335,7 +335,7 @@ const InternalToolPreview = () => {
         </DesignGrid>
 
         {/* Recent Orders Table */}
-        <div className="border border-[var(--border)] rounded-[6px] bg-[var(--background)]">
+        <div className="border border-[var(--border)] rounded-md bg-[var(--background)]">
           <DesignDataTable
             title="Recent Orders"
             columns={orderColumns}

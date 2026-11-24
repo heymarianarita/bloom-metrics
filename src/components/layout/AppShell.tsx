@@ -285,7 +285,7 @@ const AppShell = ({ children }: AppShellProps) => {
               <img
                 src={vintedIconRounded}
                 alt="Bloom Metrics logo"
-                className="h-8 w-8 rounded-[6px] shrink-0"
+                className="h-8 w-8 rounded-md shrink-0"
               />
               <span className="text-white font-medium text-sm">{APP_NAME}</span>
             </div>
@@ -298,7 +298,7 @@ const AppShell = ({ children }: AppShellProps) => {
                       <NavigationMenuLink asChild>
                         <NavLink
                           to={tab.path}
-                          className={`px-4 py-2 rounded-[6px] text-sm font-medium transition-colors min-h-[32px] cursor-pointer
+                          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors min-h-[32px] cursor-pointer
                             ${
                               isActive
                                 ? "bg-white/[0.12] text-white"
@@ -323,7 +323,7 @@ const AppShell = ({ children }: AppShellProps) => {
                     size="icon"
                     aria-label="Settings"
                     onClick={() => navigate("/settings/data-sources")}
-                    className={`w-9 h-9 rounded-[6px] text-white hover:text-white active:text-white hover:bg-white/10 active:bg-white/25 ${
+                    className={`w-9 h-9 rounded-md text-white hover:text-white active:text-white hover:bg-white/10 active:bg-white/25 ${
                       inSettings ? "bg-white/[0.12]" : ""
                     }`}
                   >
@@ -338,7 +338,7 @@ const AppShell = ({ children }: AppShellProps) => {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="gap-1 h-9 px-3 rounded-[6px] text-white text-sm font-normal hover:text-white active:text-white hover:bg-white/10 active:bg-white/25 data-[state=open]:bg-white/[0.12]"
+                    className="gap-1 h-9 px-3 rounded-md text-white text-sm font-normal hover:text-white active:text-white hover:bg-white/10 active:bg-white/25 data-[state=open]:bg-white/[0.12]"
                   >
                     {user.email}
                   </Button>
@@ -359,7 +359,7 @@ const AppShell = ({ children }: AppShellProps) => {
               <Button
                 variant="ghost"
                 onClick={() => navigate("/auth")}
-                className="gap-2 text-white text-sm font-medium rounded-[6px] hover:text-white hover:bg-white/10 active:bg-white/25"
+                className="gap-2 text-white text-sm font-medium rounded-md hover:text-white hover:bg-white/10 active:bg-white/25"
               >
                 <LogIn className="w-4 h-4" /> Sign in
               </Button>
@@ -394,11 +394,11 @@ const AppShell = ({ children }: AppShellProps) => {
                       collapsed ? (
                         <DesignTooltip content={item.label} side="right">
                           <span
-                            className={`w-10 h-10 flex items-center justify-center rounded-[6px] transition-colors
+                            className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors
                               ${
                                 isActive
-                                  ? "text-[var(--primary-extra-dark)] bg-[rgba(0,119,130,0.08)]"
-                                  : "text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]"
+                                  ? "text-[var(--primary-extra-dark)] bg-surface-primary-selected"
+                                  : "text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active"
                               }`}
                           >
                             <ItemIcon size={16} className="shrink-0" />
@@ -406,11 +406,11 @@ const AppShell = ({ children }: AppShellProps) => {
                         </DesignTooltip>
                       ) : (
                         <span
-                          className={`flex items-center gap-3 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors w-full
+                          className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full
                             ${
                               isActive
-                                ? "text-[var(--primary-extra-dark)] bg-[rgba(0,119,130,0.08)]"
-                                : "text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]"
+                                ? "text-[var(--primary-extra-dark)] bg-surface-primary-selected"
+                                : "text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active"
                             }`}
                         >
                           <ItemIcon size={16} className="shrink-0" />
@@ -428,11 +428,11 @@ const AppShell = ({ children }: AppShellProps) => {
                           <NavLink key={child.path} to={child.path} end>
                             {({ isActive }) => (
                               <span
-                                className={`flex items-center px-3 py-1.5 rounded-[6px] text-sm transition-colors w-full
+                                className={`flex items-center px-3 py-1.5 rounded-md text-sm transition-colors w-full
                                   ${
                                     isActive
-                                      ? "text-foreground font-medium bg-[rgba(0,119,130,0.06)]"
-                                      : "text-muted-foreground font-normal hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]"
+                                      ? "text-foreground font-medium bg-surface-primary-hover"
+                                      : "text-muted-foreground font-normal hover:bg-surface-primary-hover active:bg-surface-primary-active"
                                   }`}
                               >
                                 {child.label}
@@ -458,7 +458,7 @@ const AppShell = ({ children }: AppShellProps) => {
                 >
                   <button
                     onClick={() => setCollapsed(!collapsed)}
-                    className={`h-8 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${
+                    className={`h-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${
                       collapsed ? "w-10 mx-auto" : "w-8 ml-3"
                     }`}
                   >

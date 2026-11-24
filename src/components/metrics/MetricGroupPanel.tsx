@@ -28,6 +28,7 @@ import { bucketSeries, type SeriesPoint } from "@/lib/periodBuckets";
 import { bucketPeriod, sameDayCutoff } from "../../../server/shared/periods.ts";
 import { periodSeries } from "../../../server/shared/aggregate.ts";
 import { QualitativeSection } from "@/components/metrics/QualitativeSection";
+import { BreakdownCard, ShareRow } from "@/components/metrics/BreakdownCard";
 import { useQualitativeSources } from "@/hooks/useQualitative";
 import { LINE_COLORS } from "@/lib/chartColors";
 import { compactNumber } from "@/lib/chartFormat";
@@ -160,7 +161,7 @@ export const MetricFilterBar = ({
           value={filters.period}
           onChange={(value) => onChange((prev) => ({ ...prev, period: value }))}
         />
-        <span className="text-[12px] text-muted-foreground whitespace-nowrap">vs</span>
+        <span className="text-xs text-muted-foreground whitespace-nowrap">vs</span>
         <DesignInputSelect
           className="w-[140px]"
           size="small"
@@ -225,39 +226,29 @@ const ScoreDistributions = ({
   return (
     <section className="pt-2">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[16px] font-medium text-foreground">{heading}</p>
-        <p className="text-[12px] text-muted-foreground">{period}</p>
+        <p className="text-base font-medium text-foreground">{heading}</p>
+        <p className="text-xs text-muted-foreground">{period}</p>
       </div>
       <div className="grid gap-3 md:grid-cols-2 mt-3">
         {rated.map((m) => {
           const d = distributions[m.id]!;
           const max = Math.max(...SCALE_POINTS.map((p) => d.counts[p] ?? 0), 1);
           return (
-            <div key={m.id} className="rounded-[6px] border border-border p-3">
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="text-sm font-medium text-foreground">{m.name}</p>
-                <p className="text-xs text-muted-foreground whitespace-nowrap">{d.total} responses</p>
-              </div>
-              <div className="mt-2 flex flex-col gap-2">
-                {SCALE_POINTS.map((p) => {
-                  const count = d.counts[p] ?? 0;
-                  const share = d.total ? (count / d.total) * 100 : 0;
-                  const label = m.scale_labels?.[p]?.trim();
-                  return (
-                    <div key={p}>
-                      <p className="text-xs text-foreground">
-                        {p}
-                        {label ? ` – ${label}` : ""}
-                        <span className="text-muted-foreground"> · {share.toFixed(share > 0 && share < 10 ? 1 : 0)}%</span>
-                      </p>
-                      <div className="h-1.5 rounded-full bg-muted mt-1" aria-hidden="true">
-                        <div className="h-1.5 rounded-full bg-primary" style={{ width: `${(count / max) * 100}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <BreakdownCard key={m.id} title={m.name} meta={`${d.total} responses`}>
+              {SCALE_POINTS.map((p) => {
+                const count = d.counts[p] ?? 0;
+                const share = d.total ? (count / d.total) * 100 : 0;
+                const label = m.scale_labels?.[p]?.trim();
+                return (
+                  <ShareRow
+                    key={p}
+                    label={`${p}${label ? ` – ${label}` : ""}`}
+                    value={`${share.toFixed(share > 0 && share < 10 ? 1 : 0)}%`}
+                    fraction={count / max}
+                  />
+                );
+              })}
+            </BreakdownCard>
           );
         })}
       </div>
@@ -657,7 +648,7 @@ const MetricGroupPanel = ({
           extra={
             showResponses &&
             sampleSize > 0 && (
-              <span className="ml-auto text-[12px] text-muted-foreground whitespace-nowrap">
+              <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
                 {sampleSize} response{sampleSize === 1 ? "" : "s"}
               </span>
             )
@@ -698,14 +689,14 @@ const MetricGroupPanel = ({
       {(!parts || parts.trend) && (
       <section className={parts ? undefined : "pt-2"}>
         <div className="flex items-baseline justify-between gap-3">
-          <p className="text-[16px] font-medium text-foreground">{trendHeading}</p>
-          <p className="text-[12px] text-muted-foreground">{periodicityLabel}</p>
+          <p className="text-base font-medium text-foreground">{trendHeading}</p>
+          <p className="text-xs text-muted-foreground">{periodicityLabel}</p>
         </div>
         {comparableMetrics.length > 0 && (
           <>
             <DesignSpacer size="small" />
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[12px] text-muted-foreground">Compare with</span>
+              <span className="text-xs text-muted-foreground">Compare with</span>
               {comparableMetrics.map((metric) => (
                 <DesignChip
                   key={metric.id}
@@ -733,7 +724,7 @@ const MetricGroupPanel = ({
             body="Once these metrics have values across more than one period, the trend appears here."
           />
         ) : (
-          <div className="h-[256px] w-full rounded-[6px] border border-border p-4">
+          <div className="h-[256px] w-full rounded-md border border-border p-4">
             <ResponsiveContainer width="100%" height="100%">
               {trendChart === "bar" ? (
                 <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>

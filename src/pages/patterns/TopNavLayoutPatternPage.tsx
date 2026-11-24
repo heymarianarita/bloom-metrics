@@ -95,7 +95,7 @@ const TopNavLayoutPatternPage = () => {
               <Link key={cl.path} to={cl.path} className="block group">
                 <DesignCard variant="default" className="p-4 transition-shadow hover:shadow-card-lifted flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-[580] text-foreground group-hover:text-primary transition-colors">{cl.name}</p>
+                    <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{cl.name}</p>
                     <p className="text-xs text-muted-foreground mt-1">{cl.description}</p>
                   </div>
                   <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-4" />
@@ -113,7 +113,7 @@ const TopNavLayoutPatternPage = () => {
             <Link to="/patterns/pattern-1" className="block group flex-1">
               <DesignCard variant="default" className="p-4 transition-shadow hover:shadow-card-lifted flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-[580] text-foreground group-hover:text-primary transition-colors">Top navigation with single-panel layout</p>
+                  <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Top navigation with single-panel layout</p>
                   <p className="text-xs text-muted-foreground mt-1">Single panel content area with top bar navigation.</p>
                 </div>
                 <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-4" />
@@ -146,7 +146,7 @@ const TopNavLayoutPatternPage = () => {
             {componentsList.map((comp) => (
               <Link key={comp.name} to={comp.docsPath} className="block group">
                 <DesignCard variant="default" className="p-4 transition-shadow hover:shadow-card-lifted">
-                  <p className="text-sm font-[580] text-foreground group-hover:text-primary transition-colors">{comp.name}</p>
+                  <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{comp.name}</p>
                   <p className="text-xs text-muted-foreground mt-1">{comp.description}</p>
                 </DesignCard>
               </Link>

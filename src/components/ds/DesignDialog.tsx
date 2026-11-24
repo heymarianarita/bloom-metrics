@@ -47,7 +47,7 @@ const DesignDialog = ({
           {!hideClose && !icon && (
             <div className="flex items-center justify-between px-4 pt-3 shrink-0">
               {title ? (
-                <DialogPrimitive.Title className="flex-1 text-center text-[17px] font-semibold text-foreground">
+                <DialogPrimitive.Title className="flex-1 text-center text-xl font-semibold text-foreground">
                   {title}
                 </DialogPrimitive.Title>
               ) : <span />}
@@ -65,7 +65,7 @@ const DesignDialog = ({
           {/* Title without close button (alert-style) */}
           {hideClose && !icon && title && (
             <div className="px-4 pt-4 pb-2 shrink-0">
-              <DialogPrimitive.Title className="text-[22px] font-semibold text-foreground text-center">
+              <DialogPrimitive.Title className="text-xl font-semibold text-foreground text-center">
                 {title}
               </DialogPrimitive.Title>
             </div>
@@ -76,7 +76,7 @@ const DesignDialog = ({
             <div className="flex flex-col items-center px-4 pt-4 pb-2 shrink-0">
               <div className="mb-4">{icon}</div>
               {title && (
-                <DialogPrimitive.Title className="text-[22px] font-semibold text-foreground text-center">
+                <DialogPrimitive.Title className="text-xl font-semibold text-foreground text-center">
                   {title}
                 </DialogPrimitive.Title>
               )}

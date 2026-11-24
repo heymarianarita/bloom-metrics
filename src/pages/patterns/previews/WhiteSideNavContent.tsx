@@ -168,17 +168,17 @@ const WhiteSideNavContent = () => {
         iconActions={
           <>
             <DesignTooltip content="Approve" side="bottom">
-              <button className="w-9 h-9 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-spacing-bg transition-colors">
+              <button className="w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-spacing-bg transition-colors">
                 <ShieldCheck className="w-[18px] h-[18px]" />
               </button>
             </DesignTooltip>
             <DesignTooltip content="Comments" side="bottom">
-              <button className="w-9 h-9 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-spacing-bg transition-colors">
+              <button className="w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-spacing-bg transition-colors">
                 <MessageSquare className="w-[18px] h-[18px]" />
               </button>
             </DesignTooltip>
             <DesignTooltip content="Details" side="bottom">
-              <button className="w-9 h-9 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-spacing-bg transition-colors">
+              <button className="w-9 h-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-spacing-bg transition-colors">
                 <Columns3 className="w-[18px] h-[18px]" />
               </button>
             </DesignTooltip>
@@ -208,7 +208,7 @@ const WhiteSideNavContent = () => {
       </DesignGrid>
 
       {/* Orders Table */}
-      <div className="border border-[var(--border)] rounded-[6px] bg-[var(--background)] p-3">
+      <div className="border border-[var(--border)] rounded-md bg-[var(--background)] p-3">
         <DesignDataTable
           title="Related Orders"
           columns={orderColumns}

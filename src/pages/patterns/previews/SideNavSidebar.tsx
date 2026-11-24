@@ -65,8 +65,8 @@ const SideNavItem = ({
       <DesignTooltip content={tooltipLabel} side="right">
           <button
             onClick={() => setActiveNav(hasChildren ? item.children![0].id : item.id)}
-            className={`w-10 h-10 flex items-center justify-center rounded-[6px] transition-colors relative
-              ${isActive || isChildActive ? "text-[var(--primary-extra-dark)] bg-[rgba(0,119,130,0.08)]" : "text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]"}
+            className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors relative
+              ${isActive || isChildActive ? "text-[var(--primary-extra-dark)] bg-surface-primary-selected" : "text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active"}
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1`}
           >
             <Icon className="w-4 h-4 shrink-0" />
@@ -84,8 +84,8 @@ const SideNavItem = ({
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger asChild>
           <button
-            className={`flex items-center gap-3 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors w-full text-left
-              ${isChildActive ? "text-[var(--primary-extra-dark)] hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]" : "text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]"}
+            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left
+              ${isChildActive ? "text-[var(--primary-extra-dark)] hover:bg-surface-primary-hover active:bg-surface-primary-active" : "text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active"}
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1`}
           >
             <Icon className="w-4 h-4 shrink-0" />
@@ -106,10 +106,10 @@ const SideNavItem = ({
                 <button
                   key={child.id}
                   onClick={() => setActiveNav(child.id)}
-                  className={`text-left w-full px-3 py-1.5 rounded-[6px] text-sm transition-colors
+                  className={`text-left w-full px-3 py-1.5 rounded-md text-sm transition-colors
                     ${isChildItemActive
-                      ? "text-[var(--primary-extra-dark)] font-medium bg-[rgba(0,119,130,0.08)] hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]"
-                      : "text-muted-foreground hover:text-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]"
+                      ? "text-[var(--primary-extra-dark)] font-medium bg-surface-primary-selected hover:bg-surface-primary-hover active:bg-surface-primary-active"
+                      : "text-muted-foreground hover:text-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active"
                     }
                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1`}
                 >
@@ -127,8 +127,8 @@ const SideNavItem = ({
   return (
     <button
       onClick={() => setActiveNav(item.id)}
-      className={`flex items-center gap-3 px-3 py-2 rounded-[6px] text-sm font-medium transition-colors w-full text-left
-        ${isActive ? "text-[var(--primary-extra-dark)] bg-[rgba(0,119,130,0.08)]" : "text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]"}
+      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left
+        ${isActive ? "text-[var(--primary-extra-dark)] bg-surface-primary-selected" : "text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active"}
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1`}
     >
       <Icon className="w-4 h-4 shrink-0" />
@@ -297,13 +297,13 @@ const SideNavSidebar = ({ activeNav, setActiveNav, collapsed, onToggleCollapse, 
       <div className="px-4 py-3">
         <div className="flex items-center">
           <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
-            <div className="w-8 h-8 rounded-[6px] overflow-hidden shrink-0">
+            <div className="w-8 h-8 rounded-md overflow-hidden shrink-0">
               <img src={vintedIcon} alt="Vinted" className="w-full h-full object-cover" />
             </div>
             {!collapsed && (
               <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-[580] text-foreground truncate leading-tight">Vinted Admin</p>
-                <p className="text-[11px] text-muted-foreground truncate leading-tight">Enterprise</p>
+                <p className="text-sm font-semibold text-foreground truncate leading-tight">Vinted Admin</p>
+                <p className="text-xs text-muted-foreground truncate leading-tight">Enterprise</p>
               </div>
             )}
           </div>
@@ -312,7 +312,7 @@ const SideNavSidebar = ({ activeNav, setActiveNav, collapsed, onToggleCollapse, 
               <DesignTooltip content="Collapse sidebar" side="bottom">
                 <button
                   onClick={onToggleCollapse}
-                  className="w-8 h-8 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)] transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                  className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                 >
                   <PanelLeftClose className="w-4 h-4" />
                 </button>
@@ -324,7 +324,7 @@ const SideNavSidebar = ({ activeNav, setActiveNav, collapsed, onToggleCollapse, 
               <DesignTooltip content="Expand sidebar" side="right">
                 <button
                   onClick={onToggleCollapse}
-                  className="w-6 h-6 flex items-center justify-center rounded-[6px] hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                  className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-surface-primary-hover active:bg-surface-primary-active transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                 >
                   <PanelLeftOpen className="w-4 h-4 text-muted-foreground" />
                 </button>
@@ -362,7 +362,7 @@ const SideNavSidebar = ({ activeNav, setActiveNav, collapsed, onToggleCollapse, 
         {collapsed ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                  <button className="w-10 h-10 flex items-center justify-center rounded-[6px] hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)] transition-colors mx-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1">
+                  <button className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-surface-primary-hover active:bg-surface-primary-active transition-colors mx-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1">
                     <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-medium shrink-0">
                       JD
                     </div>
@@ -384,13 +384,13 @@ const SideNavSidebar = ({ activeNav, setActiveNav, collapsed, onToggleCollapse, 
         ) : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-3 px-3 py-2 rounded-[6px] w-full hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1">
+              <button className="flex items-center gap-3 px-3 py-2 rounded-md w-full hover:bg-surface-primary-hover active:bg-surface-primary-active transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1">
                 <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-medium shrink-0">
                   JD
                 </div>
                 <div className="flex-1 text-left min-w-0">
                   <p className="text-sm font-medium text-foreground truncate leading-tight">John Doe</p>
-                  <p className="text-[11px] text-muted-foreground truncate leading-tight">john@vinted.com</p>
+                  <p className="text-xs text-muted-foreground truncate leading-tight">john@vinted.com</p>
                 </div>
                 <MoreVertical className="w-4 h-4 text-muted-foreground shrink-0" />
               </button>
@@ -416,7 +416,7 @@ const SideNavSidebar = ({ activeNav, setActiveNav, collapsed, onToggleCollapse, 
         <DesignTooltip content={collapsed ? "Expand sidebar" : "Collapse sidebar"} side="right">
           <button
             onClick={onToggleCollapse}
-            className="absolute top-2 -right-3 z-10 w-6 h-6 flex items-center justify-center rounded-full bg-background border border-border text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)] transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+            className="absolute top-2 -right-3 z-10 w-6 h-6 flex items-center justify-center rounded-full bg-background border border-border text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
           >
             {collapsed ? <PanelLeftOpen className="w-3.5 h-3.5" /> : <PanelLeftClose className="w-3.5 h-3.5" />}
           </button>

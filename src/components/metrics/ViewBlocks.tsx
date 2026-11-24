@@ -244,7 +244,7 @@ const ViewBlocks = ({
         drawnReports.add(item.ref);
         const chart = item.options?.chart && item.section !== "shares" ? { [item.section]: item.options.chart } : {};
         return (
-          <div className="-mx-5 -my-4">
+          <div className="-mx-5 -my-2">
             <CodeAdoptionPanel
               reportPath={item.ref}
               sections={[item.section as CodeSection]}
@@ -271,12 +271,12 @@ const ViewBlocks = ({
       case "oneoffs":
         return <OneOffQuestions sources={oneOffsNow} period={filters.period} segmentFilters={segmentFilters} />;
       case "figma":
-        return <div className="-mx-5 -my-4">{renderFigma?.()}</div>;
+        return <div className="-mx-5 -my-2">{renderFigma?.()}</div>;
       case "text":
         return item.options?.style === "note" ? (
           <p className="text-sm text-muted-foreground whitespace-pre-line">{item.options.text}</p>
         ) : (
-          <h2 className="text-[18px] font-[580] leading-6">{item.options?.text}</h2>
+          <h2 className="text-lg font-semibold leading-6">{item.options?.text}</h2>
         );
       default:
         return null;
@@ -290,9 +290,9 @@ const ViewBlocks = ({
           <MetricFilterBar facets={facets} filters={filters} onChange={setFilters} />
         </div>
       )}
-      <div className="grid grid-cols-6 gap-x-6 px-5 py-2">
+      <div className="grid grid-cols-6 gap-x-6 px-5 py-4">
         {widgets.filter(shownNow).map((item) => (
-          <div key={item.id} className="col-span-6 lg:[grid-column:span_var(--span)/span_var(--span)] min-w-0 py-4" style={{ "--span": widthOf(item).span } as React.CSSProperties}>
+          <div key={item.id} className="col-span-6 lg:[grid-column:span_var(--span)/span_var(--span)] min-w-0 py-2" style={{ "--span": widthOf(item).span } as React.CSSProperties}>
             <SectionHeadingProvider value={item.options?.title?.trim() || undefined}>{renderWidget(item)}</SectionHeadingProvider>
           </div>
         ))}

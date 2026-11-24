@@ -322,7 +322,7 @@ function DesignDataTableInner<T>(
       {/* ── Title ── */}
       {title && (
         <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-[8px]">
-          <h2 className="text-[18px] font-[580] text-[var(--foreground)]">{title}</h2>
+          <h2 className="text-lg font-semibold text-[var(--foreground)]">{title}</h2>
           {(searchInTitle || titleAction) && (
             <div className="flex items-center gap-2">
               {searchInTitle && (
@@ -443,7 +443,7 @@ function DesignDataTableInner<T>(
         <SheetContent overlayClassName="bg-transparent" className="w-[33.33vw] min-w-[360px] p-0 flex flex-col rounded-none border-l border-[var(--border)]">
           {/* Header */}
           <div className="px-6 h-[60px] flex items-center justify-between shrink-0 border-b border-[var(--border)]">
-            <span className="text-[18px] font-[580] text-[var(--foreground)]">All filters</span>
+            <span className="text-lg font-semibold text-[var(--foreground)]">All filters</span>
             <button
               onClick={() => setSheetOpen(false)}
               className="w-8 h-8 flex items-center justify-center rounded-[6px] text-[var(--foreground)] hover:bg-[rgba(21,25,26,0.04)] cursor-pointer"
@@ -455,7 +455,7 @@ function DesignDataTableInner<T>(
           <div className="flex-1 overflow-y-auto px-6 pt-1 pb-6 space-y-4">
             {allFilters.map((f) => (
               <div key={f.id} className="space-y-2">
-                <label className="text-[14px] text-[var(--muted-foreground)] font-[375]">{f.label}</label>
+                <label className="text-sm text-[var(--muted-foreground)] font-normal">{f.label}</label>
                 <DesignInputSelect
                   placeholder={`Select ${f.label.toLowerCase()}`}
                   options={f.options}

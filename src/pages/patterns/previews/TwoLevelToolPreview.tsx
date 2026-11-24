@@ -38,7 +38,7 @@ const TwoLevelToolPreview = () => {
       />
       <div className="flex-1 flex flex-col min-w-0">
         <main className={`flex-1 pt-6 pb-6 pr-6 flex flex-col ${collapsed ? 'pl-6' : 'pl-0'}`}>
-          <DesignGrid columns={false} className="bg-background rounded-[6px] border border-border p-6 flex-1 flex flex-col">
+          <DesignGrid columns={false} className="bg-background rounded-md border border-border p-6 flex-1 flex flex-col">
             <DesignPageHeader
               breadcrumbs={[
                 { label: activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1), onClick: () => {} },

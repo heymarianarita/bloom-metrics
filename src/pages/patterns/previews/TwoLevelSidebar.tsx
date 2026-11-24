@@ -178,7 +178,7 @@ const TwoLevelSidebar = ({
         <div className="w-[60px] bg-[var(--primary-extra-dark)] flex flex-col h-full">
           {/* Logo */}
           <div className="p-2 flex items-center justify-center pt-3">
-            <div className="w-8 h-8 rounded-[6px] overflow-hidden shrink-0">
+            <div className="w-8 h-8 rounded-md overflow-hidden shrink-0">
               <img src={vintedIconRounded} alt="Vinted" className="w-full h-full object-contain" />
             </div>
           </div>
@@ -198,7 +198,7 @@ const TwoLevelSidebar = ({
                         setActiveSubItem(cat.children[0].id);
                       }
                     }}
-                    className={`w-10 h-10 flex items-center justify-center rounded-[6px] transition-colors relative
+                    className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors relative
                       ${isActive
                         ? "text-white bg-[rgba(255,255,255,0.15)]"
                         : "text-[rgba(255,255,255,0.6)] hover:bg-[rgba(255,255,255,0.08)] active:bg-[rgba(255,255,255,0.04)]"
@@ -219,7 +219,7 @@ const TwoLevelSidebar = ({
           <div className="p-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="w-10 h-10 flex items-center justify-center rounded-[6px] hover:bg-[rgba(255,255,255,0.08)] active:bg-[rgba(255,255,255,0.04)] transition-colors mx-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--primary-extra-dark)]">
+                <button className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-[rgba(255,255,255,0.08)] active:bg-[rgba(255,255,255,0.04)] transition-colors mx-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--primary-extra-dark)]">
                   <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-medium shrink-0">
                     JD
                   </div>
@@ -247,13 +247,13 @@ const TwoLevelSidebar = ({
         >
           {/* Category header + collapse toggle */}
           <div className="px-4 pt-4 pb-2 flex items-center justify-between shrink-0">
-            <h3 className="text-sm font-[580] text-foreground truncate">
+            <h3 className="text-sm font-semibold text-foreground truncate">
               {activeCategoryData?.label ?? ""}
             </h3>
             <DesignTooltip content="Collapse panel" side="bottom">
               <button
                 onClick={onToggleCollapse}
-                className="w-7 h-7 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)] transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
               >
                 <PanelLeftClose className="w-4 h-4" />
               </button>
@@ -268,10 +268,10 @@ const TwoLevelSidebar = ({
                 <button
                   key={sub.id}
                   onClick={() => setActiveSubItem(sub.id)}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-[6px] text-sm transition-colors w-full text-left
+                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors w-full text-left
                     ${isActive
-                      ? "text-[var(--primary-extra-dark)] font-medium bg-[rgba(0,119,130,0.08)]"
-                      : "text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)]"
+                      ? "text-[var(--primary-extra-dark)] font-medium bg-surface-primary-selected"
+                      : "text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active"
                     }
                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1`}
                 >
@@ -292,7 +292,7 @@ const TwoLevelSidebar = ({
             <DesignTooltip content="Expand panel" side="right">
               <button
                 onClick={onToggleCollapse}
-                className="w-7 h-7 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-[rgba(0,119,130,0.06)] active:bg-[rgba(0,119,130,0.04)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
               >
                 <PanelLeftOpen className="w-4 h-4" />
               </button>

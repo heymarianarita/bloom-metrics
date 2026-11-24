@@ -215,7 +215,7 @@ const HistorySettings = () => {
         <DesignSpacer size="medium" />
 
         <DesignCard className="p-4">
-          <h2 className="text-[18px] font-[580] text-foreground">Sync runs</h2>
+          <h2 className="text-lg font-semibold text-foreground">Sync runs</h2>
           <DesignSpacer size="small" />
           {(runs.data ?? []).length === 0 ? (
             <DesignEmptyState
@@ -235,8 +235,8 @@ const HistorySettings = () => {
         <DesignSpacer size="medium" />
 
         <DesignCard className="p-4">
-          <h2 className="text-[18px] font-[580] text-foreground">Change history</h2>
-          <p className="text-[14px] text-muted-foreground">
+          <h2 className="text-lg font-semibold text-foreground">Change history</h2>
+          <p className="text-sm text-muted-foreground">
             Every add, edit and delete across the tool's data, kept permanently.
           </p>
           <DesignSpacer size="small" />

@@ -57,8 +57,8 @@ export const SourceCard = ({
     <DesignCard className="p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-[16px] font-medium text-foreground">{title}</h2>
-          <p className="text-[14px] text-muted-foreground mt-1">{description}</p>
+          <h2 className="text-base font-medium text-foreground">{title}</h2>
+          <p className="text-sm text-muted-foreground mt-1">{description}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {defs.length > 0 && (
@@ -97,7 +97,7 @@ export const SourceCard = ({
         <>
           <DesignDivider margin={SECTION_GAP} />
           <div className="flex items-center justify-between gap-3">
-            <p className="flex-1 min-w-0 text-[12px] text-muted-foreground">
+            <p className="flex-1 min-w-0 text-xs text-muted-foreground">
               {lastRun && `Last checked ${formatDateTime(lastRun.ran_at)} — ${lastRun.message}`}
             </p>
             {onSync && (
@@ -144,12 +144,12 @@ export const SourceSection = ({
           {title && (
             <div className="flex items-center gap-1 min-w-0">
               {handle}
-              <h3 className="text-[14px] font-medium text-foreground">{title}</h3>
+              <h3 className="text-sm font-medium text-foreground">{title}</h3>
             </div>
           )}
           {aside}
         </div>
-        {description && <p className="text-[12px] text-muted-foreground mt-1">{description}</p>}
+        {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
         <div className="h-2" aria-hidden="true" />
       </>
     )}
@@ -198,8 +198,8 @@ export const SourceListItem = ({
       <div className="min-w-0 flex-1 flex items-center gap-2">
         {sortable?.handle}
         <div className="min-w-0">
-          <p className="text-[16px] text-foreground truncate">{title}</p>
-          {subtitle && <p className="text-[12px] text-muted-foreground truncate">{subtitle}</p>}
+          <p className="text-base text-foreground truncate">{title}</p>
+          {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
         </div>
       </div>
       {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
@@ -246,7 +246,7 @@ export const SourceAddField = ({
           Add
         </DesignButton>
       </div>
-      {helperText && <p className="text-[12px] leading-[16px] text-[var(--input-title)] mt-1">{helperText}</p>}
+      {helperText && <p className="text-xs text-[var(--input-title)] mt-1">{helperText}</p>}
     </>
   );
 };

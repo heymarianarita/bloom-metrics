@@ -30,8 +30,8 @@ const FigmaComponentChart = ({ rows, periodLabel }: Props) => {
   return (
     <DesignCard className="p-4">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[16px] font-medium text-foreground">Adoption per component</p>
-        <p className="text-[12px] text-muted-foreground">{periodLabel}</p>
+        <p className="text-base font-medium text-foreground">Adoption per component</p>
+        <p className="text-xs text-muted-foreground">{periodLabel}</p>
       </div>
       <DesignSpacer size="small" />
       {data.length === 0 ? (

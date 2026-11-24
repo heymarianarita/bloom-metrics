@@ -210,7 +210,7 @@ const ChangeRow = ({ item, comparison, onAsk }: { item: Insight; comparison: [st
       type="button"
       onClick={onAsk}
       title={`${item.body} Click to dig deeper.`}
-      className={`${grid} text-left rounded-[4px] hover:bg-[rgba(0,119,130,0.04)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
+      className={`${grid} text-left rounded-md hover:bg-surface-primary-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
     >
       {content}
     </button>
@@ -321,7 +321,7 @@ export const InsightsPanel = ({ subject, insights, emptyText, footer, className,
                           type="button"
                           onClick={() => askAbout(item)}
                           title="Click to dig deeper"
-                          className="block w-full py-3 text-left rounded-[4px] hover:bg-[rgba(0,119,130,0.04)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          className="block w-full py-3 text-left rounded-md hover:bg-surface-primary-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
                           {content}
                         </button>

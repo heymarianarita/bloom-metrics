@@ -67,9 +67,9 @@ const CredentialsCard = ({ sourceKey }: { sourceKey: string }) => {
       <DesignDivider margin={SECTION_GAP} />
       <div className="flex items-center gap-2">
         <Key size={14} className="text-muted-foreground" />
-        <h3 className="text-[14px] font-medium text-foreground">Credentials</h3>
+        <h3 className="text-sm font-medium text-foreground">Credentials</h3>
       </div>
-      <p className="text-[12px] text-muted-foreground mt-1">
+      <p className="text-xs text-muted-foreground mt-1">
         Stored securely. Values can never be read back — save a new one to replace it.
       </p>
       <div className="flex flex-col gap-4 mt-2">
@@ -78,7 +78,7 @@ const CredentialsCard = ({ sourceKey }: { sourceKey: string }) => {
           return (
             <div key={def.name} className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-[14px] text-foreground">{def.label}</span>
+                <span className="text-sm text-foreground">{def.label}</span>
                 {saved && saved.readable === false ? (
                   <DesignBadge theme="error" styling="light">
                     Needs re-entering
@@ -95,7 +95,7 @@ const CredentialsCard = ({ sourceKey }: { sourceKey: string }) => {
               </div>
               {saved && !editing[def.name] ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-[12px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {saved.readable === false
                       ? "Saved with an old encryption key and can't be read. Replace it with the current value."
                       : `Saved and hidden. Updated ${formatDateTime(saved.updated_at)}.`}
@@ -156,7 +156,7 @@ const CredentialsCard = ({ sourceKey }: { sourceKey: string }) => {
                   )}
                 </div>
                 {/* Under the row, so the field and its buttons line up. */}
-                <p className="-mt-1 text-[12px] leading-[16px] text-[var(--input-title)]">{def.helper}</p>
+                <p className="-mt-1 text-xs text-[var(--input-title)]">{def.helper}</p>
                 </>
               )}
             </div>

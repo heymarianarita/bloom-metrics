@@ -40,7 +40,7 @@ const DesignBubble = React.forwardRef<HTMLDivElement, DesignBubbleProps>(
         )}
         {...props}
       >
-        <p className="text-base leading-6 whitespace-pre-wrap">{renderContent(text)}</p>
+        <p className="text-sm leading-[18px] whitespace-pre-wrap">{renderContent(text)}</p>
 
         {children && <div className="mt-2">{children}</div>}
 

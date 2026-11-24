@@ -12,9 +12,49 @@ export default {
         "2xl": "1400px",
       },
     },
+    // Bloom's type scale (bloom-tokens v-sys-font-style-*): caption, subtitle, body/title, section heading,
+    // heading, heading XL. There is nothing bigger than 24px and no letter spacing.
+    fontSize: {
+      xs: ["12px", "16px"],
+      sm: ["14px", "18px"],
+      base: ["16px", "22px"],
+      lg: ["18px", "24px"],
+      xl: ["22px", "28px"],
+      "2xl": ["24px", "32px"],
+      "3xl": ["24px", "32px"],
+      "4xl": ["24px", "32px"],
+    },
+    fontWeight: {
+      light: "375",
+      normal: "375",
+      medium: "500",
+      semibold: "580",
+      bold: "580",
+      extrabold: "580",
+    },
+    letterSpacing: {
+      tighter: "0",
+      tight: "0",
+      normal: "0",
+      wide: "0",
+      wider: "0",
+      widest: "0",
+    },
+    // Bloom radii: small (6px) for controls and nested cards, medium (12px) for containers.
+    borderRadius: {
+      none: "0",
+      sm: "6px",
+      DEFAULT: "6px",
+      md: "6px",
+      lg: "6px",
+      xl: "12px",
+      "2xl": "12px",
+      "3xl": "12px",
+      full: "9999px",
+    },
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["V-Inter", "Helvetica Neue", "Helvetica-Neue", "Arial", "sans-serif"],
       },
       colors: {
         border: "var(--border)",
@@ -89,6 +129,9 @@ export default {
         // Interactive surfaces
         "surface-hover": "var(--surface-hover)",
         "surface-active": "var(--surface-active)",
+        "surface-primary-hover": "var(--surface-primary-hover)",
+        "surface-primary-active": "var(--surface-primary-active)",
+        "surface-primary-selected": "var(--surface-primary-selected)",
         // Banner colors
         "banner-info": "var(--banner-info-bg)",
         "banner-success": "var(--banner-success-bg)",
@@ -262,11 +305,6 @@ export default {
       boxShadow: {
         "card-lifted": "0px 4px 12px rgba(21, 25, 26, 0.12)",
         "card-elevated": "0px 4px 16px rgba(21, 25, 26, 0.24)",
-      },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
         "accordion-down": {

@@ -136,7 +136,7 @@ const PastePerformanceDialog = ({ open, onOpenChange, defaultQuarter }: Props) =
           <>
             {!docMode && (
             <>
-            <div className="text-[14px] font-[500] text-foreground">Column mapping</div>
+            <div className="text-sm font-medium text-foreground">Column mapping</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {Array.from({ length: columnCount }).map((_, index) => (
                 <DesignInputSelect
@@ -162,7 +162,7 @@ const PastePerformanceDialog = ({ open, onOpenChange, defaultQuarter }: Props) =
                 checked={replace}
                 onCheckedChange={(checked) => setReplace(Boolean(checked))}
               />
-              <span className="text-[14px] text-foreground">
+              <span className="text-sm text-foreground">
                 Replace existing rows for {quarter || "this quarter"}
               </span>
             </label>
@@ -205,7 +205,7 @@ const PastePerformanceDialog = ({ open, onOpenChange, defaultQuarter }: Props) =
               </table>
             </div>
             {preview.length > 6 && (
-              <div className="text-[12px] text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 Showing the first 6 of {preview.length} rows.
               </div>
             )}
