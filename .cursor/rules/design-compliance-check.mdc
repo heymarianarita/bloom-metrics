@@ -1,0 +1,52 @@
+---
+description: Before finishing any UI change, check it against web-ui and bloom-tokens and verify its quality
+alwaysApply: true
+---
+
+# Check design compliance and quality before calling UI work done
+
+Any change that touches what people see (components, pages, copy, styles) gets this check before
+you report it as done. `web-ui-components.mdc` and `dates-yyyy-mm-dd.mdc` say how to build; this
+rule says how to verify.
+
+## Sources of truth
+
+- **web-ui** (components, props, states, guidelines):
+  `~/Documents/design-systems/web-ui/packages/web-ui/src/lib/<Component>`, or the
+  Storybook MCP (`user-web-ui-storybook`).
+- **bloom-tokens** (colour, spacing, type, radius, elevation values):
+  `~/Documents/design-systems/bloom-tokens/build/vinted/css` (built) and `tokens/`
+  (source). A CSS variable added to `src/index.css` takes its value from there; a value that isn't a
+  token isn't used.
+- **Bloom Brain MCP** (`user-vinted-design`): copy, tone of voice and layout patterns.
+
+## Checklist
+
+1. **Components**: only `Design*` components, with props web-ui documents. No raw `<button>`,
+   `<select>`, `<table>`, shadcn imports or restyling with `className` colours/radii/spacing.
+2. **Tokens**: colours, spacing, type sizes/weights and radii are Bloom's (see
+   `web-ui-components.mdc`). No hex, `rgba()`, `[13px]`, `2.5`, `font-[600]` in feature code.
+3. **States**: hover, focus-visible, disabled, loading, empty and error all exist and look like web-ui's.
+4. **Layout**: check narrow and wide widths. Nothing gets squashed, clipped or overlapping (e.g. a
+   table column shrinking to nothing); long names truncate with a tooltip.
+5. **Accessibility (WCAG 2.2 AA)**: every control has a label, works by keyboard, shows focus, and
+   text meets contrast. Icon-only buttons have an `aria-label`.
+6. **Copy**: sentence case, plain words, Bloom content design; dates as `YYYY-MM-DD`.
+7. **Quality**: `npx tsc --noEmit -p tsconfig.app.json`, `npm run typecheck:server` (server changes),
+   `npx eslint <changed files>` and `npm test` pass, with no new warnings.
+
+## Verify in the running app
+
+With `npm run dev`, open the changed page and run the dev audit in the console (or Alt+Shift+B):
+
+```js
+(await bloomAudit({ root: "main" })).summary   // native HTML, shadcn, custom styling, off-token colours, a11y, dates
+bloomAudit.highlight("offToken")               // outline the offenders on the page
+```
+
+Fix what it finds in the code you touched. Take a screenshot of the result.
+
+## Report
+
+In the final message, say what you checked, what the audit found, and any deviation you left on
+purpose (and why), e.g. "web-ui has no such component, composed from `DesignCard` + `DesignBadge`".
