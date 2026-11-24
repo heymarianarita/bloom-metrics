@@ -454,10 +454,20 @@ const Documentation = () => {
     const change = (label: string, cur: number, prev: number, fmt: (v: number) => string) => {
       if (prev <= 0 && cur <= 0) return;
       const pct = pctChange(cur, prev);
+      const flat = Math.abs(pct) < 0.005;
       out.push({
-        kind: changeKind(cur - prev, pct, Math.abs(pct) < 0.005),
+        kind: changeKind(cur - prev, pct, flat),
         title: `${label} ${pct >= 0 ? "up" : "down"} ${signedPercent(pct).replace(/^[+−]/, "")}`,
         body: `${fmt(cur)} against ${fmt(prev)} in the previous period.`,
+        change: {
+          label,
+          value: fmt(cur),
+          delta: flat ? "No change" : signedPercent(pct),
+          direction: flat ? "flat" : pct > 0 ? "up" : "down",
+          tone: flat ? "neutral" : pct > 0 ? "good" : "bad",
+          period: "This range",
+          previousPeriod: "the previous range",
+        },
       });
     };
     const n = (v: number) => numberFormatter.format(Math.round(v));
