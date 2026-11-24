@@ -32,7 +32,11 @@ export interface Response {
   segments: Record<string, string>;
   /** Question column → trimmed answer ("" when blank). */
   answers: Record<string, string>;
+  /** The row's email address, if it has one ("" otherwise). */
+  respondent: string;
 }
+
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export const UNKNOWN = "Unknown";
 
@@ -138,6 +142,7 @@ export async function loadSource(source: QualitativeSource): Promise<LoadedSourc
         period: periodRaw ? bucketPeriod(periodRaw, periodicity) : "",
         segments,
         answers: Object.fromEntries(source.questions.map((q) => [q.column, text(d[q.column])])),
+        respondent: Object.values(d).map(text).find((v) => EMAIL.test(v)) ?? "",
       };
     })
     .filter((r) => r.period);

@@ -5,6 +5,7 @@ import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignBadge } from "@/components/ds/DesignBadge";
 import { DesignButton } from "@/components/ds/DesignButton";
 import { DesignCard } from "@/components/ds/DesignCard";
+import { AnswersSheet } from "@/components/metrics/AnswersSheet";
 import { BreakdownCard, ShareRow } from "@/components/metrics/BreakdownCard";
 import { answeredIn, useQualitativeGroup, type QualitativeGroupView, type SegmentView } from "@/hooks/useQualitative";
 
@@ -130,8 +131,8 @@ const SegmentThemes = ({
   return (
     <div>
       {collapsible && (
-        <div className="flex items-start gap-3">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+          <div className="flex min-w-0 flex-1 basis-[28rem] flex-wrap items-center gap-1.5">
             {collapsed &&
               rows.slice(0, 3).map((t) => (
                 <DesignBadge key={t.id} theme="muted" styling="light">
@@ -139,11 +140,12 @@ const SegmentThemes = ({
                 </DesignBadge>
               ))}
           </div>
+          {/* -ml-3 cancels the gap beside the badges and, once wrapped below them, lines the caret up with their edge. */}
           <DesignButton
             variant="flat"
             theme="primary"
             size="small"
-            className="shrink-0"
+            className="-ml-3 shrink-0"
             icon={collapsed ? <CaretRight size={12} /> : <CaretDown size={12} />}
             aria-expanded={!collapsed}
             onClick={() => setExpanded((v) => !v)}
@@ -174,6 +176,7 @@ const GroupView = ({
 }) => {
   const [tab, setTab] = React.useState(0);
   const [view, setView] = React.useState(ALL);
+  const [reading, setReading] = React.useState(false);
   const sectionTitle = useSectionHeading("");
   const source = sources[tab] ?? sources[0];
   const question = source?.questions[0];
@@ -207,8 +210,8 @@ const GroupView = ({
   return (
     <DesignCard radius="small" className="p-4">
       <section>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+          <div className="min-w-0 flex-1 basis-60">
             <h3 className="text-base font-medium text-foreground">{title}</h3>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {[
@@ -223,11 +226,21 @@ const GroupView = ({
                 .join(" · ")}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {sources.some((s) => s.runStatus === "running") && (
               <DesignBadge theme="primary" styling="light">
                 Updating…
               </DesignBadge>
+            )}
+            {data && focus && focus.responses > 0 && (
+              <DesignButton
+                variant="flat"
+                theme="muted"
+                size="small"
+                onClick={() => setReading(true)}
+              >
+                All answers
+              </DesignButton>
             )}
             {breakdowns.length > 0 && !filtered && (
               <DesignInputSelect
@@ -311,6 +324,17 @@ const GroupView = ({
           <p className="text-xs text-muted-foreground mt-2">Some newer answers aren't in the themes yet; they're added on the next update.</p>
         )}
       </section>
+      <AnswersSheet
+        open={reading}
+        onOpenChange={setReading}
+        sourceId={source.id}
+        title={source.name}
+        period={active}
+        themes={question.themes}
+        breakdowns={breakdowns.map((b) => b.label)}
+        filters={segmentFilters}
+        nonAnswers={Object.keys(segmentFilters).filter((label) => breakdowns.some((b) => b.label === label)).length > 1 ? 0 : (focus?.nonAnswers ?? 0)}
+      />
     </DesignCard>
   );
 };

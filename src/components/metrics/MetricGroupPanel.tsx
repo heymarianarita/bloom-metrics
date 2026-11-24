@@ -32,6 +32,7 @@ import { BreakdownCard, ShareRow } from "@/components/metrics/BreakdownCard";
 import { useQualitativeSources } from "@/hooks/useQualitative";
 import { LINE_COLORS } from "@/lib/chartColors";
 import { compactNumber } from "@/lib/chartFormat";
+import { pluralLabel } from "@/lib/pluralLabel";
 import {
   Area,
   AreaChart,
@@ -51,14 +52,6 @@ import {
 const ALL = "__all__";
 /** The "All …" choice of a segment select. */
 export const ALL_SEGMENT_VALUES = ALL;
-
-/** "Role" → "roles", "Library" → "libraries", "Business unit" → "business units". */
-const pluralLabel = (label: string) => {
-  const word = label.toLowerCase();
-  if (/[^aeiou]y$/.test(word)) return `${word.slice(0, -1)}ies`;
-  if (/(s|x|z|ch|sh)$/.test(word)) return `${word}es`;
-  return `${word}s`;
-};
 
 const PREVIOUS = "__previous__";
 

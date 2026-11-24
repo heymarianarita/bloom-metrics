@@ -1,5 +1,6 @@
 import { query, toIso } from "../db.ts";
-import { loadSource, sha256, sourcesForGroup, type LoadedSource } from "./data.ts";
+import { getdxAvatars } from "../shared/getdxAvatars.ts";
+import { getSource, loadSource, sha256, sourcesForGroup, type LoadedSource } from "./data.ts";
 
 /** Period key of the across-periods summary (kept here so the view needs nothing from the job). */
 export const TREND_PERIOD = "__trend__";
@@ -86,6 +87,42 @@ export function segmentCounts(loaded: LoadedSource, question: string, tags: TagR
       themes: themes.map((t) => ({ id: t.id, count: counts.get(t.id) ?? 0 })),
     };
   });
+}
+
+/**
+ * Every answer with content in one period, as written, with its themes and breakdown values.
+ * Answers tagged as having nothing to add are left out; ones not tagged yet have no themes.
+ * Who wrote each one is only included for signed-in people (`withRespondents`).
+ */
+export async function periodAnswers(sourceId: string, period: string, withRespondents: boolean) {
+  const source = await getSource(sourceId);
+  if (!source || !source.enabled) return null;
+  const question = source.questions[0];
+  const [loaded, themes, tags] = await Promise.all([
+    loadSource(source),
+    query<{ id: string }>("SELECT id FROM qualitative_themes WHERE source_id = ? AND question = ?", [source.id, question.column]),
+    query<TagRow>("SELECT row_id, theme_ids, non_answer FROM qualitative_tags WHERE source_id = ? AND question = ?", [
+      source.id,
+      question.column,
+    ]),
+  ]);
+  const valid = new Set(themes.map((t) => t.id));
+  const tagOf = new Map(tags.map((t) => [t.row_id, t]));
+  const rows = loaded.responses.filter(
+    (r) => r.period === period && r.answers[question.column] && !Number(tagOf.get(r.rowId)?.non_answer ?? 0),
+  );
+  const avatars = withRespondents ? await getdxAvatars(rows.map((r) => r.respondent)).catch(() => ({})) : {};
+  return {
+    period,
+    answers: rows.map((r) => ({
+      id: r.rowId,
+      text: r.answers[question.column],
+      themes: idsOf(tagOf.get(r.rowId)?.theme_ids).filter((id) => valid.has(id)),
+      segments: r.segments,
+      respondent: withRespondents ? r.respondent : "",
+      avatar: (avatars as Record<string, string>)[r.respondent.toLowerCase()] ?? "",
+    })),
+  };
 }
 
 const EXCERPTS_PER_THEME = 3;

@@ -103,6 +103,30 @@ export const useQualitativeGroup = (group: string) =>
       (q.state.data as QualitativeGroupView | undefined)?.sources.some((s) => s.runStatus === "running") ? 5000 : false,
   });
 
+export interface QualitativeAnswer {
+  id: string;
+  text: string;
+  themes: string[];
+  /** Breakdown label → value ("Role" → "Web Engineer"). */
+  segments: Record<string, string>;
+  /** Who wrote it (their email); "" when signed out or the row has no email. */
+  respondent: string;
+  /** Their GetDX profile picture; "" when there's none. */
+  avatar: string;
+}
+
+/** One period's answers as written (not the ones with nothing to add); fetched only when `enabled`. */
+export const useQualitativeAnswers = (sourceId: string, period: string | undefined, enabled: boolean) =>
+  useQuery({
+    queryKey: ["qualitative-answers", sourceId, period],
+    queryFn: () =>
+      invoke<{ period: string; answers: QualitativeAnswer[] }>(
+        `qualitative?answers=${encodeURIComponent(sourceId)}&period=${encodeURIComponent(period ?? "")}`,
+        { method: "GET" },
+      ),
+    enabled: enabled && Boolean(period),
+  });
+
 /** What the qualitative metrics of these groups show, by metric id. */
 export const useQualitativeViews = (groups: string[]) => {
   const results = useQueries({
