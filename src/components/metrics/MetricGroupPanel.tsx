@@ -99,9 +99,14 @@ const withDisplayOptions = (metric: ManualMetric, options?: MetricDisplayOptions
 
 /** How many responses gave each score (1–5) in one period, for rating metrics. */
 export interface ScoreDistribution {
+  /** Empty when the metric has no data in any period. */
   period: string;
   total: number;
   counts: Record<string, number>;
+  /** Why there are no bars: nobody answered, or the period only has an overall score (e.g. from a snapshot). */
+  empty?: "no-responses" | "summary-only";
+  /** The period's overall score, when `empty` is "summary-only". */
+  average?: number;
 }
 
 /** Facet values a single metric contributes to the shared filter bar. */
@@ -222,7 +227,7 @@ const ScoreDistributions = ({
   const heading = useSectionHeading("How people answered");
   const rated = metrics.filter((m) => distributions[m.id]);
   if (rated.length === 0) return null;
-  const period = distributions[rated[0].id]?.period;
+  const period = rated.map((m) => distributions[m.id]?.period).find(Boolean);
   return (
     <section className="pt-2">
       <div className="flex items-baseline justify-between gap-2">
@@ -232,6 +237,18 @@ const ScoreDistributions = ({
       <div className="grid gap-3 md:grid-cols-2 mt-3">
         {rated.map((m) => {
           const d = distributions[m.id]!;
+          if (d.empty) {
+            const when = d.period ? ` in ${d.period}` : " yet";
+            return (
+              <BreakdownCard key={m.id} title={m.name} meta={d.empty === "summary-only" ? "No individual answers" : "No responses"}>
+                <p className="text-sm text-muted-foreground">
+                  {d.empty === "summary-only"
+                    ? `Only an overall score is available${when} (${formatNumber(d.average)}), not how each person answered.`
+                    : `Nobody answered this${when}.`}
+                </p>
+              </BreakdownCard>
+            );
+          }
           const max = Math.max(...SCALE_POINTS.map((p) => d.counts[p] ?? 0), 1);
           return (
             <BreakdownCard key={m.id} title={m.name} meta={`${d.total} responses`}>
@@ -380,18 +397,26 @@ const MetricStat = ({
   // For 1–5 ratings: the share of responses per score in the shown period.
   const distributionSignature = React.useMemo(() => {
     const isRating = (columns.data ?? []).find((c) => c.key === metric.value_column)?.kind === "rating";
-    if (!isDataset || !isRating || !latest) return "null";
-    const values = filteredRows
+    if (!isDataset || !isRating) return "null";
+    const period = latest?.period ?? (filters.period !== ALL ? filters.period : "");
+    const numbers = filteredRows
       .filter((row) => {
         const raw = String(row.data?.[metric.period_column] ?? "").trim();
-        return raw && bucketPeriod(raw, periodicity) === latest.period;
+        return period && raw && bucketPeriod(raw, periodicity) === period;
       })
-      .map((row) => Number(row.data?.[metric.value_column]))
-      .filter((v) => Number.isInteger(v) && v >= 1 && v <= 5);
-    if (values.length === 0) return "null";
+      .map((row) => row.data?.[metric.value_column])
+      .filter((v) => v !== null && v !== undefined && String(v).trim() !== "")
+      .map(Number)
+      .filter(Number.isFinite);
+    const values = numbers.filter((v) => Number.isInteger(v) && v >= 1 && v <= 5);
     const counts = Object.fromEntries(SCALE_POINTS.map((p) => [p, values.filter((v) => String(v) === p).length]));
-    return JSON.stringify({ period: latest.period, total: values.length, counts });
-  }, [isDataset, metric, latest, filteredRows, periodicity, columns.data]);
+    if (values.length === 0) {
+      return numbers.length
+        ? JSON.stringify({ period, total: 0, counts, empty: "summary-only", average: latest?.value })
+        : JSON.stringify({ period, total: 0, counts, empty: "no-responses" });
+    }
+    return JSON.stringify({ period, total: values.length, counts });
+  }, [isDataset, metric, latest, filters.period, filteredRows, periodicity, columns.data]);
   React.useEffect(() => {
     onDistribution?.(metric.id, JSON.parse(distributionSignature) as ScoreDistribution | null);
   }, [distributionSignature, metric.id, onDistribution]);
@@ -410,7 +435,7 @@ const MetricStat = ({
         change={
           delta !== undefined
             ? `${delta >= 0 ? "+" : ""}${delta} vs ${previousLabel}`
-            : (latest?.period ?? (filters.period !== ALL ? `No data for ${filters.period}` : undefined))
+            : (latest?.period ?? (filters.period !== ALL ? `No data for ${filters.period}` : "No data yet"))
         }
         changeTone={changeTone(metric.direction, delta)}
       />

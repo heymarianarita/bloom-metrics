@@ -51,7 +51,10 @@ export function aggregateRows(
   rows.forEach((data) => {
     const period = String(data?.[config.period_column] ?? "").trim();
     if (!period) return;
-    const num = Number(data?.[config.value_column]);
+    const raw = data?.[config.value_column];
+    // Number(null) and Number("") are 0: an unanswered cell would drag averages down.
+    if (raw === null || raw === undefined || String(raw).trim() === "") return;
+    const num = Number(raw);
     if (!Number.isFinite(num)) return;
     const bucket = buckets.get(period) ?? { values: [], below: 0 };
     bucket.values.push(num);
