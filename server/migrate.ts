@@ -722,6 +722,34 @@ async function snapshotMetrics(conn: PoolConnection) {
   console.log(`code adoption metrics use each period's last scan: ${(res as { affectedRows?: number }).affectedRows ?? 0}`);
 }
 
+/**
+ * One-off: first sign-in for people who signed in before it was recorded, from the earliest trace
+ * they left: an edit in Data history or a password link they used. Profile creation doesn't count:
+ * an admin adding someone creates their profile too.
+ */
+const FIRST_SIGN_IN_NAME = "2026-11-24-first-sign-in-backfill";
+
+async function firstSignInBackfill(conn: PoolConnection) {
+  const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [FIRST_SIGN_IN_NAME]);
+  if ((done as unknown[]).length) return;
+  const [res] = await conn.query(
+    `UPDATE profiles p
+        JOIN (
+          SELECT p2.id,
+                 LEAST(
+                   COALESCE((SELECT MIN(c.changed_at) FROM data_change_log c WHERE c.changed_by = p2.id), '9999-12-31'),
+                   COALESCE((SELECT MIN(l.used_at) FROM password_links l WHERE l.user_id = p2.id), '9999-12-31')
+                 ) AS first_at
+            FROM profiles p2
+           WHERE p2.first_sign_in_at IS NULL
+        ) t ON t.id = p.id
+        SET p.first_sign_in_at = t.first_at
+      WHERE t.first_at < '9999-12-31'`,
+  );
+  await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [FIRST_SIGN_IN_NAME]);
+  console.log(`first sign-in filled in for ${(res as { affectedRows?: number }).affectedRows ?? 0} people`);
+}
+
 /** The database may still be starting (dev db, or a restarting MySQL pod): retry for up to a minute. */
 async function connectWithRetry() {
   const deadline = Date.now() + 60_000;
@@ -800,6 +828,7 @@ async function main() {
       await codeGeneric(conn);
       await metricDirection(conn);
       await snapshotMetrics(conn);
+      await firstSignInBackfill(conn);
       return;
     }
     if (!existsSync(EXPORT_FILE)) {
@@ -847,6 +876,7 @@ async function main() {
     await codeGeneric(conn);
     await metricDirection(conn);
     await snapshotMetrics(conn);
+    await firstSignInBackfill(conn);
   } finally {
     conn.release();
     await pool.end();
