@@ -428,6 +428,8 @@ interface MetricGroupPanelProps {
   displayOptions?: Record<string, MetricDisplayOptions>;
   /** Draw only these parts (a view's widget); the rest still loads the data they need. */
   parts?: MetricPanelParts;
+  /** The metrics offered under "Compare with", in this order; every other metric of the group when left out. */
+  compareOptions?: string[];
   /** The trend's chart type. */
   trendChart?: "line" | "bar" | "area";
   /** Cards per row; automatic when left out. */
@@ -463,6 +465,7 @@ const MetricGroupPanel = ({
   showResponses = false,
   showQualitative = true,
   parts,
+  compareOptions,
   trendChart = "line",
   cardColumns,
   breakdownLimit,
@@ -518,13 +521,13 @@ const MetricGroupPanel = ({
         // In the order set in Metrics → All metrics (alphabetical until arranged there).
         .sort(byTabOrder);
 
-  // Other metrics in the same group that can be laid over the trend chart.
-  const comparableMetrics = (metrics.data ?? []).filter(
-    (metric) =>
-      !metric.archived &&
-      metric.surface === group &&
-      !groupMetrics.some((shown) => shown.id === metric.id),
-  );
+  // Other metrics that can be laid over the trend chart.
+  const notShown = (metric: ManualMetric) => !metric.archived && !groupMetrics.some((shown) => shown.id === metric.id);
+  const comparableMetrics = compareOptions
+    ? compareOptions
+        .map((id) => (metrics.data ?? []).find((metric) => metric.id === id))
+        .filter((metric): metric is ManualMetric => Boolean(metric) && notShown(metric!))
+    : (metrics.data ?? []).filter((metric) => metric.surface === group && notShown(metric));
   const compareMetrics = comparableMetrics.filter((metric) => compareIds.includes(metric.id));
   const chartMetrics = [...groupMetrics, ...compareMetrics];
   const noopFacets = React.useCallback(() => {}, []);

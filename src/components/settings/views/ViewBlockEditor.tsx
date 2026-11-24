@@ -124,7 +124,13 @@ const changeKind = (d: Draft, kind: WidgetKind): Draft => {
       section: "",
       options:
         kind === "trend"
-          ? { metrics: ids, width, title, chart: d.options.chart === "bar" || d.options.chart === "area" ? d.options.chart : "line" }
+          ? {
+              metrics: ids,
+              width,
+              title,
+              chart: d.options.chart === "bar" || d.options.chart === "area" ? d.options.chart : "line",
+              compare: d.options.compare,
+            }
           : kind === "breakdown"
             ? { metrics: ids, width, title, column: d.options.column, view: d.options.view ?? "table" }
             : { metrics: ids, width, title },
@@ -599,6 +605,21 @@ const SectionForm = ({
               onChange={setMetrics}
             />
           )}
+
+      {draft.kind === "trend" && (
+        <div className="flex flex-col gap-1">
+          <MetricChecklist
+            label="Can be compared with"
+            metrics={live.filter((m) => !ids.includes(m.id))}
+            selected={(draft.options.compare ?? []).filter((id) => !ids.includes(id))}
+            inView={inView}
+            onChange={(compare) => setOption({ compare })}
+          />
+          <p className="text-xs text-muted-foreground">
+            Offered under the chart as “Compare with”, for people to add to it. None picked, no comparison.
+          </p>
+        </div>
+      )}
 
       {draft.kind === "themes" &&
         ((qualitative.data ?? []).length > 0 ? (

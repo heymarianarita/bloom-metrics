@@ -225,6 +225,7 @@ const ViewBlocks = ({
           metricIds={widgetMetrics(item)}
           displayOptions={displayOptions(item)}
           parts={parts}
+          compareOptions={item.options?.compare ?? []}
           trendChart={item.options?.chart === "bar" || item.options?.chart === "area" ? item.options.chart : "line"}
           cardColumns={item.kind === "card" ? item.options?.columns : undefined}
           breakdownLimit={item.kind === "breakdown" ? item.options?.limit : undefined}

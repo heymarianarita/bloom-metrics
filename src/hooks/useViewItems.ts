@@ -42,6 +42,8 @@ export interface WidgetOptions {
   columns?: number;
   /** trend: line | bar; code: the chart type of that part. */
   chart?: string;
+  /** trend: the metrics people can add to the chart with "Compare with" (none when left out). */
+  compare?: string[];
   /** breakdown: the dataset column it breaks down by, and how. */
   column?: string;
   view?: BreakdownView;
@@ -161,6 +163,10 @@ export const removePlacements = async (kind: "number" | "qualitative", ref: stri
     if (kind === "qualitative") {
       if (item.kind === "themes" && item.ref === ref) check(await supabase.from("view_items").delete().eq("id", item.id));
       continue;
+    }
+    if (item.options?.compare?.includes(ref)) {
+      item.options = { ...item.options, compare: item.options.compare.filter((id) => id !== ref) };
+      check(await supabase.from("view_items").update({ options: item.options } as never).eq("id", item.id));
     }
     const shown = widgetMetrics(item);
     if (!shown.includes(ref)) continue;
