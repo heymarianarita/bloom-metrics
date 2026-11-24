@@ -12,6 +12,9 @@ export interface SignInLink {
   expires_at: string;
 }
 
+/** Whether the link also went out as a Slack direct message (only when asked to send it). */
+export type SlackResult = { sent: true } | { sent: false; error: string };
+
 export interface PersonAuthStatus {
   user_id: string;
   has_password: boolean;
@@ -50,10 +53,13 @@ export const setPasswordFromLink = async (token: string, password: string, displ
 };
 
 export const getPeopleStatus = () =>
-  request<{ password: boolean; people: PersonAuthStatus[] }>("/api/admin/people/status");
+  request<{ password: boolean; slack: boolean; people: PersonAuthStatus[] }>("/api/admin/people/status");
 
-export const addPerson = (input: { email: string; display_name?: string; role: "admin" | "editor" | "viewer" }) =>
-  request<{ user_id: string; existed: boolean; has_password: boolean } & Partial<SignInLink>>("/api/admin/people", input);
+export const addPerson = (input: { email: string; display_name?: string; role: "admin" | "editor" | "viewer"; slack?: boolean }) =>
+  request<{ user_id: string; existed: boolean; has_password: boolean; slack?: SlackResult } & Partial<SignInLink>>(
+    "/api/admin/people",
+    input,
+  );
 
-export const createSignInLink = (userId: string) =>
-  request<SignInLink>(`/api/admin/people/${encodeURIComponent(userId)}/link`, {});
+export const createSignInLink = (userId: string, slack = false) =>
+  request<SignInLink & { slack?: SlackResult }>(`/api/admin/people/${encodeURIComponent(userId)}/link`, { slack });

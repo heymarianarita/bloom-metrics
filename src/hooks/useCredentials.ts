@@ -66,6 +66,13 @@ export const CREDENTIAL_DEFS: {
     helper: "platform.claude.com → API keys. Each question in the Insights chat uses API credits.",
     secret: true,
   },
+  {
+    sourceKey: "slack",
+    name: "SLACK_BOT_TOKEN",
+    label: "Slack bot token",
+    helper: "api.slack.com/apps → your app → OAuth & Permissions. Bot scopes chat:write, users:read and users:read.email; starts with xoxb-.",
+    secret: true,
+  },
 ];
 
 export const useCredentialStatus = () =>

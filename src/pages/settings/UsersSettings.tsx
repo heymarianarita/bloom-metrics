@@ -14,7 +14,8 @@ import { DesignButton } from "@/components/ds/DesignButton";
 import { DesignDialog } from "@/components/ds/DesignDialog";
 import { DesignInputText } from "@/components/ds/DesignInput";
 import { supabase } from "@/integrations/supabase/client";
-import { addPerson, createSignInLink, getPeopleStatus, type SignInLink } from "@/integrations/auth/api";
+import { DesignInfoBanner } from "@/components/ds/DesignInfoBanner";
+import { addPerson, createSignInLink, getPeopleStatus, type SignInLink, type SlackResult } from "@/integrations/auth/api";
 import { useToast } from "@/hooks/use-toast";
 import { useSession, type AppRole } from "@/hooks/useAuth";
 import { formatDate, formatDateTime } from "@/lib/formatDate";
@@ -59,8 +60,20 @@ const useMembers = () =>
     },
   });
 
-/** Shows a one-time sign-in link for the admin to send on Slack. */
-const LinkDialog = ({ link, email, onClose }: { link: SignInLink | null; email: string; onClose: () => void }) => {
+/** Shows a one-time sign-in link for the admin to send on Slack, when the app couldn't send it itself. */
+const LinkDialog = ({
+  link,
+  email,
+  slackOn,
+  slackError,
+  onClose,
+}: {
+  link: SignInLink | null;
+  email: string;
+  slackOn: boolean;
+  slackError?: string;
+  onClose: () => void;
+}) => {
   const { toast } = useToast();
   const copy = async () => {
     if (!link) return;
@@ -70,10 +83,18 @@ const LinkDialog = ({ link, email, onClose }: { link: SignInLink | null; email: 
   return (
     <DesignDialog open={Boolean(link)} onOpenChange={(open) => !open && onClose()} title="Sign-in link ready">
       <div className="space-y-4">
+        {slackError && (
+          <DesignInfoBanner type="warning" title="Couldn't send it on Slack" description={slackError} showCloseButton={false} />
+        )}
         <p className="text-sm text-muted-foreground">
           Send this to <span className="text-foreground">{email}</span> on Slack. It lets them choose a password, works
           once, and expires on {link ? formatDateTime(link.expires_at) : ""}.
         </p>
+        {!slackOn && (
+          <p className="text-xs text-muted-foreground">
+            Connect Slack in Settings → Data sources to have links sent as a direct message for you.
+          </p>
+        )}
         <DesignInputText value={link?.link ?? ""} readOnly onFocus={(e) => e.currentTarget.select()} />
         <div className="flex flex-col gap-2">
           <DesignButton fullWidth variant="filled" theme="primary" onClick={copy}>
@@ -90,12 +111,14 @@ const LinkDialog = ({ link, email, onClose }: { link: SignInLink | null; email: 
 
 const AddPersonDialog = ({
   open,
+  slackOn,
   onOpenChange,
   onAdded,
 }: {
   open: boolean;
+  slackOn: boolean;
   onOpenChange: (open: boolean) => void;
-  onAdded: (email: string, link: SignInLink | null) => void;
+  onAdded: (email: string, link: SignInLink | null, slack?: SlackResult) => void;
 }) => {
   const [email, setEmail] = React.useState("");
   const [name, setName] = React.useState("");
@@ -104,11 +127,15 @@ const AddPersonDialog = ({
   const queryClient = useQueryClient();
 
   const add = useMutation({
-    mutationFn: () => addPerson({ email, display_name: name, role }),
+    mutationFn: () => addPerson({ email, display_name: name, role, slack: slackOn }),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["members"] });
       queryClient.invalidateQueries({ queryKey: ["people-status"] });
-      onAdded(email.trim().toLowerCase(), res.link && res.expires_at ? { link: res.link, expires_at: res.expires_at } : null);
+      onAdded(
+        email.trim().toLowerCase(),
+        res.link && res.expires_at ? { link: res.link, expires_at: res.expires_at } : null,
+        res.slack,
+      );
       setEmail("");
       setName("");
       setError(null);
@@ -135,7 +162,7 @@ const AddPersonDialog = ({
         />
         {error && <p className="text-[12px] text-destructive">{error}</p>}
         <DesignButton type="submit" fullWidth variant="filled" theme="primary" isLoading={add.isPending}>
-          Add and create sign-in link
+          {slackOn ? "Add and send sign-in link on Slack" : "Add and create sign-in link"}
         </DesignButton>
       </form>
     </DesignDialog>
@@ -150,14 +177,21 @@ const UsersSettingsInner = () => {
   const status = useQuery({ queryKey: ["people-status"], queryFn: getPeopleStatus });
   const statusById = new Map((status.data?.people ?? []).map((p) => [p.user_id, p]));
   const passwordsOn = status.data?.password ?? true;
+  const slackOn = status.data?.slack ?? false;
   const [adding, setAdding] = React.useState(false);
-  const [shownLink, setShownLink] = React.useState<{ email: string; link: SignInLink } | null>(null);
+  const [shownLink, setShownLink] = React.useState<{ email: string; link: SignInLink; slackError?: string } | null>(null);
+
+  /** Confirms a Slack DM went out, or falls back to the copy-the-link dialog. */
+  const deliver = (email: string, link: SignInLink, slack?: SlackResult) => {
+    if (slack?.sent) toast({ title: "Sent on Slack", description: `${email} got their sign-in link as a direct message.` });
+    else setShownLink({ email, link, slackError: slack && "error" in slack ? slack.error : undefined });
+  };
 
   const newLink = useMutation({
-    mutationFn: (row: Member) => createSignInLink(row.id).then((link) => ({ email: row.email ?? "", link })),
-    onSuccess: (res) => {
+    mutationFn: (row: Member) => createSignInLink(row.id, slackOn).then((res) => ({ email: row.email ?? "", res })),
+    onSuccess: ({ email, res }) => {
       queryClient.invalidateQueries({ queryKey: ["people-status"] });
-      setShownLink(res);
+      deliver(email, { link: res.link, expires_at: res.expires_at }, res.slack);
     },
     onError: (err) => toast({ title: "Could not create link", description: String(err), variant: "destructive" }),
   });
@@ -212,7 +246,8 @@ const UsersSettingsInner = () => {
           {
             key: "signin",
             header: "Sign-in",
-            width: "240px",
+            width: slackOn ? "280px" : "240px",
+            cellTooltip: false,
             render: (row: Member) => {
               const s = statusById.get(row.id);
               return (
@@ -231,7 +266,9 @@ const UsersSettingsInner = () => {
                     isLoading={newLink.isPending && newLink.variables?.id === row.id}
                     onClick={() => newLink.mutate(row)}
                   >
-                    {s?.has_password ? "Reset link" : "New link"}
+                    {slackOn
+                      ? s?.has_password ? "Send reset link" : "Send link"
+                      : s?.has_password ? "Reset link" : "New link"}
                   </DesignButton>
                 </div>
               );
@@ -262,14 +299,21 @@ const UsersSettingsInner = () => {
       />
       <AddPersonDialog
         open={adding}
+        slackOn={slackOn}
         onOpenChange={setAdding}
-        onAdded={(email, link) => {
+        onAdded={(email, link, slack) => {
           setAdding(false);
-          if (link) setShownLink({ email, link });
+          if (link) deliver(email, link, slack);
           else toast({ title: "Access updated", description: `${email} already has a password.` });
         }}
       />
-      <LinkDialog link={shownLink?.link ?? null} email={shownLink?.email ?? ""} onClose={() => setShownLink(null)} />
+      <LinkDialog
+        link={shownLink?.link ?? null}
+        email={shownLink?.email ?? ""}
+        slackOn={slackOn}
+        slackError={shownLink?.slackError}
+        onClose={() => setShownLink(null)}
+      />
       <DesignSpacer size="medium" />
       {members.isLoading ? (
         <DesignLoader />

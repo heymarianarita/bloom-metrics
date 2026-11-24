@@ -86,6 +86,14 @@ export const DATA_SOURCE_DEFS: {
     credential: "ANTHROPIC_API_KEY",
     fields: [],
   },
+  {
+    key: "slack",
+    label: "Slack",
+    description: "Sends one-time sign-in links from Settings → Users as a direct message from the app.",
+    mode: "dynamic",
+    credential: "SLACK_BOT_TOKEN",
+    fields: [],
+  },
 ];
 
 export const useDataSourceConfigs = () =>

@@ -7,6 +7,42 @@
 - An admin adds someone in **Settings → Users → Add person** (email, name, access level) and gets a
   one-time link to send them on Slack. The link lets them choose a password (valid 7 days, works once).
 - Forgot a password: an admin clicks **Reset link** next to the person and sends the new link (valid 24h).
+- With Slack connected, the app sends these links itself as a Slack DM (the buttons read **Send link** and
+  **Send reset link**). If Slack can't deliver one, the dialog shows the link to copy instead.
+
+### Slack
+
+1. At [api.slack.com/apps](https://api.slack.com/apps), choose **Create New App → Paste a manifest**,
+   pick the Vinted workspace and paste:
+
+   ```yaml
+   display_information:
+     name: Bloom Metrics
+     description: Bloom Metrics, the design system adoption dashboard. Sends sign-in links and reports.
+   features:
+     bot_user:
+       display_name: Bloom Metrics
+       always_online: false
+     app_home:
+       home_tab_enabled: false
+       messages_tab_enabled: true
+       messages_tab_read_only_enabled: true
+   oauth_config:
+     scopes:
+       bot:
+         - chat:write
+         - users:read
+         - users:read.email
+   settings:
+     org_deploy_enabled: false
+     socket_mode_enabled: false
+     token_rotation_enabled: false
+   ```
+2. **Install App → Install to Vinted** (a Slack admin may need to approve it).
+3. Copy the bot token (`xoxb-…`) into **Settings → Data sources → Slack**. Locally, `SLACK_BOT_TOKEN`
+   in `.env` works too.
+
+People are found by their @vinted.com email, so it must match their Slack account's email.
 - Removing access: set the person to **No access**. They can still view, like anyone.
 - 5 wrong passwords for an email (or 20 from one IP) lock sign-in for 15 minutes.
 

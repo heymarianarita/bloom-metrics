@@ -32,6 +32,11 @@ export interface DataTableColumn<T> {
   width?: string;
   /** Show sort icon in header */
   sortable?: boolean;
+  /**
+   * Hovering a cell shows its whole text in a tooltip (default true). Turn off for cells
+   * holding several elements, e.g. a badge and a button, which would read as one run-on label.
+   */
+  cellTooltip?: boolean;
 }
 
 export interface DataTableFilter {
@@ -574,9 +579,10 @@ function DesignDataTableInner<T>(
                           : "";
                       const isStringContent = typeof cellContent === "string";
                       // Extract plain text from JSX for tooltip
-                      const tooltipText = isStringContent
+                      const plainText = isStringContent
                         ? (cellContent as string)
                         : extractText(cellContent);
+                      const tooltipText = col.cellTooltip === false ? "" : plainText;
                       return (
                         <td
                           key={col.key}
@@ -591,7 +597,7 @@ function DesignDataTableInner<T>(
                               <button
                                 type="button"
                                 aria-expanded={expanded}
-                                aria-label={`${expanded ? "Collapse" : "Expand"} ${tooltipText}`}
+                                aria-label={`${expanded ? "Collapse" : "Expand"} ${plainText}`}
                                 onClick={() => toggleExpanded(key)}
                                 className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-[var(--muted)] text-[var(--foreground)] hover:brightness-95 active:brightness-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] transition-colors"
                               >

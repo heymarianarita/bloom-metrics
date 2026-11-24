@@ -14,6 +14,7 @@ import {
   type SessionUser,
 } from "./auth.ts";
 import { isLocalDev } from "./devmode.ts";
+import { sendLinkOnSlack, slackEnabled } from "./slack.ts";
 
 /**
  * Email + password sign-in for people an admin has added (no self sign-up).
@@ -230,6 +231,7 @@ export function passwordRouter(): Router {
     );
     res.json({
       password: passwordEnabled(),
+      slack: await slackEnabled(),
       people: rows.map((r) => ({ user_id: r.user_id, has_password: Boolean(r.has_password), link_expires_at: toIso(r.link_expires_at) })),
     });
   }));
@@ -258,19 +260,27 @@ export function passwordRouter(): Router {
     });
     const hasPassword = (await query("SELECT 1 FROM user_passwords WHERE user_id = ?", [userId])).length > 0;
     const link = passwordEnabled() && !hasPassword ? await createLink(userId, "invite", admin.id) : null;
-    res.status(existing[0] ? 200 : 201).json({ user_id: userId, existed: Boolean(existing[0]), has_password: hasPassword, ...link });
+    const slack = link && req.body?.slack === true
+      ? await sendLinkOnSlack({ email, ...link, purpose: "invite", senderName: admin.name })
+      : undefined;
+    res.status(existing[0] ? 200 : 201).json({ user_id: userId, existed: Boolean(existing[0]), has_password: hasPassword, ...link, slack });
   }));
 
   r.post("/api/admin/people/:id/link", h(async (req: Request, res: Response) => {
     const admin = await requireAdmin(req, res);
     if (!admin) return;
     if (!passwordEnabled()) return void res.status(400).json({ error: "Password sign-in is turned off" });
-    const found = await query<{ id: string; has_password: number }>(
-      "SELECT p.id, EXISTS (SELECT 1 FROM user_passwords w WHERE w.user_id = p.id) AS has_password FROM profiles p WHERE p.id = ?",
+    const found = await query<{ id: string; email: string; has_password: number }>(
+      "SELECT p.id, p.email, EXISTS (SELECT 1 FROM user_passwords w WHERE w.user_id = p.id) AS has_password FROM profiles p WHERE p.id = ?",
       [req.params.id],
     );
     if (!found[0]) return void res.status(404).json({ error: "Person not found" });
-    res.json(await createLink(found[0].id, found[0].has_password ? "reset" : "invite", admin.id));
+    const purpose = found[0].has_password ? "reset" : "invite";
+    const link = await createLink(found[0].id, purpose, admin.id);
+    const slack = req.body?.slack === true
+      ? await sendLinkOnSlack({ email: found[0].email, ...link, purpose, senderName: admin.name })
+      : undefined;
+    res.json({ ...link, slack });
   }));
 
   return r;
