@@ -1,4 +1,5 @@
 import * as React from "react";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Check } from "lucide-react";
 
@@ -73,7 +74,8 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
   ) => {
     const [isOpen, setIsOpen] = React.useState(false);
     const [internalValue, setInternalValue] = React.useState(defaultValue || "");
-    const dropdownRef = React.useRef<HTMLDivElement>(null);
+    const triggerRef = React.useRef<HTMLButtonElement>(null);
+    const [portalContainer, setPortalContainer] = React.useState<HTMLElement | null>(null);
 
     const currentValue = value !== undefined ? value : internalValue;
     const selectedOption = options.find((opt) => opt.value === currentValue);
@@ -84,39 +86,17 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
     // Only the two Bloom sizes exist: anything but "default" is compact (36px).
     const isCompact = size !== "default";
 
-    // Close dropdown on outside click
-    React.useEffect(() => {
-      const handleClickOutside = (event: MouseEvent) => {
-        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-          setIsOpen(false);
-        }
-      };
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    // Close on Escape
-    React.useEffect(() => {
-      const handleKeyDown = (event: KeyboardEvent) => {
-        if (event.key === "Escape") {
-          setIsOpen(false);
-        }
-      };
-      if (isOpen) {
-        document.addEventListener("keydown", handleKeyDown);
-        return () => document.removeEventListener("keydown", handleKeyDown);
-      }
-    }, [isOpen]);
-
     const handleSelect = (optionValue: string) => {
       if (value === undefined) setInternalValue(optionValue);
       onChange?.(optionValue);
       setIsOpen(false);
     };
 
-    const handleToggle = () => {
+    const handleOpenChange = (open: boolean) => {
       if (disabled) return;
-      setIsOpen((prev) => !prev);
+      // Inside a dialog or sheet the menu must live in it: they block scrolling everywhere else.
+      if (open) setPortalContainer(triggerRef.current?.closest<HTMLElement>('[role="dialog"]') ?? null);
+      setIsOpen(open);
     };
 
     return (
@@ -131,11 +111,12 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
           </label>
         )}
 
-        <div ref={dropdownRef} className="relative">
+        <PopoverPrimitive.Root open={isOpen} onOpenChange={handleOpenChange}>
           {/* Select trigger — boxed style */}
+          <PopoverPrimitive.Trigger asChild>
           <button
+            ref={triggerRef}
             type="button"
-            onClick={handleToggle}
             disabled={disabled}
             aria-expanded={isOpen}
             aria-haspopup="listbox"
@@ -205,11 +186,16 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
               )}
             />
           </button>
+          </PopoverPrimitive.Trigger>
 
           {/* Dropdown */}
-          {isOpen && (
-            <div
-              className="absolute top-full left-0 right-0 mt-1 bg-[var(--background)] border border-[var(--border)] rounded-[6px] shadow-lg z-50 max-h-[240px] overflow-auto py-1"
+          <PopoverPrimitive.Portal container={portalContainer}>
+            <PopoverPrimitive.Content
+              align="start"
+              sideOffset={4}
+              collisionPadding={8}
+              onOpenAutoFocus={(e) => e.preventDefault()}
+              className="z-[1100] w-[var(--radix-popover-trigger-width)] min-w-[160px] max-w-[min(360px,calc(100vw-16px))] bg-[var(--background)] border border-[var(--border)] rounded-[6px] shadow-lg max-h-[min(240px,var(--radix-popover-content-available-height))] overflow-auto py-1 outline-none"
               role="listbox"
             >
               {options.map((option) => {
@@ -241,9 +227,9 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
                   </button>
                 );
               })}
-            </div>
-          )}
-        </div>
+            </PopoverPrimitive.Content>
+          </PopoverPrimitive.Portal>
+        </PopoverPrimitive.Root>
 
         {/* Validation message */}
         {validation && (

@@ -915,7 +915,7 @@ const Documentation = () => {
                   placeholder="Search platforms"
                 />
                 <DesignSpacer size="small" />
-                <DesignCard radius="small" className="overflow-hidden">
+                <div>
                 <DesignDataTable
                   columns={ga4Columns}
                   data={ga4Rows}
@@ -926,7 +926,7 @@ const Documentation = () => {
                   emptyTitle={platformSearch ? "No matching platforms" : "No Google Analytics data yet"}
                   emptyBody="An editor can click Sync Google Analytics to send the first snapshot."
                 />
-                </DesignCard>
+                </div>
                 </section>
                 <DesignSpacer size="medium" />
               </>
@@ -952,7 +952,7 @@ const Documentation = () => {
               />
             </TableSectionHeader>
             <DesignSpacer size="small" />
-            <DesignCard radius="small" className="overflow-hidden">
+            <div>
             <DesignDataTable
               columns={moverColumns}
               data={movers}
@@ -964,7 +964,7 @@ const Documentation = () => {
               emptyTitle={moversSearch ? "No matching pages" : "No movers in this period"}
               emptyBody="No page changed enough versus the previous period."
             />
-            </DesignCard>
+            </div>
             </section>
             <DesignSpacer size="medium" />
           </>
@@ -979,7 +979,7 @@ const Documentation = () => {
             placeholder="Search pages"
           />
           <DesignSpacer size="small" />
-          <DesignCard radius="small" className="overflow-hidden">
+          <div>
           <DesignDataTable
             columns={topPageColumns}
             data={topPages}
@@ -991,7 +991,7 @@ const Documentation = () => {
             emptyTitle={topPagesSearch ? "No matching pages" : "No pages yet"}
             emptyBody="Page-level data arrives with the next Google Analytics snapshot."
           />
-          </DesignCard>
+          </div>
           </section>
         )}
 

@@ -15,6 +15,8 @@ import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignInputText } from "@/components/ds/DesignInput";
 import { DesignDateInput } from "@/components/ds/DesignDateInput";
 import { cn } from "@/lib/utils";
+import { DesignTooltip } from "@/components/ds/DesignTooltip";
+import { useIsTruncated } from "@/hooks/useIsTruncated";
 import type { DatasetColumnKind, ManualDatasetColumn } from "@/hooks/useManualDatasets";
 import type { DateOrder } from "../../../server/shared/dates.ts";
 import { IGNORE, NEW_COLUMN, guessKind, type ImportPlan, type MetricUse } from "./importPlan";
@@ -72,6 +74,16 @@ const Chip = ({
   overlay?: boolean;
 }) => {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `file:${index}`, disabled: overlay });
+  const [nameRef, nameTruncated] = useIsTruncated<HTMLSpanElement>(name);
+  const exampleText = example ? `e.g. “${example}”` : null;
+  const tooltip = overlay ? null : nameTruncated ? (
+    <>
+      {name}
+      {exampleText && <span className="block opacity-70">{exampleText}</span>}
+    </>
+  ) : (
+    exampleText
+  );
   return (
     <div
       ref={overlay ? undefined : setNodeRef}
@@ -83,18 +95,19 @@ const Chip = ({
         overlay && "cursor-grabbing shadow-lg",
       )}
     >
-      <button
-        type="button"
-        title={example ? `e.g. “${example}”` : undefined}
-        className="flex min-w-0 cursor-grab touch-none items-center gap-1"
-        onClick={onSelect}
-        {...(overlay ? {} : listeners)}
-        {...(overlay ? {} : attributes)}
-        aria-label={`“${name}”${example ? `, e.g. “${example}”` : ""}`}
-      >
-        <DotsSixVertical size={12} weight="bold" className="shrink-0 text-muted-foreground" />
-        <span className="truncate">{name}</span>
-      </button>
+      <DesignTooltip content={tooltip}>
+        <button
+          type="button"
+          className="flex min-w-0 cursor-grab touch-none items-center gap-1"
+          onClick={onSelect}
+          {...(overlay ? {} : listeners)}
+          {...(overlay ? {} : attributes)}
+          aria-label={`“${name}”${example ? `, e.g. “${example}”` : ""}`}
+        >
+          <DotsSixVertical size={12} weight="bold" className="shrink-0 text-muted-foreground" />
+          <span ref={nameRef} className="truncate">{name}</span>
+        </button>
+      </DesignTooltip>
       {onRemove && (
         <button
           type="button"
@@ -357,9 +370,11 @@ const ColumnMatchBoard = ({
           <div className="space-y-1.5">
             <h3 className="text-[14px] font-[580] text-foreground">
               {datasetName} columns{" "}
-              <span className="font-normal text-muted-foreground">
-                · {filled} of {others.length} filled
-              </span>
+              {others.length > 0 && (
+                <span className="font-normal text-muted-foreground">
+                  · {filled} of {others.length} filled
+                </span>
+              )}
             </h3>
             <div className="divide-y divide-border rounded-[6px] border border-border">
               {others.map((c) => row(c))}

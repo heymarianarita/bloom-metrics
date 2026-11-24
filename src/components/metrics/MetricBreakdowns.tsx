@@ -176,7 +176,7 @@ const Breakdown = ({
           body={`This metric has no values split by ${label.toLowerCase()} for the selected period.`}
         />
       ) : view === "table" ? (
-        <div className={`${ts.containerNested} overflow-x-auto`}><table className={ts.table}>
+        <div className={`${ts.container} overflow-x-auto`}><table className={ts.table}>
           <thead>
             <tr className={ts.headRow}>
               <th className={ts.th}>{label}</th>

@@ -1,5 +1,6 @@
 import { tableStyles as ts } from "@/components/ds/tableStyles";
 import * as React from "react";
+import { cn } from "@/lib/utils";
 import { Plus, Trash, CaretDown } from "@phosphor-icons/react";
 import {
   DropdownMenu,
@@ -31,6 +32,16 @@ interface DatasetGridProps {
 }
 
 const cellId = (r: number, c: number) => `dsg-${r}-${c}`;
+
+/** Spreadsheet density: tighter than the default Bloom cell padding. */
+const dense = {
+  th: cn(ts.th, ts.thSticky, "px-2 py-1"),
+  td: cn(ts.td, "px-2 py-1"),
+  /** Cell holding a small icon button, so the button doesn't make the row taller. */
+  tdAction: cn(ts.td, "px-1 py-0"),
+  input: cn(ts.cellInput, "px-2 py-1"),
+  iconButton: "flex h-6 w-6 items-center justify-center rounded-[6px] text-muted-foreground",
+};
 
 const kindLabels: { kind: DatasetColumnKind; label: string }[] = [
   { kind: "email", label: "Email" },
@@ -66,7 +77,7 @@ const ColumnHeader = ({
   };
 
   return (
-    <th className={`${ts.th} min-w-[160px]`}>
+    <th className={cn(dense.th, "min-w-[160px]")}>
       <div className="flex items-center gap-1">
         {editing ? (
           <input
@@ -81,14 +92,14 @@ const ColumnHeader = ({
                 setEditing(false);
               }
             }}
-            className="w-full bg-transparent text-[14px] font-medium text-foreground outline-none"
+            className="w-full bg-transparent text-[14px] text-foreground outline-none"
           />
         ) : (
           <button
             type="button"
             disabled={readOnly}
             onClick={() => !readOnly && setEditing(true)}
-            className="flex-1 truncate text-left text-[14px] font-medium text-foreground"
+            className="flex-1 truncate text-left text-[14px] hover:text-foreground"
             title={`${column.label} · ${column.kind}`}
           >
             {column.label}
@@ -99,7 +110,7 @@ const ColumnHeader = ({
             <DropdownMenuTrigger asChild>
               <button
                 aria-label={`Options for ${column.label}`}
-                className="flex h-6 w-6 items-center justify-center rounded-[6px] text-muted-foreground hover:bg-[rgba(0,119,130,0.06)]"
+                className={cn(dense.iconButton, "-my-1 h-5 w-5 hover:bg-[var(--surface-hover)]")}
               >
                 <CaretDown size={14} />
               </button>
@@ -192,8 +203,7 @@ const GridCell = ({
     onPasteBlock(rowIndex, columnIndex, block);
   };
 
-  const base =
-    "w-full h-full min-h-[44px] bg-transparent px-4 py-3 text-[14px] text-foreground outline-none focus:bg-[rgba(0,119,130,0.06)] focus:ring-1 focus:ring-primary rounded-[2px]";
+  const base = dense.input;
 
   if (column.kind === "period") {
     return (
@@ -256,17 +266,16 @@ export const DatasetGrid = ({
 }: DatasetGridProps) => (
   // Scrolls inside its own frame so the header row can stay in view (sticky needs the scrolling box).
   // In a column that fits the window it fills the space left; otherwise it caps at the window height.
-  <div className={`${ts.containerNested} overflow-auto max-h-[calc(100vh-220px)] xl:max-h-none xl:flex-1 xl:min-h-0`}>
+  <div className={`${ts.container} overflow-auto max-h-[calc(100vh-220px)] xl:max-h-none xl:flex-1 xl:min-h-0`}>
     <datalist id="dsg-quarters">
       {recentQuarters(12).map((q) => (
         <option key={q} value={q} />
       ))}
     </datalist>
-    <table className={ts.table}>
-      {/* The bottom border is a shadow: with collapsed borders, a real one scrolls away. */}
-      <thead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_var(--border)]">
+    <table className={`${ts.table} ${ts.colDividers}`}>
+      <thead>
         <tr className={ts.headRow}>
-          <th className={`${ts.th} w-12`}>
+          <th className={cn(dense.th, "w-10")}>
             #
           </th>
           {columns.map((column) => (
@@ -279,14 +288,14 @@ export const DatasetGrid = ({
               onDelete={() => onDeleteColumn(column)}
             />
           ))}
-          <th className={`${ts.th} w-12 px-2`}>
+          <th className={cn(dense.th, "w-8 px-1 py-0")}>
             {!readOnly && (
               <button
                 aria-label="Add column"
                 onClick={onAddColumn}
-                className="flex h-7 w-7 items-center justify-center rounded-[6px] text-muted-foreground hover:bg-[rgba(0,119,130,0.06)]"
+                className={cn(dense.iconButton, "hover:bg-[var(--surface-hover)]")}
               >
-                <Plus size={16} />
+                <Plus size={14} />
               </button>
             )}
           </th>
@@ -294,8 +303,8 @@ export const DatasetGrid = ({
       </thead>
       <tbody>
         {rows.map((row, rowIndex) => (
-          <tr key={row.id} className={`group ${ts.row} last:border-b`}>
-            <td className={`${ts.td} ${ts.tdMuted} align-middle`}>
+          <tr key={row.id} className={`group ${ts.row}`}>
+            <td className={cn(dense.td, ts.tdMuted, "tabular-nums")}>
               {rowIndex + 1}
             </td>
             {columns.map((column, columnIndex) => (
@@ -312,12 +321,12 @@ export const DatasetGrid = ({
                 onPasteBlock={onPasteBlock}
               />
             ))}
-            <td className={`${ts.td} px-2 align-middle`}>
+            <td className={dense.tdAction}>
               {!readOnly && (
                 <button
                   aria-label="Delete row"
                   onClick={() => onDeleteRow(row)}
-                  className="flex h-7 w-7 items-center justify-center rounded-[6px] text-muted-foreground opacity-0 transition-opacity hover:bg-[rgba(208,69,85,0.08)] hover:text-destructive group-hover:opacity-100"
+                  className={cn(dense.iconButton, "opacity-0 transition-opacity hover:bg-[rgba(208,69,85,0.08)] hover:text-destructive group-hover:opacity-100")}
                 >
                   <Trash size={14} />
                 </button>
@@ -327,10 +336,10 @@ export const DatasetGrid = ({
         ))}
         {!readOnly && (
           <tr>
-            <td colSpan={columns.length + 2} className="p-0">
+            <td colSpan={columns.length + 2} className={ts.footerCell}>
               <button
                 onClick={onAddRow}
-                className={ts.footerAction}
+                className={cn(ts.footerAction, "px-2 py-1")}
               >
                 <Plus size={14} /> New row
               </button>

@@ -1,23 +1,38 @@
 /**
- * Shared table styling — matches the Bloom "Table" component (and DesignDataTable).
- * Use these on any custom <table> (e.g. editable grids) so every table looks the same.
+ * Shared table styling — the Bloom "Table" from @vinted/web-ui (src/lib/Table/table-tokens.css),
+ * used by DesignDataTable and every custom <table> (e.g. editable grids) so all tables look the same:
+ * 8px × 12px cells, 14px/18px text, row dividers only, grey row hover, inside a Bloom Card frame.
+ * Tables use separate borders, so dividers sit on the cells (a sticky header keeps its line).
  */
 export const tableStyles = {
-  /** Outer box: white, 6px corners, thin border. */
-  container: "rounded-[12px] border border-border bg-background",
-  /** Same box when it sits inside a card — 6px so the corners nest cleanly. */
-  containerNested: "rounded-[6px] border border-border bg-background",
-  table: "w-full border-collapse text-[14px]",
-  headRow: "h-[44px] border-b border-border",
-  th: "h-[44px] text-left align-middle px-4 text-[14px] font-[375] text-muted-foreground border-l border-[rgba(21,25,26,0.08)] first:border-l-0 whitespace-nowrap",
+  /** Bloom Card frame (6px, 1px border) the table sits in. Add `overflow-x-auto` (or `overflow-auto`). */
+  container: "rounded-[6px] border border-design-card-border bg-[var(--table-surface)]",
+  table: "w-full border-separate border-spacing-0 text-[14px] leading-[18px] text-foreground",
+  /** Add to `table` for dense grids: Bloom's `columnDividers`. */
+  colDividers:
+    "[&_td:not(:first-child)]:border-l [&_td:not(:first-child)]:border-l-[var(--table-divider-body)] [&_th:not(:first-child)]:border-l [&_th:not(:first-child)]:border-l-[var(--table-divider-body)]",
+  headRow: "",
+  th: "px-3 py-2 text-left align-middle text-[14px] leading-[18px] font-[375] text-[var(--table-header-text)] bg-[var(--table-surface)] border-b border-b-[var(--table-divider-header)] whitespace-nowrap",
+  /** Keeps the header row in view inside a scrolling container. */
+  thSticky: "sticky top-0 z-10",
   thNumeric: "text-right",
-  row: "border-b border-border last:border-b-0 hover:bg-[rgba(0,119,130,0.06)] transition-colors",
-  td: "px-4 py-3 align-top text-foreground border-l border-[rgba(21,25,26,0.08)] first:border-l-0",
+  /** Sticky cells need `bg-inherit` to keep the row's background. */
+  row: "bg-[var(--table-surface)] hover:bg-[var(--table-surface-hover)] [&:not(:first-child)>td]:border-t [&>td]:border-t-[var(--table-divider-body)] transition-colors",
+  /** Add to `row` for nested child rows. */
+  rowNested: "bg-[var(--table-surface-expandable)]",
+  td: "px-3 py-2 align-middle text-foreground",
   tdNumeric: "text-right tabular-nums",
   tdMuted: "text-muted-foreground",
   /** Cell that holds an input filling the whole cell. */
-  tdEditable: "p-0 align-middle border-l border-[rgba(21,25,26,0.08)] first:border-l-0",
-  /** Footer "add row" action row. */
+  tdEditable: "p-0 align-middle",
+  /** Input that fills an editable cell. */
+  cellInput:
+    "w-full h-full bg-transparent px-3 py-2 text-[14px] leading-[18px] text-foreground outline-none focus:ring-1 focus:ring-inset focus:ring-primary",
+  /** Cell for a footer "add row" action. */
+  footerCell: "p-0 border-t border-t-[var(--table-divider-body)]",
   footerAction:
-    "flex w-full items-center gap-2 px-4 py-3 text-[14px] text-primary hover:bg-[rgba(0,119,130,0.06)] transition-colors",
+    "flex w-full items-center gap-2 px-3 py-2 text-[14px] leading-[18px] text-primary hover:bg-[var(--table-surface-hover)] transition-colors",
+  /** Bloom Table sort control: 32px icon button after the header label. */
+  sortButton:
+    "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] text-[var(--table-header-text)] hover:bg-[var(--surface-hover)] active:bg-[var(--surface-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]",
 } as const;

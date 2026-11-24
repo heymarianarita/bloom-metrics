@@ -34,6 +34,8 @@ const ROLE_OPTIONS = [
   { value: "none", label: "No access" },
 ];
 
+const SHORT_ROLE_OPTIONS = ROLE_OPTIONS.map((o) => ({ ...o, label: o.label.split(" — ")[0] }));
+
 const rank: Record<AppRole, number> = { admin: 3, editor: 2, viewer: 1 };
 
 const useMembers = () =>
@@ -183,38 +185,26 @@ const UsersSettingsInner = () => {
       key: "person",
       header: "Person",
       sortable: true,
+      width: "1fr",
       render: (row) => (
         <div className="flex flex-col">
-          <span className="text-[14px] text-foreground">{row.display_name || row.email || "—"}</span>
-          <span className="text-[12px] text-muted-foreground">{row.email}</span>
+          <span className="text-[14px] leading-[18px] text-foreground">{row.display_name || row.email || "—"}</span>
+          <span className="text-[12px] leading-[16px] text-muted-foreground">{row.email}</span>
         </div>
       ),
     },
     {
-      key: "current",
-      header: "Current access",
-      render: (row) =>
-        row.role ? (
-          <DesignBadge theme={row.role === "admin" ? "primary" : row.role === "editor" ? "highlight" : "muted"} styling="light">
-            {row.role === "admin" ? "Admin" : row.role === "editor" ? "Editor" : "Viewer"}
-          </DesignBadge>
-        ) : (
-          <DesignBadge theme="muted" styling="light">No access</DesignBadge>
-        ),
-    },
-    {
-      key: "change",
-      header: "Change access",
+      key: "access",
+      header: "Access",
+      width: "180px",
       render: (row) => (
-        <div className="w-[260px]">
-          <DesignInputSelect
-            size="small"
-            value={row.role ?? "none"}
-            options={ROLE_OPTIONS}
-            disabled={row.id === user?.id}
-            onChange={(role) => setRole.mutate({ userId: row.id, role })}
-          />
-        </div>
+        <DesignInputSelect
+          size="small"
+          value={row.role ?? "none"}
+          options={SHORT_ROLE_OPTIONS}
+          disabled={row.id === user?.id}
+          onChange={(role) => setRole.mutate({ userId: row.id, role })}
+        />
       ),
     },
     ...(passwordsOn
@@ -222,10 +212,11 @@ const UsersSettingsInner = () => {
           {
             key: "signin",
             header: "Sign-in",
+            width: "240px",
             render: (row: Member) => {
               const s = statusById.get(row.id);
               return (
-                <div className="flex flex-col items-start gap-1">
+                <div className="flex items-center gap-2">
                   {s?.has_password ? (
                     <DesignBadge theme="success" styling="light">Password set</DesignBadge>
                   ) : s?.link_expires_at ? (
@@ -251,6 +242,7 @@ const UsersSettingsInner = () => {
     {
       key: "joined",
       header: "Added",
+      width: "120px",
       render: (row) => formatDate(row.created_at),
     },
   ];
@@ -292,6 +284,8 @@ const UsersSettingsInner = () => {
             data={members.data ?? []}
             rowKey={(row) => row.id}
             searchPlaceholder="Search people"
+            pageSize={30}
+            compact
           />
         </DesignCard>
       )}

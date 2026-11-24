@@ -15,8 +15,8 @@ export interface DesignSideSheetProps {
   width?: string;
   /** Minimum width. Defaults to "360px" */
   minWidth?: string;
-  /** Whether to show the overlay backdrop. Defaults to false */
-  showOverlay?: boolean;
+  /** Whether to darken the page behind the sheet. Defaults to true */
+  overlay?: boolean;
   /** Content rendered in the scrollable body */
   children?: React.ReactNode;
   /** Footer content. If not provided, no footer is rendered */
@@ -31,7 +31,7 @@ const DesignSideSheet = ({
   title,
   width = "33.33vw",
   minWidth = "360px",
-  showOverlay = false,
+  overlay = true,
   children,
   footer,
   className,
@@ -40,9 +40,12 @@ const DesignSideSheet = ({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        overlayClassName={showOverlay ? "" : "bg-transparent"}
+        overlayClassName={cn(
+          "duration-200",
+          overlay ? "bg-[var(--sheet-overlay-bg)]" : "bg-transparent",
+        )}
         className={cn(
-          "p-0 gap-0 flex flex-col rounded-none border-l border-[var(--border)]",
+          "p-0 gap-0 flex flex-col rounded-none border-l border-[var(--border)] shadow-[var(--sheet-shadow)]",
           className
         )}
         style={{ width, minWidth }}

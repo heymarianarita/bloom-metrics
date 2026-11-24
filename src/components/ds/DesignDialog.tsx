@@ -31,17 +31,16 @@ const DesignDialog = ({
       {trigger && <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>}
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
-          className="fixed inset-0 z-[999] bg-[var(--overlay-bg)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+          className="fixed inset-0 z-[999] bg-[var(--overlay-bg)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-150"
         />
         <DialogPrimitive.Content
           className={cn(
             "fixed z-[1000] flex flex-col bg-background focus:outline-none",
             "data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-            "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-150",
             style === "fullScreen"
               ? "inset-0"
-              : "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[358px] max-h-[84%] rounded-[12px] shadow-lg overflow-hidden"
+              : "inset-0 m-auto h-fit w-[calc(100%-32px)] max-w-[358px] max-h-[84%] rounded-[12px] shadow-lg overflow-hidden"
           )}
         >
           {/* Close button row - only when showClose and no icon */}

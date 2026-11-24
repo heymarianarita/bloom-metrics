@@ -33,18 +33,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import DatasetGrid from "@/components/datasets/DatasetGrid";
-import CsvImportSheet, { looksNumeric } from "@/components/datasets/CsvImportSheet";
+import CsvImportSheet from "@/components/datasets/CsvImportSheet";
 import type { ImportPlan } from "@/components/datasets/importPlan";
-import { inferDateOrder, looksLikeDates, type DateOrder } from "../../../server/shared/dates.ts";
+import { inferDateOrder, type DateOrder } from "../../../server/shared/dates.ts";
 import BulkCsvImportSheet, {
-  BULK_IGNORE,
-  BULK_NEW_COLUMN,
   BULK_NEW_DATASET,
   draftFromFile,
   type BulkFileDraft,
   type BulkFilePlan,
 } from "@/components/datasets/BulkCsvImportSheet";
-import { slugify, useAllDatasetColumns } from "@/hooks/useManualDatasets";
+import { useAllDatasetColumns } from "@/hooks/useManualDatasets";
 import {
   useAddDatasetColumn,
   useAddDatasetRow,
@@ -286,13 +284,17 @@ const DatasetsTab = () => {
     Array.from({ length: width }, (_, i) => inferDateOrder(body.map((row) => row[i] ?? "")).order);
 
   const metrics = useManualMetrics();
-  const metricUse = React.useMemo(() => {
-    const own = (metrics.data ?? []).filter((m) => m.dataset_id === datasetId);
-    return {
-      period: own.map((m) => m.period_column).filter(Boolean),
-      filters: own.flatMap((m) => m.filter_columns ?? []),
-    };
-  }, [metrics.data, datasetId]);
+  const metricUseFor = React.useCallback(
+    (id: string) => {
+      const own = (metrics.data ?? []).filter((m) => m.dataset_id === id);
+      return {
+        period: own.map((m) => m.period_column).filter(Boolean),
+        filters: own.flatMap((m) => m.filter_columns ?? []),
+      };
+    },
+    [metrics.data],
+  );
+  const metricUse = React.useMemo(() => metricUseFor(datasetId), [metricUseFor, datasetId]);
 
   const imports = useDatasetImports(datasetId || undefined);
   const undoImport = useUndoDatasetImport();
@@ -434,17 +436,17 @@ const DatasetsTab = () => {
       let importedRows = 0;
       let lastDatasetId = datasetId;
 
-      for (const plan of plans) {
-        let targetId = plan.target;
-        let existing: ManualDatasetColumn[] = [];
+      for (const { draft, plan } of plans) {
+        let targetId = draft.target;
         let startOrder = 0;
+        let order = 0;
 
-        if (plan.target === BULK_NEW_DATASET) {
-          const dataset = await createDataset.mutateAsync({ name: plan.datasetName.trim() });
+        if (draft.target === BULK_NEW_DATASET) {
+          const dataset = await createDataset.mutateAsync({ name: draft.datasetName.trim() });
           targetId = dataset.id;
           created += 1;
         } else {
-          existing = (allColumns.data ?? []).filter((c) => c.dataset_id === targetId);
+          order = (allColumns.data ?? []).filter((c) => c.dataset_id === targetId).length;
           const { count } = await supabase
             .from("manual_dataset_rows")
             .select("id", { count: "exact", head: true })
@@ -453,70 +455,20 @@ const DatasetsTab = () => {
           updated += 1;
         }
 
-        const keyByIndex: (string | null)[] = [];
-        const kindByKey = new Map(existing.map((column) => [column.key, column]));
-        const createdKeys: string[] = [];
-        let order = existing.length;
-
-        for (let index = 0; index < plan.mapping.length; index += 1) {
-          const entry = plan.mapping[index];
-          if (!entry || entry.choice === BULK_IGNORE) {
-            keyByIndex.push(null);
-            continue;
-          }
-          if (entry.choice === BULK_NEW_COLUMN) {
-            const label = (entry.label || plan.header[index] || `Column ${index + 1}`).trim();
-            const key = slugify(label) || `col_${index}`;
-            if (!kindByKey.has(key)) {
-              const sample = plan.body
-                .slice(0, 20)
-                .map((row) => (row[index] ?? "").trim())
-                .filter(Boolean);
-              const kind: DatasetColumnKind = looksLikeDates(sample) ? "date" : looksNumeric(sample) ? "number" : "text";
-              await addColumn.mutateAsync({
-                dataset_id: targetId,
-                label,
-                kind,
-                sort_order: order,
-              });
-              order += 1;
-              createdKeys.push(key);
-              kindByKey.set(key, {
-                id: key,
-                dataset_id: targetId,
-                key,
-                label,
-                kind,
-                sort_order: order,
-              });
-            }
-            keyByIndex.push(key);
-            continue;
-          }
-          keyByIndex.push(entry.choice);
+        for (const column of plan.newColumns) {
+          await addColumn.mutateAsync({ dataset_id: targetId, label: column.label, kind: column.kind, sort_order: order });
+          order += 1;
         }
 
-        const inferred = dateOrdersOf(plan.body, plan.mapping.length);
-        const newRows = plan.body.map((cells) => {
-          const data: Record<string, unknown> = {};
-          keyByIndex.forEach((key, index) => {
-            if (!key) return;
-            const column = kindByKey.get(key);
-            const raw = (cells[index] ?? "").trim();
-            data[key] = column ? castValue(column, raw, inferred[index]) : raw;
-          });
-          return data;
-        });
-
-        if (newRows.length) {
+        if (plan.rows.length) {
           const importId = await createDatasetImport({
             dataset_id: targetId,
-            file_name: plan.fileName,
-            row_count: newRows.length,
-            created_columns: createdKeys,
+            file_name: draft.fileName,
+            row_count: plan.rows.length,
+            created_columns: plan.newColumns.map((c) => c.key),
           });
-          await addRows.mutateAsync({ dataset_id: targetId, rows: newRows, startOrder, import_id: importId });
-          importedRows += newRows.length;
+          await addRows.mutateAsync({ dataset_id: targetId, rows: plan.rows, startOrder, import_id: importId });
+          importedRows += plan.rows.length;
         }
         lastDatasetId = targetId;
       }
@@ -614,6 +566,7 @@ const DatasetsTab = () => {
           setDrafts={setBulkDrafts}
           datasets={datasets.data ?? []}
           allColumns={allColumns.data ?? []}
+          metricUseFor={metricUseFor}
           saving={bulkSaving}
           onAddFiles={() => bulkFileRef.current?.click()}
           onSave={saveBulkImport}
@@ -879,6 +832,7 @@ const DatasetsTab = () => {
         setDrafts={setBulkDrafts}
         datasets={datasets.data ?? []}
         allColumns={allColumns.data ?? []}
+        metricUseFor={metricUseFor}
         saving={bulkSaving}
         onAddFiles={() => bulkFileRef.current?.click()}
         onSave={saveBulkImport}

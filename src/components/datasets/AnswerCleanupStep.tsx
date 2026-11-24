@@ -58,7 +58,7 @@ const AnswerCleanupStep = ({ header, cleanups, onOverride }: AnswerCleanupStepPr
               from “{header[column.fileIndex!] || `Column ${column.fileIndex! + 1}`}”
             </p>
           </div>
-          <div className={tableStyles.containerNested}>
+          <div className={cn(tableStyles.container, "overflow-x-auto")}>
             <table className={tableStyles.table}>
               <thead>
                 <tr className={tableStyles.headRow}>
@@ -74,8 +74,8 @@ const AnswerCleanupStep = ({ header, cleanups, onOverride }: AnswerCleanupStepPr
                   const notANumber = answer.overridden && (answer.override ?? "").trim() !== "" && answer.saved === null;
                   return (
                     <tr key={answer.raw} className={tableStyles.row}>
-                      <td className={cn(tableStyles.td, "pb-1.5 pt-[14px] leading-5")}>
-                        <span className="flex min-h-5 flex-wrap items-center gap-1.5">
+                      <td className={tableStyles.td}>
+                        <span className="flex flex-wrap items-center gap-1.5">
                           {answer.raw}
                           {answer.unreadable && (
                             <DesignBadge theme="error" styling="light">
@@ -84,8 +84,8 @@ const AnswerCleanupStep = ({ header, cleanups, onOverride }: AnswerCleanupStepPr
                           )}
                         </span>
                       </td>
-                      <td className={cn(tableStyles.td, tableStyles.tdNumeric, "pb-1.5 pt-[14px] leading-5")}>{answer.count}</td>
-                      <td className={cn(tableStyles.td, "py-1.5")}>
+                      <td className={cn(tableStyles.td, tableStyles.tdNumeric)}>{answer.count}</td>
+                      <td className={cn(tableStyles.td, "py-1")}>
                         <DesignInputText
                           inputMode="decimal"
                           aria-label={`Saved value for “${answer.raw}”`}

@@ -224,7 +224,7 @@ const CsvImportSheet = ({
         <h3 className="text-[14px] font-[580] text-foreground">
           How the first {Math.min(PREVIEW_ROWS, plan.rows.length)} rows will be saved
         </h3>
-        <div className={`${tableStyles.containerNested} overflow-x-auto`}>
+        <div className={`${tableStyles.container} overflow-x-auto`}>
           <table className={tableStyles.table}>
             <thead>
               <tr className={tableStyles.headRow}>

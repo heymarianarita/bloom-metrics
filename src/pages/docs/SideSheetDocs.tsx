@@ -16,7 +16,7 @@ const propsData = [
   { name: "title", type: "string", default: "—", description: "Title displayed in the header bar." },
   { name: "width", type: "string", default: '"33.33vw"', description: "CSS width of the sheet panel." },
   { name: "minWidth", type: "string", default: '"360px"', description: "CSS min-width of the sheet panel." },
-  { name: "showOverlay", type: "boolean", default: "false", description: "Whether to show the dark overlay backdrop." },
+  { name: "overlay", type: "boolean", default: "true", description: "Whether to darken the page behind the sheet." },
   { name: "children", type: "ReactNode", default: "—", description: "Scrollable body content." },
   { name: "footer", type: "ReactNode", default: "—", description: "Footer content. If omitted, no footer is rendered." },
   { name: "className", type: "string", default: "—", description: "Additional className for the sheet container." },
@@ -137,7 +137,6 @@ const SideSheetDocs = () => {
           open={detailOpen}
           onOpenChange={setDetailOpen}
           title="Order #VNT-20240100"
-          showOverlay
           footer={
             <>
               <DesignButton variant="outlined" theme="muted" size="medium" onClick={() => setDetailOpen(false)}>Close</DesignButton>
@@ -230,8 +229,8 @@ const [open, setOpen] = useState(false);
   <div className="px-4 py-4">Filter fields</div>
 </DesignSideSheet>
 
-{/* With overlay */}
-<DesignSideSheet open={open} onOpenChange={setOpen} title="Details" showOverlay>
+{/* Without overlay */}
+<DesignSideSheet open={open} onOpenChange={setOpen} title="Details" overlay={false}>
   <div className="px-4 py-4">Detail content</div>
 </DesignSideSheet>`} />
       </div>

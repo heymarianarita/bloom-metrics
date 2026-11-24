@@ -180,7 +180,7 @@ const PastePerformanceDialog = ({ open, onOpenChange, defaultQuarter }: Props) =
               showCloseButton={false}
             />
 
-            <div className="border border-border rounded-[6px] overflow-x-auto">
+            <div className={`${ts.container} overflow-x-auto`}>
               <table className={ts.table}>
                 <thead>
                   <tr className={ts.headRow}>

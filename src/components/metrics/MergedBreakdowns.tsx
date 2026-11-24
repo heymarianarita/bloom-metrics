@@ -222,7 +222,7 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity, limit }: Props
                 body={`No values split by ${aspect.label.toLowerCase()} for the selected period.`}
               />
             ) : asTable ? (
-              <div className={`${ts.containerNested} overflow-x-auto`}><table className={`${ts.table} table-fixed`}>
+              <div className={`${ts.container} overflow-x-auto`}><table className={`${ts.table} table-fixed`}>
                 <thead>
                   <tr className={ts.headRow}>
                     <th className={`${ts.th} w-[28%]`}><Trunc text={aspect.label} /></th>

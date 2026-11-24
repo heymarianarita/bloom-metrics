@@ -344,8 +344,8 @@ const ComponentsSettings = () => {
                   : t.rows;
                 const usedCols = new Set(t.columns.map((c) => `${c.datasetId}::${c.columnKey}`));
                 return (
-                  <DesignCard key={t.id} className="p-0">
-                    <div className="flex items-center gap-[12px] px-5 py-3 border-b border-border">
+                  <DesignCard key={t.id} className="p-4">
+                    <div className="flex items-center gap-[12px] pb-3">
                       <div className="max-w-[280px] flex-1">
                         <BlurInput value={t.name} onSave={(name) => updateTable(t.id, (x) => ({ ...x, name }))} />
                       </div>
@@ -373,13 +373,13 @@ const ComponentsSettings = () => {
                         </DesignButton>
                       </div>
                     </div>
-                    <div className="max-h-[calc(100vh-240px)] overflow-auto">
-                      <table className={ts.table}>
+                    <div className={`${ts.container} max-h-[calc(100vh-240px)] overflow-auto`}>
+                      <table className={`${ts.table} ${ts.colDividers}`}>
                         <thead>
                           <tr className={ts.headRow}>
-                            <th className={`${ts.th} sticky left-0 top-0 z-20 bg-background min-w-[200px] shadow-[inset_0_-1px_0_var(--border)]`}>Component</th>
+                            <th className={`${ts.th} ${ts.thSticky} left-0 z-20 min-w-[200px]`}>Component</th>
                             {t.columns.map((c) => (
-                              <th key={c.id} className={`${ts.th} sticky top-0 z-10 bg-background min-w-[200px] shadow-[inset_0_-1px_0_var(--border)]`}>
+                              <th key={c.id} className={`${ts.th} ${ts.thSticky} min-w-[200px]`}>
                                 <div className="flex items-center gap-[4px]">
                                   <span className="truncate">
                                     {datasetName(c.datasetId)}
@@ -404,13 +404,13 @@ const ComponentsSettings = () => {
                                 </div>
                               </th>
                             ))}
-                            <th className={`${ts.th} sticky top-0 z-10 w-[56px] bg-background shadow-[inset_0_-1px_0_var(--border)]`} />
+                            <th className={`${ts.th} ${ts.thSticky} w-[56px]`} />
                           </tr>
                         </thead>
                         <tbody>
                           {visible.map((r) => (
-                            <tr key={r.id} className="group border-b border-border last:border-b-0">
-                              <td className={`${ts.td} sticky left-0 z-10 bg-background align-middle`}>
+                            <tr key={r.id} className={`group ${ts.row}`}>
+                              <td className={`${ts.td} sticky left-0 z-[5] bg-inherit`}>
                                 <BlurInput
                                   value={r.name}
                                   placeholder="Component name"
@@ -420,7 +420,7 @@ const ComponentsSettings = () => {
                                 />
                               </td>
                               {t.columns.map((c) => (
-                                <td key={c.id} className={`${ts.td} align-middle`}>
+                                <td key={c.id} className={ts.td}>
                                   <div className="flex flex-wrap items-center gap-[4px]">
                                     {(r.cells[c.id] ?? []).length > 0 && (
                                       <>
@@ -468,7 +468,7 @@ const ComponentsSettings = () => {
                                   </div>
                                 </td>
                               ))}
-                              <td className={`${ts.td} px-2 align-middle`}>
+                              <td className={`${ts.td} px-2`}>
                                 <button
                                   aria-label="Delete row"
                                   className="rounded-[6px] p-[6px] text-muted-foreground hover:bg-foreground/[0.06] hover:text-destructive"
@@ -482,7 +482,7 @@ const ComponentsSettings = () => {
                         </tbody>
                       </table>
                     </div>
-                    <div className="px-5 py-3">
+                    <div className="pt-3">
                       <DesignButton
                         size="small"
                         variant="flat"

@@ -24,17 +24,17 @@ const DesignTooltip: React.FC<DesignTooltipProps> = ({
     content === undefined ||
     content === false ||
     (typeof content === "string" && content.trim() === "");
-  if (isEmpty) return <>{children}</>;
-
+  // The trigger stays mounted either way, so content appearing later doesn't remount the child.
   return (
-    <TooltipPrimitive.Root delayDuration={delay}>
+    <TooltipPrimitive.Root delayDuration={delay} open={isEmpty ? false : undefined}>
       <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
+      {!isEmpty && (
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Content
           side={side}
           sideOffset={4}
           className={cn(
-            "z-50 max-w-[276px] rounded-[6px] bg-tooltip-bg px-2 py-2 text-tooltip-text",
+            "z-[1100] max-w-[276px] rounded-[6px] bg-tooltip-bg px-2 py-2 text-tooltip-text",
             "text-sm font-[375] leading-[18px] text-left",
             "animate-in fade-in-0 data-[side=top]:slide-in-from-bottom-1 data-[side=bottom]:slide-in-from-top-1",
             "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
@@ -49,6 +49,7 @@ const DesignTooltip: React.FC<DesignTooltipProps> = ({
           />
         </TooltipPrimitive.Content>
       </TooltipPrimitive.Portal>
+      )}
     </TooltipPrimitive.Root>
   );
 };

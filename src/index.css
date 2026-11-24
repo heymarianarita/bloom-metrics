@@ -74,6 +74,8 @@
     --surface-active: rgba(21, 25, 26, 0.08);
     --overlay-bg: rgba(21, 25, 26, 0.64);
     --overlay-bg-light: rgba(15, 18, 18, 0.48);
+    --sheet-overlay-bg: rgba(21, 25, 26, 0.7);
+    --sheet-shadow: -4px 0 24px rgba(21, 25, 26, 0.12);
 
     /* Bubble Colors */
     --bubble-received-bg: #FFFFFF;
@@ -240,6 +242,14 @@
     --greyscale-4: #B6BEBF;
     --greyscale-5: #F0F2F2;
     --greyscale-6: #FFFFFF;
+
+    /* Bloom Table (@vinted/web-ui --bloom-color-* table tokens) */
+    --table-surface: #FFFFFF;
+    --table-surface-hover: #EDF2F2;
+    --table-surface-expandable: rgba(182, 190, 191, 0.12);
+    --table-header-text: #5A6566;
+    --table-divider-header: rgba(182, 190, 191, 0.24);
+    --table-divider-body: rgba(182, 190, 191, 0.12);
 
     /* Text Semantic Aliases */
     --text-subtle: #5A6566;
@@ -432,6 +442,13 @@
     --greyscale-4: #454A4B;
     --greyscale-5: #252929;
     --greyscale-6: #0F1212;
+
+    --table-surface: #171C1C;
+    --table-surface-hover: #0F1212;
+    --table-surface-expandable: rgba(102, 114, 115, 0.12);
+    --table-header-text: #A8B2B3;
+    --table-divider-header: rgba(102, 114, 115, 0.24);
+    --table-divider-body: rgba(102, 114, 115, 0.12);
     --text-subtle: #9CA3A5;
     --text-strong: #FFFFFF;
     --badge-highlight: #F9BB42;

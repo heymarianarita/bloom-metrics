@@ -2,7 +2,8 @@ import * as React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { Search, X, ChevronDown, ChevronRight, Filter, MoreVertical, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Search, X, ChevronDown, ChevronRight, Filter, MoreVertical, RotateCcw } from "lucide-react";
+import { ArrowDown16, ArrowTop16, ArrowsDownTop16 } from "./icons/TableSortIcons";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -17,6 +18,7 @@ import { DesignEmptyState } from "./DesignEmptyState";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DesignDivider } from "./DesignDivider";
 import { DesignTooltip } from "./DesignTooltip";
+import { tableStyles } from "./tableStyles";
 
 /* ─── Types ─── */
 
@@ -96,6 +98,9 @@ export interface DesignDataTableProps<T> {
   /** Hide the entire toolbar (search, filters, tabs) */
   hideToolbar?: boolean;
 
+  /** Less cell padding, for rows holding 36px controls (selects, buttons) */
+  compact?: boolean;
+
   /* ── Sorting ── */
   sortKey?: string;
   sortDirection?: SortDirection;
@@ -171,6 +176,7 @@ function DesignDataTableInner<T>(
     hidePagination = false,
     hideHeader = false,
     hideToolbar = false,
+    compact = false,
     sortKey: controlledSortKey,
     sortDirection: controlledSortDirection,
     onSortChange,
@@ -302,6 +308,8 @@ function DesignDataTableInner<T>(
     ? `${visibleData.length} of ${data.length} results`
     : (totalResultsLabel ?? `${data.length} results`);
   const totalFilterCount = allActiveChips.length;
+  // A titled table is its card's whole content, so it pads itself; otherwise the parent does.
+  const inset = Boolean(title);
 
   return (
     <TooltipPrimitive.Provider delayDuration={300}>
@@ -332,7 +340,7 @@ function DesignDataTableInner<T>(
       )}
       {/* ── Toolbar ── */}
       {!hideToolbar && (
-      <div className="flex flex-col gap-[12px] px-5 py-3 pb-[24px] relative z-10">
+      <div className={cn("flex flex-col gap-[12px] relative z-10 pb-3", inset && "px-5 pt-1")}>
         {/* Row 1: Search + Select filters + All filters + Reset */}
         {(!searchMovedToTitle || filters.length > 0 || (!wrapFilters && allFilters.length > 0)) && (
         <div className={cn("flex items-center gap-3", wrapFilters ? "flex-wrap" : "flex-nowrap")}>
@@ -462,9 +470,9 @@ function DesignDataTableInner<T>(
 
       {/* ── Table ── */}
       {pagedData.length > 0 ? (
-        <>
+        <div className={cn(tableStyles.container, "overflow-hidden", inset && "mx-5 mb-5")}>
           <div className="overflow-x-auto">
-          <table className="w-full text-sm table-fixed">
+          <table className={cn(tableStyles.table, "table-fixed")}>
             {/* Fixed widths (px, rem, %) are applied; "fr" columns share the rest equally. */}
             <colgroup>
               {selectable && <col style={{ width: 48 }} />}
@@ -475,55 +483,47 @@ function DesignDataTableInner<T>(
             </colgroup>
             {!hideHeader && (
               <thead>
-                <tr
-                  className={cn(
-                    "h-[44px] border-b border-[var(--border)]",
-                    // Divider from the toolbar/title above; without them the card's own border is the edge.
-                    (!hideToolbar || title) && "border-t border-t-[rgba(21,25,26,0.08)]",
-                  )}
-                >
+                <tr>
                   {selectable && (
-                    <th className="w-[48px]" />
+                    <th className={cn(tableStyles.th, "w-[48px]")} />
                   )}
                   {columns.map((col) => {
                     const isSorted = controlledSortKey === col.key;
                     const sortDir = isSorted ? controlledSortDirection : null;
+                    const canSort = Boolean(col.sortable && onSortChange);
                     const handleSort = () => {
-                      if (!col.sortable || !onSortChange) return;
+                      if (!onSortChange) return;
                       if (!isSorted || sortDir === null) onSortChange(col.key, "asc");
                       else if (sortDir === "asc") onSortChange(col.key, "desc");
                       else onSortChange(col.key, null);
                     };
+                    const SortIcon = sortDir === "asc" ? ArrowTop16 : sortDir === "desc" ? ArrowDown16 : ArrowsDownTop16;
                     return (
-                      <DesignTooltip key={col.key} content={col.header ?? ""} side="top">
-                        <th
-                          className={cn(
-                            "text-left px-4 text-[14px] font-[375] text-[var(--muted-foreground)] border-l border-[rgba(21,25,26,0.08)] first:border-l-0 overflow-hidden max-w-0",
-                            col.sortable && "cursor-pointer select-none hover:text-[var(--foreground)] transition-colors"
-                          )}
-                          style={undefined}
-                          onClick={col.sortable ? handleSort : undefined}
-                        >
-                          <span className="flex items-center gap-1 truncate">
+                      <th
+                        key={col.key}
+                        aria-sort={sortDir === "asc" ? "ascending" : sortDir === "desc" ? "descending" : undefined}
+                        className={cn(tableStyles.th, "overflow-hidden max-w-0")}
+                      >
+                        <span className="flex items-center gap-1">
+                          <DesignTooltip content={col.header ?? ""} side="top">
                             <span className="truncate">{col.header ?? ""}</span>
-                            {col.sortable && (
-                              <span className="shrink-0">
-                                {sortDir === "asc" ? (
-                                  <ArrowUp className="w-3.5 h-3.5" />
-                                ) : sortDir === "desc" ? (
-                                  <ArrowDown className="w-3.5 h-3.5" />
-                                ) : (
-                                  <ArrowUpDown className="w-3.5 h-3.5" />
-                                )}
-                              </span>
-                            )}
-                          </span>
-                        </th>
-                      </DesignTooltip>
+                          </DesignTooltip>
+                          {canSort && (
+                            <button
+                              type="button"
+                              aria-label={`Sort by ${col.header ?? col.key}`}
+                              onClick={handleSort}
+                              className={tableStyles.sortButton}
+                            >
+                              <SortIcon />
+                            </button>
+                          )}
+                        </span>
+                      </th>
                     );
                   })}
                   {hasActions && (
-                    <th className="w-[96px] px-4 border-l border-[rgba(21,25,26,0.08)]" />
+                    <th className={cn(tableStyles.th, "w-[96px]")} />
                   )}
                 </tr>
               </thead>
@@ -556,16 +556,10 @@ function DesignDataTableInner<T>(
                 return (
                   <tr
                     key={key}
-                    className={cn(
-                      "border-b last:border-b-0 hover:bg-[rgba(0,119,130,0.06)] transition-colors",
-                      // Bloom Table, nested: faint row lines, and child rows on a light tint.
-                      subRows ? "border-[rgba(21,25,26,0.03)]" : "border-[var(--border)]",
-                      // Child rows: light tint, with lines as strong as the column dividers.
-                      depth > 0 && "bg-[rgba(21,25,26,0.03)] border-[rgba(21,25,26,0.08)]",
-                    )}
+                    className={cn(tableStyles.row, depth > 0 && tableStyles.rowNested)}
                   >
                     {selectable && (
-                      <td className="w-[48px] px-3 py-3 align-top">
+                      <td className={cn(tableStyles.td, "w-[48px]", compact && "py-1")}>
                         <DesignCheckbox
                           checked={isSelected}
                           onCheckedChange={() => toggleSelectRow(key)}
@@ -587,9 +581,9 @@ function DesignDataTableInner<T>(
                         <td
                           key={col.key}
                           className={cn(
-                            "px-4 py-3 text-[var(--foreground)] border-l border-[rgba(21,25,26,0.08)] first:border-l-0 overflow-hidden max-w-0",
-                            // Nested rows carry a 32px chevron, so their cells line up on the middle.
-                            subRows ? "align-middle" : "align-top",
+                            tableStyles.td,
+                            "overflow-hidden max-w-0",
+                            compact && "py-1",
                           )}
                         >
                           {subRows && colIdx === 0 && childCount > 0 ? (
@@ -618,7 +612,7 @@ function DesignDataTableInner<T>(
                       );
                     })}
                     {hasActions && (
-                      <td className={cn("px-4 py-3 border-l border-[rgba(21,25,26,0.08)]", subRows ? "align-middle" : "align-top")}>
+                      <td className={cn(tableStyles.td, compact && "py-1")}>
                         <div className="flex items-center justify-start gap-1">
                           {rowToggle && (
                             <DesignToggle
@@ -670,7 +664,7 @@ function DesignDataTableInner<T>(
 
           {/* ── Pagination ── */}
           {!hidePagination && pageCount > 1 && (
-            <div className="px-4 py-3 border-t border-[var(--border)] flex justify-end">
+            <div className="px-3 py-2 border-t border-[var(--table-divider-body)] flex justify-end">
               <DesignPagination
                 currentPage={page}
                 pageCount={pageCount}
@@ -680,7 +674,7 @@ function DesignDataTableInner<T>(
               />
             </div>
           )}
-        </>
+        </div>
       ) : (
         /* ── Empty state ── */
         <DesignEmptyState
