@@ -275,7 +275,7 @@ const CsvImportSheet = ({
     <DesignSideSheet
       open={open}
       onOpenChange={onOpenChange}
-      title="Import from CSV"
+      title="Import from a file"
       width="min(960px, 86vw)"
       minWidth="560px"
       className="sm:max-w-none"

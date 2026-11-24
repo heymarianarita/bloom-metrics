@@ -18,6 +18,7 @@ import { SettingsLayout } from "@/components/settings/SettingsLayout";
 import { DesignInputTextArea } from "@/components/ds/DesignInput";
 import { formatDate, formatDateTime } from "@/lib/formatDate";
 import { castCell } from "@/lib/cellValues";
+import { readTableFile, SPREADSHEET_ACCEPT } from "@/lib/spreadsheetFile";
 import { useManualMetrics } from "@/hooks/useManualMetrics";
 import { useQualitativeSources } from "@/hooks/useQualitative";
 import { useToast } from "@/hooks/use-toast";
@@ -366,13 +367,13 @@ const DatasetsTab = () => {
 
   const handleCsvFile = async (file: File) => {
     try {
-      const text = await file.text();
+      const { text, sheetName } = await readTableFile(file);
       if (!text.trim()) {
         toast({ title: "That file looks empty", variant: "destructive" });
         return;
       }
       setImportSource(text);
-      setImportFileName(file.name);
+      setImportFileName(sheetName ? `${file.name} (${sheetName})` : file.name);
       setImportSheet(true);
     } catch (err) {
       toast({ title: "Could not read the file", description: String(err), variant: "destructive" });
@@ -383,7 +384,7 @@ const DatasetsTab = () => {
     <input
       ref={csvFileRef}
       type="file"
-      accept=".csv,.tsv,text/csv,text/plain"
+      accept={SPREADSHEET_ACCEPT}
       className="hidden"
       onChange={(event) => {
         const file = event.target.files?.[0];
@@ -413,7 +414,7 @@ const DatasetsTab = () => {
       ref={bulkFileRef}
       type="file"
       multiple
-      accept=".csv,.tsv,text/csv,text/plain"
+      accept={SPREADSHEET_ACCEPT}
       className="hidden"
       onChange={(event) => {
         const files = Array.from(event.target.files ?? []);
@@ -584,7 +585,7 @@ const DatasetsTab = () => {
                   icon={<UploadSimple size={16} />}
                   onClick={() => bulkFileRef.current?.click()}
                 >
-                  Bulk import CSV files
+                  Bulk import files
                 </DesignButton>
               </div>
             }
@@ -652,7 +653,7 @@ const DatasetsTab = () => {
         }}
         actions={[
           { label: "New dataset", icon: <Plus size={16} />, onClick: () => setDatasetSheet(true) },
-          { label: "Bulk import CSV files", icon: <UploadSimple size={16} />, onClick: () => bulkFileRef.current?.click() },
+          { label: "Bulk import files", icon: <UploadSimple size={16} />, onClick: () => bulkFileRef.current?.click() },
         ]}
       />
         }
@@ -684,7 +685,7 @@ const DatasetsTab = () => {
               disabled={!datasetId}
               onClick={() => csvFileRef.current?.click()}
             >
-              Import CSV
+              Import CSV or Excel
             </DesignButton>
             )}
             {activeDataset && (
@@ -943,7 +944,7 @@ const ImportHistorySheet = ({
         imports.map((entry) => (
           <div key={entry.id} className="flex items-center justify-between gap-3 rounded-[6px] border border-border p-3">
             <div className="min-w-0">
-              <p className="truncate text-[14px] font-[500] text-foreground">{entry.file_name || "CSV file"}</p>
+              <p className="truncate text-[14px] font-[500] text-foreground">{entry.file_name || "Imported file"}</p>
               <p className="text-[12px] text-muted-foreground">
                 {formatDateTime(entry.created_at)} · {entry.row_count} rows
                 {entry.created_columns.length > 0 &&

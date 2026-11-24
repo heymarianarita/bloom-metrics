@@ -8,6 +8,7 @@ import { DesignNote } from "@/components/ds/DesignNote";
 import { DesignCheckbox } from "@/components/ds/DesignCheckbox";
 import { DesignDivider } from "@/components/ds/DesignDivider";
 import { parseCsv } from "@/lib/csv";
+import { readTableFile } from "@/lib/spreadsheetFile";
 import type { ManualDataset, ManualDatasetColumn } from "@/hooks/useManualDatasets";
 
 export const BULK_IGNORE = "__ignore__";
@@ -41,20 +42,23 @@ const autoMatch = (header: string, columns: ManualDatasetColumn[]) => {
 
 const nameFromFile = (fileName: string) =>
   fileName
-    .replace(/\.(csv|tsv|txt)$/i, "")
+    .replace(/\.(csv|tsv|txt|xlsx)$/i, "")
     .replace(/[_-]+/g, " ")
     .trim();
 
 /** Reads a picked file into a draft with sensible defaults. */
-export const draftFromFile = async (file: File): Promise<BulkFileDraft> => ({
-  id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-  fileName: file.name,
-  text: await file.text(),
-  hasHeader: true,
-  target: BULK_NEW_DATASET,
-  datasetName: nameFromFile(file.name) || "Imported dataset",
-  mapping: [],
-});
+export const draftFromFile = async (file: File): Promise<BulkFileDraft> => {
+  const { text, sheetName } = await readTableFile(file);
+  return {
+    id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    fileName: sheetName ? `${file.name} (${sheetName})` : file.name,
+    text,
+    hasHeader: true,
+    target: BULK_NEW_DATASET,
+    datasetName: nameFromFile(file.name) || "Imported dataset",
+    mapping: [],
+  };
+};
 
 const parseDraft = (draft: BulkFileDraft) => {
   const parsed = draft.text.trim() ? parseCsv(draft.text) : [];
@@ -149,7 +153,7 @@ const BulkCsvImportSheet = ({
     <DesignSideSheet
       open={open}
       onOpenChange={onOpenChange}
-      title="Import several CSV files"
+      title="Import several files"
       width="min(860px, 70vw)"
       minWidth="520px"
       footer={
