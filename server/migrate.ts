@@ -48,6 +48,9 @@ const ADDED_COLUMNS: { table: string; column: string; definition: string }[] = [
   { table: "manual_dataset_rows", column: "import_id", definition: "CHAR(36) NULL AFTER `dataset_id`" },
   // A survey asked once (questions that change every period); views list it under "One-off questions".
   { table: "manual_datasets", column: "one_off", definition: "TINYINT(1) NOT NULL DEFAULT 0 AFTER `archived`" },
+  // When someone first signed in, and when they last used the app (Settings → Users).
+  { table: "profiles", column: "first_sign_in_at", definition: "DATETIME(6) NULL AFTER `avatar_url`" },
+  { table: "profiles", column: "last_seen_at", definition: "DATETIME(6) NULL AFTER `first_sign_in_at`" },
 ];
 
 /**

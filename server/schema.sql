@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS `profiles` (
   `email` VARCHAR(320),
   `display_name` TEXT,
   `avatar_url` TEXT,
+  `first_sign_in_at` DATETIME(6) NULL,
+  `last_seen_at` DATETIME(6) NULL,
   `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),

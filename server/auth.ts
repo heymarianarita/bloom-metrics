@@ -50,10 +50,25 @@ export async function readSession(req: Request): Promise<SessionUser | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });
-    return payload.user as SessionUser;
+    const user = payload.user as SessionUser;
+    markSeen(user.id);
+    return user;
   } catch {
     return null;
   }
+}
+
+/** Written at most this often per person, since every request reads the session. */
+const SEEN_EVERY_MS = 5 * 60 * 1000;
+const lastSeenWrite = new Map<string, number>();
+function markSeen(userId: string) {
+  const now = Date.now();
+  if (now - (lastSeenWrite.get(userId) ?? 0) < SEEN_EVERY_MS) return;
+  lastSeenWrite.set(userId, now);
+  execute("UPDATE profiles SET last_seen_at = CURRENT_TIMESTAMP(6) WHERE id = ?", [userId]).catch((err) => {
+    lastSeenWrite.delete(userId);
+    console.warn("Could not record last seen", err);
+  });
 }
 
 export async function rolesOf(userId: string): Promise<AppRole[]> {
@@ -119,6 +134,12 @@ export async function issueSession(res: Response, user: SessionUser) {
     .setExpirationTime(`${SESSION_DAYS}d`)
     .sign(secret());
   res.cookie(SESSION_COOKIE, jwt, cookieOpts(SESSION_DAYS * 24 * 3600 * 1000));
+  await execute(
+    `UPDATE profiles SET first_sign_in_at = COALESCE(first_sign_in_at, CURRENT_TIMESTAMP(6)),
+            last_seen_at = CURRENT_TIMESTAMP(6) WHERE id = ?`,
+    [user.id],
+  );
+  lastSeenWrite.set(user.id, Date.now());
 }
 
 export const googleEnabled = () => Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);

@@ -20,6 +20,9 @@ import { DesignDivider } from "./DesignDivider";
 import { DesignTooltip } from "./DesignTooltip";
 import { tableStyles } from "./tableStyles";
 
+/** The narrowest an "fr" or unsized column gets. */
+const FLEX_MIN_WIDTH = 200;
+
 /* ─── Types ─── */
 
 export type SortDirection = "asc" | "desc" | null;
@@ -309,6 +312,11 @@ function DesignDataTableInner<T>(
 
   const searchMovedToTitle = searchInTitle && Boolean(title);
   const hasActions = actions.length > 0 || rowToggle;
+  // Below this the table scrolls sideways, so "fr" and unsized columns never shrink to nothing.
+  const minWidth =
+    columns.reduce((sum, col) => sum + (col.width?.endsWith("px") ? parseFloat(col.width) : FLEX_MIN_WIDTH), 0) +
+    (selectable ? 48 : 0) +
+    (hasActions ? 96 : 0);
   const resultsLabel = query
     ? `${visibleData.length} of ${data.length} results`
     : (totalResultsLabel ?? `${data.length} results`);
@@ -477,7 +485,7 @@ function DesignDataTableInner<T>(
       {pagedData.length > 0 ? (
         <div className={cn(tableStyles.container, "overflow-hidden", inset && "mx-5 mb-5")}>
           <div className="overflow-x-auto">
-          <table className={cn(tableStyles.table, "table-fixed")}>
+          <table className={cn(tableStyles.table, "table-fixed")} style={{ minWidth }}>
             {/* Fixed widths (px, rem, %) are applied; "fr" columns share the rest equally. */}
             <colgroup>
               {selectable && <col style={{ width: 48 }} />}

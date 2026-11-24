@@ -19,6 +19,8 @@ export interface PersonAuthStatus {
   user_id: string;
   has_password: boolean;
   link_expires_at: string | null;
+  first_sign_in_at: string | null;
+  last_seen_at: string | null;
 }
 
 async function request<T>(path: string, body?: unknown): Promise<T> {

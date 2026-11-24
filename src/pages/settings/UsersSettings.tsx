@@ -282,6 +282,24 @@ const UsersSettingsInner = () => {
       width: "120px",
       render: (row) => formatDate(row.created_at),
     },
+    {
+      key: "first-sign-in",
+      header: "First sign-in",
+      width: "120px",
+      render: (row) => {
+        const at = statusById.get(row.id)?.first_sign_in_at;
+        return at ? formatDate(at) : <span className="text-muted-foreground">Never</span>;
+      },
+    },
+    {
+      key: "last-seen",
+      header: "Last seen",
+      width: "160px",
+      render: (row) => {
+        const at = statusById.get(row.id)?.last_seen_at;
+        return at ? formatDateTime(at) : <span className="text-muted-foreground">Never</span>;
+      },
+    },
   ];
 
   return (

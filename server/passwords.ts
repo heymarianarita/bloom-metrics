@@ -222,8 +222,14 @@ export function passwordRouter(): Router {
 
   r.get("/api/admin/people/status", h(async (req: Request, res: Response) => {
     if (!(await requireAdmin(req, res))) return;
-    const rows = await query<{ user_id: string; has_password: number; link_expires_at: string | null }>(
-      `SELECT p.id AS user_id,
+    const rows = await query<{
+      user_id: string;
+      has_password: number;
+      link_expires_at: string | null;
+      first_sign_in_at: string | null;
+      last_seen_at: string | null;
+    }>(
+      `SELECT p.id AS user_id, p.first_sign_in_at, p.last_seen_at,
               EXISTS (SELECT 1 FROM user_passwords w WHERE w.user_id = p.id) AS has_password,
               (SELECT MAX(l.expires_at) FROM password_links l
                 WHERE l.user_id = p.id AND l.used_at IS NULL AND l.expires_at > CURRENT_TIMESTAMP(6)) AS link_expires_at
@@ -232,7 +238,13 @@ export function passwordRouter(): Router {
     res.json({
       password: passwordEnabled(),
       slack: await slackEnabled(),
-      people: rows.map((r) => ({ user_id: r.user_id, has_password: Boolean(r.has_password), link_expires_at: toIso(r.link_expires_at) })),
+      people: rows.map((r) => ({
+        user_id: r.user_id,
+        has_password: Boolean(r.has_password),
+        link_expires_at: toIso(r.link_expires_at),
+        first_sign_in_at: toIso(r.first_sign_in_at),
+        last_seen_at: toIso(r.last_seen_at),
+      })),
     });
   }));
 
