@@ -450,8 +450,42 @@ export async function startRun(sourceId: string, triggeredBy: string | null) {
       await execute("UPDATE qualitative_sources SET run_status = 'error', run_message = ?, run_at = ? WHERE id = ?", [message, nowMysql(), sourceId]);
       await logRun(source, "error", message, triggeredBy);
     })
-    .finally(() => running.delete(sourceId));
+    .finally(() => {
+      running.delete(sourceId);
+      // The dataset changed while this run was reading it.
+      if (rerun.delete(sourceId)) startRun(sourceId, "dataset update").catch((e) => console.error("qualitative rerun failed", e));
+    });
   return true;
+}
+
+/** Waits this long after a dataset's last change, so an import or a burst of edits runs once. */
+const SETTLE_MS = 30_000;
+const settling = new Map<string, ReturnType<typeof setTimeout>>();
+const rerun = new Set<string>();
+
+/** Re-analyses the qualitative metrics reading this dataset once its changes settle. */
+export function datasetChanged(datasetId: string) {
+  clearTimeout(settling.get(datasetId));
+  const timer = setTimeout(() => {
+    settling.delete(datasetId);
+    refreshDataset(datasetId).catch((e) => console.error("qualitative refresh after a dataset change failed", e));
+  }, SETTLE_MS);
+  timer.unref?.();
+  settling.set(datasetId, timer);
+}
+
+async function refreshDataset(datasetId: string) {
+  const sources = await query<{ id: string }>("SELECT id FROM qualitative_sources WHERE enabled = 1 AND dataset_id = ?", [datasetId]);
+  if (!sources.length) return;
+  if (!(await anthropicClient())) {
+    console.log(`dataset ${datasetId} changed; no Anthropic key, so its ${sources.length} qualitative metrics wait`);
+    return;
+  }
+  console.log(`dataset ${datasetId} changed; re-analysing ${sources.length} qualitative metrics`);
+  for (const { id } of sources) {
+    if (running.has(id)) rerun.add(id);
+    else await startRun(id, "dataset update");
+  }
 }
 
 const logRun = (source: QualitativeSource, status: string, message: string, triggeredBy: string | null) =>

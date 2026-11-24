@@ -10,6 +10,7 @@ import { DesignNote } from "@/components/ds/DesignNote";
 import { DesignCheckbox } from "@/components/ds/DesignCheckbox";
 import { DesignBadge } from "@/components/ds/DesignBadge";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateTime } from "@/lib/formatDate";
 import { useMetricGroups } from "@/hooks/useMetricGroups";
 import { useDatasetColumns, useDatasetRows, useManualDatasets } from "@/hooks/useManualDatasets";
 import { isTeamLabel } from "@/hooks/useTeamBusinessUnits";
@@ -103,6 +104,10 @@ const AnalysisStatus = ({
       <div className="min-w-0 space-y-1">
         <StatusBadge status={source.run_status} />
         <p className={`text-[12px] ${source.run_status === "error" ? "text-destructive" : "text-muted-foreground"}`}>{message}</p>
+        <p className="text-[12px] text-muted-foreground">
+          {source.run_at && source.run_status !== "running" ? `Last run ${formatDateTime(source.run_at)}. ` : ""}
+          Runs again on its own shortly after its dataset changes.
+        </p>
       </div>
       <DesignButton
         variant="flat"

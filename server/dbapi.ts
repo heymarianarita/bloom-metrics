@@ -57,6 +57,21 @@ const denied = () => new ApiError(403, "42501", "permission denied: your role do
 
 const ident = (name: string) => `\`${name.replace(/`/g, "")}\``;
 
+type WriteListener = (table: string, rows: Row[]) => void;
+const writeListeners: WriteListener[] = [];
+/** Called with the rows each insert, update or delete touched (for deletes, as they were). */
+export const onWrite = (listener: WriteListener) => writeListeners.push(listener);
+const notifyWrite = (table: string, rows: Row[]) => {
+  if (!rows.length) return;
+  for (const listener of writeListeners) {
+    try {
+      listener(table, rows);
+    } catch (e) {
+      console.error("write listener failed", table, e);
+    }
+  }
+};
+
 /** Rows that disappear through ON DELETE CASCADE — logged like Postgres row triggers did. */
 const CASCADES: Record<string, { table: string; fk: string }[]> = {
   manual_datasets: [
@@ -384,6 +399,7 @@ async function doInsert(req: DbRequest, user: SessionUser | null): Promise<DbRes
       });
       await logChanges(conn, req.table, user.id, changes);
     }
+    notifyWrite(req.table, after);
     return { status: 201, data: req.returning ? after.map((r) => fromDb(def, r)) : null, error: null };
   });
 }
@@ -415,6 +431,7 @@ async function doUpdate(req: DbRequest, user: SessionUser | null): Promise<DbRes
       const oldMap = new Map(old.map((r) => [r.id, r]));
       await logChanges(conn, req.table, user!.id, after.map((next) => ({ action: "edited" as const, old: oldMap.get(next.id), next })));
     }
+    notifyWrite(req.table, after);
     return { status: 200, data: req.returning ? after.map((r) => fromDb(def, r)) : null, error: null };
   });
 }
@@ -443,6 +460,7 @@ async function doDelete(req: DbRequest, user: SessionUser | null): Promise<DbRes
 
     await conn.query(`DELETE FROM ${ident(req.table)} WHERE id IN (${ids.map(() => "?").join(", ")})`, ids);
     if (def.audited) await logChanges(conn, req.table, user!.id, old.map((o) => ({ action: "removed" as const, old: o })));
+    notifyWrite(req.table, old);
     return { status: 200, data: req.returning ? old.map((r) => fromDb(def, r)) : null, error: null };
   });
 }

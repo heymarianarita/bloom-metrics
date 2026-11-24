@@ -5,10 +5,10 @@ import cookieParser from "cookie-parser";
 import cron from "node-cron";
 import { authRouter, hasRole, readSession } from "./auth.ts";
 import { applyDevAdminPassword, logAdminSetupLinks, passwordRouter } from "./passwords.ts";
-import { handleDbRequest } from "./dbapi.ts";
+import { handleDbRequest, onWrite } from "./dbapi.ts";
 import { handleRpc } from "./rpc.ts";
 import { insightsChatRouter } from "./insights/chat.ts";
-import { resetInterruptedRuns, runAllSources } from "./qualitative/job.ts";
+import { datasetChanged, resetInterruptedRuns, runAllSources } from "./qualitative/job.ts";
 import { FUNCTIONS } from "./functions/index.ts";
 import { backfillFigmaSnapshots, captureFigmaSnapshots } from "./functions/figma-snapshot.ts";
 import { getdxTeamsAgeDays, refreshGetdxTeams } from "./functions/getdx-teams.ts";
@@ -138,7 +138,11 @@ const refreshGetdx = () =>
     .catch((e) => console.error("getdx teams refresh failed", e instanceof Error ? e.message : e));
 cron.schedule("0 4 1 * *", refreshGetdx, { timezone: "UTC" });
 
-// Qualitative metrics: pick up new or edited answers once a day.
+// Qualitative metrics: re-analysed shortly after their dataset changes, and once a day as a fallback.
+onWrite((table, rows) => {
+  if (table !== "manual_dataset_rows") return;
+  new Set(rows.map((r) => String(r.dataset_id))).forEach(datasetChanged);
+});
 cron.schedule(
   "30 6 * * *",
   () => {
