@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowSquareOut, Plus } from "@phosphor-icons/react";
 import { DesignButton } from "@/components/ds/DesignButton";
 import { DesignBadge } from "@/components/ds/DesignBadge";
@@ -39,6 +39,7 @@ const Row = ({ title, subtitle, action }: { title: React.ReactNode; subtitle: st
  */
 export const UnusedDataPanel = () => {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const metrics = useManualMetrics();
   const datasets = useManualDatasets();
   const qualitative = useQualitativeSources();
@@ -120,7 +121,11 @@ export const UnusedDataPanel = () => {
                       theme="primary"
                       size="small"
                       icon={<Plus size={16} />}
-                      onClick={() => navigate(`/settings/metrics?new=number&dataset=${d.id}`)}
+                      onClick={() =>
+                        navigate(`/settings/metrics?new=${params.get("new") === "insight" ? "insight" : "number"}&dataset=${d.id}`, {
+                          replace: true,
+                        })
+                      }
                     >
                       Use
                     </DesignButton>

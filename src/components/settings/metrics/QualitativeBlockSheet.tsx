@@ -172,10 +172,13 @@ const QualitativeBlockSheet = ({
   source,
   tabName,
   sortOrder,
+  datasetId,
   inline = false,
   onSaved,
   onDeleted,
 }: {
+  /** Dataset a new insight starts from (Unused data → Use). */
+  datasetId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** The insight to edit; null creates a new one. */
@@ -213,11 +216,17 @@ const QualitativeBlockSheet = ({
             tone: source.tone,
             breakdowns: Array.isArray(source.breakdowns) ? source.breakdowns : [],
           }
-        : { ...emptyDraft, group_name: tabName ?? "" },
+        : { ...emptyDraft, group_name: tabName ?? "", dataset_id: datasetId ?? "" },
     );
     // Reset only when the sheet opens on a different insight.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, source?.id, tabName]);
+
+  // Picking a dataset from elsewhere (Unused data → Use) fills it in without clearing the rest.
+  React.useEffect(() => {
+    if (open && !source && datasetId)
+      setDraft((prev) => ({ ...prev, dataset_id: datasetId, text_column: "", period_column: "", breakdowns: [] }));
+  }, [open, source, datasetId]);
 
   const analyse = async (id: string) => {
     try {

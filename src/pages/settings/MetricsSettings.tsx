@@ -6,6 +6,7 @@ import RequireRole from "@/components/auth/RequireRole";
 import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignButton } from "@/components/ds/DesignButton";
 import { DesignLoader } from "@/components/ds/DesignLoader";
+import { DesignTabs } from "@/components/ds/DesignTabs";
 import { SelectList } from "@/components/settings/SelectList";
 import { SettingsLayout } from "@/components/settings/SettingsLayout";
 import NumberBlockSheet from "@/components/settings/metrics/NumberBlockSheet";
@@ -82,7 +83,7 @@ type Selection =
   | { kind: "duplicate"; id: string }
   | { kind: "new-number"; datasetId?: string }
   | { kind: "insight"; id: string }
-  | { kind: "new-insight" }
+  | { kind: "new-insight"; datasetId?: string }
   | { kind: "none" };
 
 /** What the main panel shows, kept in the URL so it survives a reload and can be linked to. */
@@ -91,7 +92,7 @@ const selectionFrom = (params: URLSearchParams): Selection => {
   if (params.get("duplicate")) return { kind: "duplicate", id: params.get("duplicate")! };
   if (params.get("insight")) return { kind: "insight", id: params.get("insight")! };
   if (params.get("new") === "number") return { kind: "new-number", datasetId: params.get("dataset") ?? undefined };
-  if (params.get("new") === "insight") return { kind: "new-insight" };
+  if (params.get("new") === "insight") return { kind: "new-insight", datasetId: params.get("dataset") ?? undefined };
   return { kind: "none" };
 };
 
@@ -177,6 +178,22 @@ const MetricLibrary = () => {
   }, [savedSlug, metrics.data, setParams]);
 
   const clear = () => setParams({}, { replace: true });
+
+  /** Switches a new metric between the two kinds, keeping the dataset picked from Unused data. */
+  const kindSwitch = (current: "number" | "insight") => (
+    <DesignTabs
+      tabs={[
+        { id: "number", label: "Quantitative" },
+        { id: "insight", label: "Qualitative" },
+      ]}
+      activeTab={current}
+      onTabChange={(kind) => {
+        if (kind === current) return;
+        const dataset = params.get("dataset");
+        setParams({ new: kind, ...(dataset ? { dataset } : {}) }, { replace: true });
+      }}
+    />
+  );
   const placement = (text: string) => <p className="text-[12px] text-muted-foreground">{text}</p>;
 
   const editor = (() => {
@@ -222,16 +239,19 @@ const MetricLibrary = () => {
       }
       case "new-number":
         return (
-          <NumberBlockSheet
-            key={`new:${selection.datasetId ?? ""}:${resetKey}`}
-            inline
-            open
-            onOpenChange={(open) => !open && clear()}
-            metric={null}
-            sortOrder={numbers.length}
-            datasetId={selection.datasetId}
-            onSaved={(slug) => setSavedSlug(slug)}
-          />
+          <>
+            {kindSwitch("number")}
+            <NumberBlockSheet
+              key={`new:${resetKey}`}
+              inline
+              open
+              onOpenChange={(open) => !open && clear()}
+              metric={null}
+              sortOrder={numbers.length}
+              datasetId={selection.datasetId}
+              onSaved={(slug) => setSavedSlug(slug)}
+            />
+          </>
         );
       case "insight": {
         const source = insights.find((q) => q.id === selection.id);
@@ -256,15 +276,19 @@ const MetricLibrary = () => {
       }
       case "new-insight":
         return (
-          <QualitativeBlockSheet
-            key={`new-insight:${resetKey}`}
-            inline
-            open
-            onOpenChange={(open) => !open && clear()}
-            source={null}
-            sortOrder={insights.length}
-            onSaved={(id) => setParams({ insight: id }, { replace: true })}
-          />
+          <>
+            {kindSwitch("insight")}
+            <QualitativeBlockSheet
+              key={`new-insight:${resetKey}`}
+              inline
+              open
+              onOpenChange={(open) => !open && clear()}
+              source={null}
+              sortOrder={insights.length}
+              datasetId={selection.datasetId}
+              onSaved={(id) => setParams({ insight: id }, { replace: true })}
+            />
+          </>
         );
       default:
         return metrics.isLoading ? <DesignLoader /> : <p className="text-[14px] text-muted-foreground">No metrics yet.</p>;

@@ -209,7 +209,12 @@ const NumberBlockSheet = ({
     setDraft(duplicate ? { ...next, name: `${metric.name} (copy)` } : next);
     // Reset only when the sheet opens on a different metric.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, metric?.id, duplicate, tabId, datasetId]);
+  }, [open, metric?.id, duplicate, tabId]);
+
+  // Picking a dataset from elsewhere (Unused data → Use) fills it in without clearing the rest.
+  React.useEffect(() => {
+    if (open && !metric && datasetId) setDraft((prev) => ({ ...prev, dataset_id: datasetId, value_column: "", period_column: "" }));
+  }, [open, metric, datasetId]);
 
   const draftColumns = useDatasetColumns(draft.dataset_id || undefined);
   const columnOptions = (draftColumns.data ?? []).map((c) => ({ value: c.key, label: c.label }));
