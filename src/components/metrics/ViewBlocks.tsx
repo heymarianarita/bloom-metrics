@@ -13,12 +13,12 @@ import MetricGroupPanel, {
   type MetricFilters,
   type MetricPanelParts,
 } from "@/components/metrics/MetricGroupPanel";
-import { QualitativeSection } from "@/components/metrics/QualitativeSection";
+import { OneOffQuestions, QualitativeSection } from "@/components/metrics/QualitativeSection";
 import { SectionHeadingProvider } from "@/components/metrics/sectionHeading";
 import type { MetricSeries } from "@/components/metrics/InsightsPanel";
 import { useManualMetrics, type BreakdownView, type ManualMetric } from "@/hooks/useManualMetrics";
-import { useAllDatasetColumns, type ManualDatasetColumn } from "@/hooks/useManualDatasets";
-import { useQualitativeSources } from "@/hooks/useQualitative";
+import { useAllDatasetColumns, useManualDatasets, type ManualDatasetColumn } from "@/hooks/useManualDatasets";
+import { answeredIn, useQualitativeSources, useQualitativeViews } from "@/hooks/useQualitative";
 import { useCodeAdoption } from "@/hooks/useCodeAdoption";
 import type { MetricGroup, Periodicity } from "@/hooks/useMetricGroups";
 import { itemsOf, useViewItems, widgetMetrics, widthOf, type CodeSection, type ViewItem } from "@/hooks/useViewItems";
@@ -77,6 +77,7 @@ const ViewBlocks = ({
   const viewItems = useViewItems();
   const metrics = useManualMetrics();
   const columns = useAllDatasetColumns();
+  const datasets = useManualDatasets();
   const qualitative = useQualitativeSources();
   const codeAdoption = useCodeAdoption();
   const top = view.parent_id ? groups.find((g) => g.id === view.parent_id) ?? view : view;
@@ -91,6 +92,7 @@ const ViewBlocks = ({
       if (item.kind === "themes") return (qualitative.data ?? []).some((q) => q.id === item.ref);
       if (item.kind === "figma") return Boolean(renderFigma);
       if (item.kind === "text") return Boolean(item.options?.text?.trim());
+      if (item.kind === "oneoffs") return true;
       return item.kind === "code" && Boolean(item.ref);
     });
   }, [viewItems.data, view.id, metrics.data, qualitative.data, renderFigma]);
@@ -142,18 +144,39 @@ const ViewBlocks = ({
   );
 
   const codePaths = [...new Set(widgets.flatMap((w) => (w.kind === "code" ? [w.ref] : [])))];
+  const oneOffDatasets = new Set((datasets.data ?? []).filter((d) => d.one_off).map((d) => d.id));
+  const oneOffRefs = widgets.some((w) => w.kind === "oneoffs")
+    ? (qualitative.data ?? []).filter((q) => oneOffDatasets.has(q.dataset_id)).map((q) => q.id)
+    : [];
+  const themeRefs = [...widgets.flatMap((w) => (w.kind === "themes" ? [w.ref] : [])), ...oneOffRefs];
+  const qualitativeViews = useQualitativeViews(
+    (qualitative.data ?? []).filter((q) => themeRefs.includes(q.id)).map((q) => q.group_name),
+  );
+  const themePeriods = themeRefs.flatMap((ref) => qualitativeViews.get(ref)?.periods ?? []);
   const facets = React.useMemo(() => {
     const scanPeriods = (codeAdoption.data?.repos ?? [])
       .filter((repo) => codePaths.some((p) => reportRepo(p) === repo.repo))
       .flatMap((repo) => repo.snapshots.map((s) => scanPeriod(s, periodicity)));
     const numberFacets = widgets.flatMap((w) => (widgetFacets[w.id] ? [widgetFacets[w.id]] : []));
-    return mergeFacets([...numberFacets, { periods: scanPeriods, segments: [] }]);
+    return mergeFacets([...numberFacets, { periods: [...scanPeriods, ...themePeriods], segments: [] }]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [widgetFacets, codeAdoption.data?.repos, codePaths.join("|"), periodicity, widgetIds]);
+  }, [widgetFacets, codeAdoption.data?.repos, codePaths.join("|"), periodicity, widgetIds, themePeriods.join("|")]);
   React.useEffect(() => {
     setFilters((prev) => resolveMetricFilters(prev, facets.periods));
   }, [facets.periods]);
   const periodChosen = facets.periods.includes(filters.period);
+  const oneOffsNow = periodChosen
+    ? oneOffRefs.flatMap((ref) => {
+        const source = qualitativeViews.get(ref);
+        return source && answeredIn(source, filters.period) > 0 ? [source] : [];
+      })
+    : [];
+  const shownNow = (item: ViewItem) => {
+    if (item.kind === "oneoffs" && oneOffsNow.length === 0) return false;
+    const only = item.options?.onlyPeriod;
+    if (!only) return true;
+    return periodChosen ? filters.period === only : facets.periods.length === 0;
+  };
 
   // Each metric once, however many widgets show it.
   const series = React.useMemo(() => {
@@ -239,12 +262,14 @@ const ViewBlocks = ({
           <QualitativeSection
             group={source.group_name}
             sourceIds={[source.id]}
-            period={filters.period}
+            period={periodChosen ? filters.period : undefined}
             compare={filters.compare}
             segmentFilters={segmentFilters}
           />
         ) : null;
       }
+      case "oneoffs":
+        return <OneOffQuestions sources={oneOffsNow} period={filters.period} segmentFilters={segmentFilters} />;
       case "figma":
         return <div className="-mx-5 -my-4">{renderFigma?.()}</div>;
       case "text":
@@ -266,7 +291,7 @@ const ViewBlocks = ({
         </div>
       )}
       <div className="grid grid-cols-6 gap-x-6 px-5 py-2">
-        {widgets.map((item) => (
+        {widgets.filter(shownNow).map((item) => (
           <div key={item.id} className="col-span-6 lg:[grid-column:span_var(--span)/span_var(--span)] min-w-0 py-4" style={{ "--span": widthOf(item).span } as React.CSSProperties}>
             <SectionHeadingProvider value={item.options?.title?.trim() || undefined}>{renderWidget(item)}</SectionHeadingProvider>
           </div>

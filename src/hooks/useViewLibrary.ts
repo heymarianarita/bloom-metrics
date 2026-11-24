@@ -1,6 +1,7 @@
 import * as React from "react";
 import { byTabOrder, useManualMetrics } from "@/hooks/useManualMetrics";
 import { useQualitativeSources } from "@/hooks/useQualitative";
+import { useManualDatasets } from "@/hooks/useManualDatasets";
 import { useDataSourceConfigs } from "@/hooks/useDataSources";
 import { metricGroupId, useMetricGroups } from "@/hooks/useMetricGroups";
 import { CODE_SECTIONS, widgetMetrics, type NewWidget, type ViewItem, type WidgetKind } from "@/hooks/useViewItems";
@@ -17,6 +18,8 @@ export interface LibraryEntry {
   title: string;
   /** Group or source it comes from. */
   detail: string;
+  /** qualitative: from a one-off dataset, so a "One-off questions" section shows it. */
+  oneOff?: boolean;
 }
 
 export const KIND_LABELS: Record<LibraryKind, string> = {
@@ -41,18 +44,19 @@ export const WIDGET_LABELS: Record<WidgetKind, string> = {
   breakdown: "Breakdown",
   distribution: "Score distribution",
   themes: "Qualitative themes",
+  oneoffs: "One-off questions",
   code: "Code adoption",
   figma: "Figma",
   text: "Text",
 };
 
 /** Whether a widget shows this library entry. */
-export const widgetShows = (item: ViewItem, entry: Pick<LibraryEntry, "kind" | "ref" | "section">) => {
+export const widgetShows = (item: ViewItem, entry: Pick<LibraryEntry, "kind" | "ref" | "section" | "oneOff">) => {
   switch (entry.kind) {
     case "number":
       return widgetMetrics(item).includes(entry.ref);
     case "qualitative":
-      return item.kind === "themes" && item.ref === entry.ref;
+      return (item.kind === "themes" && item.ref === entry.ref) || (item.kind === "oneoffs" && Boolean(entry.oneOff));
     case "code":
       return item.kind === "code" && item.ref === entry.ref && item.section === entry.section;
     case "figma":
@@ -75,9 +79,11 @@ export const useViewLibrary = () => {
   const qualitative = useQualitativeSources();
   const configs = useDataSourceConfigs();
   const groups = useMetricGroups();
+  const datasets = useManualDatasets();
 
   const entries = React.useMemo<LibraryEntry[]>(() => {
     const all = groups.data ?? [];
+    const oneOff = new Set((datasets.data ?? []).filter((d) => d.one_off).map((d) => d.id));
     const groupLabel = (id: string) => {
       const g = all.find((x) => x.id === id);
       const parent = g?.parent_id ? all.find((x) => x.id === g.parent_id) : undefined;
@@ -100,6 +106,7 @@ export const useViewLibrary = () => {
         section: "",
         title: q.name,
         detail: `${q.group_name} · “${q.text_column}”`,
+        oneOff: oneOff.has(q.dataset_id),
       })),
       ...reports
         .filter((r) => r.path)
@@ -122,7 +129,7 @@ export const useViewLibrary = () => {
           }]
         : []),
     ];
-  }, [metrics.data, qualitative.data, configs.data, groups.data]);
+  }, [metrics.data, qualitative.data, configs.data, groups.data, datasets.data]);
 
   const byKey = React.useMemo(() => new Map(entries.map((e) => [entryKey(e), e])), [entries]);
   return { entries, find: (e: Pick<LibraryEntry, "kind" | "ref" | "section">) => byKey.get(entryKey(e)), isLoading: metrics.isLoading };

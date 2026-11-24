@@ -46,6 +46,8 @@ const ADDED_COLUMNS: { table: string; column: string; definition: string }[] = [
   { table: "manual_metrics", column: "aggregation_options", definition: "JSON NOT NULL DEFAULT (JSON_OBJECT()) AFTER `aggregation`" },
   // The CSV import (dataset_imports) a row came from; empty for rows typed or pasted in.
   { table: "manual_dataset_rows", column: "import_id", definition: "CHAR(36) NULL AFTER `dataset_id`" },
+  // A survey asked once (questions that change every period); views list it under "One-off questions".
+  { table: "manual_datasets", column: "one_off", definition: "TINYINT(1) NOT NULL DEFAULT 0 AFTER `archived`" },
 ];
 
 /**

@@ -18,7 +18,7 @@ import { aggregateDataset, comparePeriods, useDatasetRows, useManualDatasets } f
 import { useDynamicMetricSeries, useDynamicSourceLabel } from "@/hooks/useDynamicMetricSeries";
 import { useQualitativeSources } from "@/hooks/useQualitative";
 import { useViewItems } from "@/hooks/useViewItems";
-import { widgetShows, type LibraryKind } from "@/hooks/useViewLibrary";
+import { useViewLibrary, widgetShows, type LibraryKind } from "@/hooks/useViewLibrary";
 import { findDynamicField } from "@/lib/dynamicMetricSources";
 
 const formatValue = (value: number, unit: string) => {
@@ -59,6 +59,7 @@ const NumberSummary = ({ metric }: { metric: ManualMetric }) => {
 const usePlacements = () => {
   const viewItems = useViewItems();
   const groups = useMetricGroups();
+  const library = useViewLibrary();
   const all = groups.data ?? [];
   const label = (id: string) => {
     const g = all.find((x) => x.id === id);
@@ -69,7 +70,13 @@ const usePlacements = () => {
     const views = [
       ...new Set(
         (viewItems.data ?? [])
-          .filter((i) => !i.hidden && (kind === "code" ? i.kind === "code" && i.ref === ref : widgetShows(i, { kind, ref, section: "" })))
+          .filter(
+            (i) =>
+              !i.hidden &&
+              (kind === "code"
+                ? i.kind === "code" && i.ref === ref
+                : widgetShows(i, library.find({ kind, ref, section: "" }) ?? { kind, ref, section: "" })),
+          )
           .map((i) => label(i.view_id))
           .filter(Boolean),
       ),

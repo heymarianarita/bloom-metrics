@@ -126,6 +126,17 @@ export const bucketRange = (label: string, periodicity: Periodicity): { start: n
   }
 };
 
+/** The current period and the ones before it, newest first (2026-Q4, 2026-Q3, …). */
+export const recentPeriods = (periodicity: Periodicity, count: number, now = Date.now()) => {
+  const labels = [bucketLabel(now, periodicity)];
+  while (labels.length < count) {
+    const range = bucketRange(labels[labels.length - 1], periodicity);
+    if (!range) break;
+    labels.push(bucketLabel(range.start - 1, periodicity));
+  }
+  return labels;
+};
+
 /**
  * While `period` is still running, the moment in `compare` that is as far into it as today is
  * into `period` (rows dated after it are left out of the comparison). Null when `period` has

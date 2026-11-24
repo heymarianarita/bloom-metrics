@@ -8,7 +8,7 @@ import type { BreakdownView } from "@/hooks/useManualMetrics";
  * shows one metric (or a few) one way, at a width; narrower sections sit side by side. Metrics
  * are defined once in Metrics → All metrics and can be shown in any number of sections and views.
  */
-export type WidgetKind = "card" | "trend" | "breakdown" | "distribution" | "themes" | "code" | "figma" | "text";
+export type WidgetKind = "card" | "trend" | "breakdown" | "distribution" | "themes" | "oneoffs" | "code" | "figma" | "text";
 /** Widgets that show numbers (manual metrics). */
 export const NUMBER_WIDGETS: WidgetKind[] = ["card", "trend", "breakdown", "distribution"];
 
@@ -51,6 +51,8 @@ export interface WidgetOptions {
   text?: string;
   style?: "heading" | "note";
   width?: SectionWidth;
+  /** Shown only while the page shows this period (a one-off question); every period when left out. */
+  onlyPeriod?: string;
 }
 
 export interface ViewItem {

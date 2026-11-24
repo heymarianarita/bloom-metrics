@@ -23,8 +23,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "@/hooks/use-toast";
 import { useSaveManualMetric, type MetricDirection, BREAKDOWN_VIEW_OPTIONS, useManualMetrics, type BreakdownView, type ManualMetric } from "@/hooks/useManualMetrics";
 import { useDataSourceConfigs } from "@/hooks/useDataSources";
-import { useAllDatasetColumns } from "@/hooks/useManualDatasets";
-import { useQualitativeSources } from "@/hooks/useQualitative";
+import { useAllDatasetColumns, useManualDatasets } from "@/hooks/useManualDatasets";
+import { useQualitativePeriods, useQualitativeSources } from "@/hooks/useQualitative";
 import {
   PERIODICITY_OPTIONS,
   useSaveViewFilters,
@@ -58,8 +58,11 @@ import {
   TREND_CHART_OPTIONS,
   type CodeAdoptionCharts,
 } from "../../../../server/shared/codeAdoptionCharts.ts";
+import { comparePeriods, recentPeriods } from "../../../../server/shared/periods.ts";
 
 /* ─────────── What a section can be ─────────── */
+
+const EVERY_PERIOD = "__every__";
 
 const CODE_CHART_OPTIONS: Record<string, { value: string; label: string }[]> = {
   trend: TREND_CHART_OPTIONS,
@@ -188,6 +191,11 @@ const KIND_INFO: { kind: WidgetKind; description: string; demo: WidgetOptions }[
   { kind: "breakdown", description: "Compare metrics across groups, like role or team.", demo: { view: "bar" } },
   { kind: "distribution", description: "How many people gave each score.", demo: {} },
   { kind: "themes", description: "What people wrote in a survey, grouped into themes.", demo: {} },
+  {
+    kind: "oneoffs",
+    description: "Questions from one-off datasets, each shown only for the period it was asked.",
+    demo: {},
+  },
   { kind: "text", description: "A heading or a short note between sections.", demo: { style: "heading", text: "Heading" } },
 ];
 
@@ -334,6 +342,25 @@ const SectionPreview = ({
           ))}
         </div>
       );
+    case "oneoffs":
+      return (
+        <div className={`flex flex-col ${compact ? "gap-1" : "gap-3"}`}>
+          {[0, 1].map((q) => (
+            <div key={q} className={`flex flex-col ${compact ? "gap-1" : "gap-2"}`}>
+              <div className={`${grey} ${compact ? "h-1.5 w-8" : "h-2.5 w-24"} rounded-[3px]`} />
+              <div className="flex gap-1.5">
+                {[72, 48, 96].map((w, i) => (
+                  <div
+                    key={i}
+                    className={`${compact ? "h-2" : "h-5"} rounded-full border border-border`}
+                    style={{ width: compact ? w / 4 : w, background: i === 0 ? fill(0.08) : "rgba(21,25,26,0.04)" }}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
     case "text":
       return item.options?.style === "note" ? (
         <p className="text-sm text-muted-foreground whitespace-pre-line line-clamp-4">{item.options?.text || "Empty note"}</p>
@@ -415,6 +442,56 @@ const Segmented = ({
     })}
   </div>
 );
+
+/** What a "One-off questions" section picks up: the qualitative metrics of datasets marked one-off. */
+const OneOffList = () => {
+  const navigate = useNavigate();
+  const datasets = useManualDatasets();
+  const qualitative = useQualitativeSources();
+  const oneOff = new Map((datasets.data ?? []).filter((d) => d.one_off).map((d) => [d.id, d.name]));
+  const questions = (qualitative.data ?? []).filter((q) => oneOff.has(q.dataset_id));
+  const periods = useQualitativePeriods(questions.map((q) => q.group_name));
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm text-foreground">
+        Questions <span className="text-muted-foreground">· {questions.length}</span>
+      </p>
+      {questions.length > 0 ? (
+        <ul className="flex flex-col gap-1.5">
+          {questions.map((q) => (
+            <li key={q.id} className="min-w-0">
+              <span className="block text-sm leading-5 truncate" title={q.name}>
+                {q.name}
+              </span>
+              <span className="block text-[12px] text-muted-foreground">
+                {[oneOff.get(q.dataset_id), (periods.get(q.id) ?? []).join(", ") || "No answers yet"].join(" · ")}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-[12px] text-muted-foreground">
+          {oneOff.size > 0
+            ? "The one-off datasets have no qualitative metrics yet. Create one from a dataset's text column."
+            : "No dataset is marked one-off yet. In Datasets, edit the dataset and tick “One-off questions”."}
+        </p>
+      )}
+      <p className="text-[12px] text-muted-foreground">
+        Each shows only while the page shows a period it was asked in; with none, the section stays off the page.
+      </p>
+      <div>
+        <DesignButton
+          variant="outlined"
+          theme="primary"
+          icon={oneOff.size > 0 ? <Plus size={16} /> : undefined}
+          onClick={() => navigate(oneOff.size > 0 ? "/settings/metrics?new=insight" : "/settings/manual-metrics")}
+        >
+          {oneOff.size > 0 ? "New qualitative metric" : "Go to Datasets"}
+        </DesignButton>
+      </div>
+    </div>
+  );
+};
 
 /** Everything about one section, saved as it changes. */
 const SectionForm = ({
@@ -546,6 +623,8 @@ const SectionForm = ({
           </div>
         ))}
 
+      {draft.kind === "oneoffs" && <OneOffList />}
+
       {draft.kind === "code" && (
         <>
           <DesignInputSelect
@@ -650,11 +729,14 @@ const SectionInspector = ({
   item,
   defaultTitle,
   inView,
+  periods,
   onSave,
   onRemove,
   onClose,
 }: {
   item: ViewItem;
+  /** Periods a section can be limited to, newest first. */
+  periods: string[];
   /** The title it gets when none is typed. */
   defaultTitle: string;
   inView: Set<string>;
@@ -700,6 +782,22 @@ const SectionInspector = ({
         />
       )}
       <SectionForm draft={draft} onChange={change} inView={inView} />
+      {draft.kind !== "oneoffs" && (
+        <DesignInputSelect
+          label="Show in"
+          value={draft.options.onlyPeriod ?? EVERY_PERIOD}
+          options={[
+            { value: EVERY_PERIOD, label: "Every period" },
+            ...[...new Set([...(draft.options.onlyPeriod ? [draft.options.onlyPeriod] : []), ...periods])]
+              .sort((a, b) => comparePeriods(b, a))
+              .map((p) => ({ value: p, label: `Only ${p}` })),
+          ]}
+          helperText="With one period picked, it shows only while the page shows that period."
+          onChange={(value) =>
+            change({ ...draft, options: { ...draft.options, onlyPeriod: value === EVERY_PERIOD ? undefined : value } })
+          }
+        />
+      )}
       <label className="flex items-center gap-3 cursor-pointer">
         <DesignCheckbox checked={item.hidden} onCheckedChange={(hidden) => save.current({ hidden: Boolean(hidden) })} />
         <span className="text-sm">Hide on the page for now</span>
@@ -814,9 +912,15 @@ const SectionCard = ({
             )}
           </div>
           {/* The type, unless the title already says it. */}
-          {(item.hidden || WIDGET_LABELS[item.kind] !== title) && (
+          {(item.hidden || item.options?.onlyPeriod || WIDGET_LABELS[item.kind] !== title) && (
             <span className="shrink-0 text-[12px] text-muted-foreground">
-              {[item.hidden && "Hidden", WIDGET_LABELS[item.kind] !== title && WIDGET_LABELS[item.kind]].filter(Boolean).join(" · ")}
+              {[
+                item.hidden && "Hidden",
+                item.options?.onlyPeriod && `Only ${item.options.onlyPeriod}`,
+                WIDGET_LABELS[item.kind] !== title && WIDGET_LABELS[item.kind],
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </span>
           )}
         </div>
@@ -1016,6 +1120,7 @@ export const ViewBlockEditor = ({
       return label ? `${what} by ${label.toLowerCase()}` : "New breakdown";
     }
     if (item.kind === "themes") return (qualitative.data ?? []).find((s) => s.id === item.ref)?.name ?? "Answer themes";
+    if (item.kind === "oneoffs") return "One-off questions";
     if (item.kind === "code") {
       const part = CODE_SECTIONS.find((s) => s.value === item.section)?.label ?? item.section;
       return item.ref ? `${part} · ${item.ref.split("/").slice(-2, -1)[0] ?? item.ref}` : part;
@@ -1024,6 +1129,12 @@ export const ViewBlockEditor = ({
     return "Figma component analytics";
   };
   const inView = new Set(items.flatMap(widgetMetrics));
+  // The last two years of periods, plus any a qualitative metric has answers in.
+  const periodicity = ((parent ?? view).periodicity ?? "quarterly") as Periodicity;
+  const answeredPeriods = useQualitativePeriods([...new Set((qualitative.data ?? []).map((q) => q.group_name))]);
+  const periodChoices = [
+    ...new Set([...recentPeriods(periodicity, periodicity === "quarterly" ? 8 : 12), ...[...answeredPeriods.values()].flat()]),
+  ].sort((a, b) => comparePeriods(b, a));
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -1117,6 +1228,7 @@ export const ViewBlockEditor = ({
                     item={selected}
                     defaultTitle={defaultTitle(selected)}
                     inView={inView}
+                    periods={periodChoices}
                     onSave={(fields) => updateWidget.mutateAsync({ id: selected.id, ...fields }).catch(fail("Could not save the section"))}
                     onRemove={() => {
                       setSelectedId(null);

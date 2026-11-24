@@ -13,6 +13,7 @@ import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { DesignLoader } from "@/components/ds/DesignLoader";
 import { DesignBadge } from "@/components/ds/DesignBadge";
 import { DesignTooltip } from "@/components/ds/DesignTooltip";
+import { DesignCheckbox } from "@/components/ds/DesignCheckbox";
 import { SelectList } from "@/components/settings/SelectList";
 import { SettingsLayout } from "@/components/settings/SettingsLayout";
 import { DesignInputTextArea } from "@/components/ds/DesignInput";
@@ -88,8 +89,8 @@ const kindOptions = [
 ];
 
 /** A dataset's name, description and how its data is entered (the new and edit sheets). */
-type DatasetDraft = { name: string; description: string; entry_method: string; entry_notes: string };
-const EMPTY_DATASET_DRAFT: DatasetDraft = { name: "", description: "", entry_method: "", entry_notes: "" };
+type DatasetDraft = { name: string; description: string; entry_method: string; entry_notes: string; one_off: boolean };
+const EMPTY_DATASET_DRAFT: DatasetDraft = { name: "", description: "", entry_method: "", entry_notes: "", one_off: false };
 
 const entryLabel = (method: string) => SYNCED_SOURCES[method] ?? ENTRY_METHODS.find((m) => m.value === method)?.label;
 
@@ -110,7 +111,7 @@ const DatasetMeta = ({ dataset, onEdit }: { dataset: ManualDataset; onEdit: () =
       .filter((q) => q.dataset_id === dataset.id)
       .map((q) => ({ id: q.id, name: q.name, href: `/settings/metrics?insight=${q.id}` })),
   ];
-  const addMetric = () => navigate(`/settings/metrics?new=number&dataset=${dataset.id}`);
+  const addMetric = () => navigate(`/settings/metrics?new=${dataset.one_off ? "insight" : "number"}&dataset=${dataset.id}`);
   const method = entryLabel(dataset.entry_method);
   const hasSteps = Boolean(dataset.entry_notes.trim());
   const dot = <span aria-hidden="true">·</span>;
@@ -628,6 +629,7 @@ const DatasetsTab = () => {
       description: activeDataset.description ?? "",
       entry_method: activeDataset.entry_method ?? "",
       entry_notes: activeDataset.entry_notes ?? "",
+      one_off: Boolean(activeDataset.one_off),
     });
     setEditSheet(true);
   };
@@ -663,6 +665,11 @@ const DatasetsTab = () => {
           <div className="min-w-[200px] flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-[16px] font-medium text-foreground">{activeDataset?.name}</h2>
+              {activeDataset?.one_off && (
+                <DesignBadge theme="highlight" styling="light">
+                  One-off
+                </DesignBadge>
+              )}
               {lastUpdated && (
                 <DesignBadge theme="muted" styling="light">
                   {lastUpdated.updatedAt ? `Updated ${formatDate(lastUpdated.updatedAt)}` : "No data yet"}
@@ -1033,6 +1040,16 @@ const NewDatasetSheet = ({
         value={draft.entry_notes}
         onChange={(e) => setDraft({ ...draft, entry_notes: e.target.value })}
       />
+      <label className="flex items-start gap-3 cursor-pointer">
+        <DesignCheckbox checked={draft.one_off} onCheckedChange={(on) => setDraft({ ...draft, one_off: Boolean(on) })} />
+        <span className="pt-0.5">
+          <span className="block text-sm text-foreground">One-off questions</span>
+          <span className="block text-[12px] text-muted-foreground">
+            Questions asked once, not tracked over time. Their qualitative metrics show in a view's “One-off questions” section, only
+            for the period they were asked.
+          </span>
+        </span>
+      </label>
     </div>
   </DesignSideSheet>
 );

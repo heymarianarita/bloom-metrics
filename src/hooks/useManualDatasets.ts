@@ -31,6 +31,8 @@ export interface ManualDataset {
   entry_notes: string;
   sort_order: number;
   archived: boolean;
+  /** Asked once: its qualitative metrics show in a view's "One-off questions" section. */
+  one_off: boolean;
 }
 
 export interface ManualDatasetColumn {
@@ -116,7 +118,7 @@ const invalidate = (queryClient: ReturnType<typeof useQueryClient>, keys: string
 export const useCreateDataset = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { name: string; description?: string; entry_method?: string; entry_notes?: string }) => {
+    mutationFn: async (input: { name: string; description?: string; entry_method?: string; entry_notes?: string; one_off?: boolean }) => {
       const { data, error } = await supabase
         .from("manual_datasets")
         .insert({
@@ -125,6 +127,7 @@ export const useCreateDataset = () => {
           description: input.description ?? "",
           entry_method: input.entry_method ?? "",
           entry_notes: input.entry_notes ?? "",
+          one_off: input.one_off ?? false,
         } as never)
         .select("*")
         .single();
@@ -156,6 +159,7 @@ export const useDuplicateDataset = () => {
           // A copy is ordinary data people edit, even when the original is synced.
           entry_method: isSyncedDataset(source) ? "" : source.entry_method ?? "",
           entry_notes: isSyncedDataset(source) ? "" : source.entry_notes ?? "",
+          one_off: source.one_off ?? false,
         } as never)
         .select("*")
         .single();
@@ -208,6 +212,7 @@ export const useUpdateDataset = () => {
       description?: string;
       entry_method?: string;
       entry_notes?: string;
+      one_off?: boolean;
     }) => {
       const { error } = await supabase
         .from("manual_datasets")
@@ -216,6 +221,7 @@ export const useUpdateDataset = () => {
           description: input.description ?? "",
           entry_method: input.entry_method ?? "",
           entry_notes: input.entry_notes ?? "",
+          one_off: input.one_off ?? false,
         } as never)
         .eq("id", input.id);
       if (error) throw new Error(error.message);

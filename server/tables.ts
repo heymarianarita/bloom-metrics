@@ -77,8 +77,8 @@ export const TABLES: Record<string, TableDef> = {
     updatedAt: true,
   },
   manual_datasets: {
-    columns: ["id", "slug", "name", "description", "entry_method", "entry_notes", "sort_order", "archived", ...ts],
-    bool: ["archived"],
+    columns: ["id", "slug", "name", "description", "entry_method", "entry_notes", "sort_order", "archived", "one_off", ...ts],
+    bool: ["archived", "one_off"],
     read: "public",
     write: "editor",
     audited: true,

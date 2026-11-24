@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { removePlacements } from "@/hooks/useViewItems";
 
@@ -102,6 +102,25 @@ export const useQualitativeGroup = (group: string) =>
     refetchInterval: (q) =>
       (q.state.data as QualitativeGroupView | undefined)?.sources.some((s) => s.runStatus === "running") ? 5000 : false,
   });
+
+/** What the qualitative metrics of these groups show, by metric id. */
+export const useQualitativeViews = (groups: string[]) => {
+  const results = useQueries({
+    queries: [...new Set(groups)].map((group) => ({
+      queryKey: ["qualitative-group", group],
+      queryFn: () => invoke<QualitativeGroupView>(`qualitative?group=${encodeURIComponent(group)}`, { method: "GET" }),
+    })),
+  });
+  return new Map(results.flatMap((r) => (r.data?.sources ?? []).map((s) => [s.id, s] as const)));
+};
+
+/** The periods each qualitative metric of these groups has answers in, by metric id. */
+export const useQualitativePeriods = (groups: string[]) =>
+  new Map([...useQualitativeViews(groups)].map(([id, s]) => [id, s.periods] as const));
+
+/** Answers with content (not blank, not “nothing”) in one period. */
+export const answeredIn = (source: QualitativeGroupView["sources"][number], period: string) =>
+  source.questions[0]?.periods[period]?.segments.find((s) => s.key === "all")?.answered ?? 0;
 
 const useInvalidate = () => {
   const qc = useQueryClient();

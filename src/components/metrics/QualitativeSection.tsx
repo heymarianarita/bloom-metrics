@@ -3,7 +3,7 @@ import { useSectionHeading } from "@/components/metrics/sectionHeading";
 import { CaretDown, CaretRight, Sparkle } from "@phosphor-icons/react";
 import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignBadge } from "@/components/ds/DesignBadge";
-import { useQualitativeGroup, type QualitativeGroupView, type SegmentView } from "@/hooks/useQualitative";
+import { answeredIn, useQualitativeGroup, type QualitativeGroupView, type SegmentView } from "@/hooks/useQualitative";
 
 type Source = QualitativeGroupView["sources"][number];
 type Question = Source["questions"][number];
@@ -137,11 +137,14 @@ const GroupView = ({
   period,
   compare,
   segmentFilters,
+  titleFromName = false,
 }: {
   sources: Source[];
   period?: string;
   compare?: string;
   segmentFilters: Record<string, string>;
+  /** The metric's name (the question) is the heading, instead of the section's title. */
+  titleFromName?: boolean;
 }) => {
   const [tab, setTab] = React.useState(0);
   const [view, setView] = React.useState(ALL);
@@ -153,6 +156,10 @@ const GroupView = ({
   const activeView = view === ALL || breakdowns.some((b) => b.label === view) ? view : ALL;
 
   const latest = source.periods[source.periods.length - 1];
+  // A section of one metric with no answers in the chosen period stays out of the way, rather
+  // than showing another period's themes among this period's numbers.
+  const chosen = period && !period.startsWith("__") ? period : undefined;
+  if (sources.length === 1 && question.themes.length > 0 && chosen && source.periods.length > 0 && answeredIn(source, chosen) === 0) return null;
   const active = period && question.periods[period] ? period : latest;
   const compareLabel = compare && compare !== active && question.periods[compare] ? compare : null;
   const data = active ? question.periods[active] : undefined;
@@ -171,9 +178,7 @@ const GroupView = ({
     <section className="pt-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <p className="text-[16px] font-medium text-foreground">
-            <QualitativeHeading />
-          </p>
+          <p className="text-[16px] font-medium text-foreground">{titleFromName ? source.name : <QualitativeHeading />}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
             {`${active ?? "No periods"}${compareLabel ? ` vs ${compareLabel}` : ""}${
               focus && hasThemes ? ` · ${focus.answered} answer${focus.answered === 1 ? "" : "s"}` : ""
@@ -203,7 +208,7 @@ const GroupView = ({
               {s.name}
             </button>
           ))}
-        {sources.length === 1 && <p className="text-sm font-medium text-foreground">{source.name}</p>}
+        {sources.length === 1 && !titleFromName && <p className="text-sm font-medium text-foreground">{source.name}</p>}
         {breakdowns.length > 0 && !filtered && (
           <DesignInputSelect
             className="w-[200px] ml-auto"
@@ -290,6 +295,29 @@ export const QualitativeSection = ({
   if (sources.length === 0) return null;
   return <GroupView sources={sources} period={period} compare={compare} segmentFilters={segmentFilters} />;
 };
+
+/** The questions of one-off datasets answered in the page's period, one after another under one heading. */
+export const OneOffQuestions = ({
+  sources,
+  period,
+  segmentFilters = {},
+}: {
+  /** Only the ones with answers in `period`. */
+  sources: Source[];
+  period: string;
+  segmentFilters?: Record<string, string>;
+}) => (
+  <div>
+    <h2 className="text-[18px] font-[580] leading-6">{useSectionHeading("One-off questions")}</h2>
+    <div className="divide-y divide-border">
+      {sources.map((s) => (
+        <div key={s.id} className="py-4 last:pb-0">
+          <GroupView sources={[s]} period={period} segmentFilters={segmentFilters} titleFromName />
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 export default QualitativeSection;
 
