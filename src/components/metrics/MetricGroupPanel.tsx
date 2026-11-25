@@ -386,10 +386,7 @@ const MetricStat = ({
     return point && (point.value !== fullPrevious.value || point.rows !== fullPrevious.rows) ? point : undefined;
   }, [cutoff, fullPrevious, datasetRows, metric, periodicity]);
   const previous = cutPoint ?? fullPrevious;
-  const previousLabel =
-    cutPoint && cutoff !== null
-      ? `${fullPrevious!.period} to ${new Date(cutoff).toISOString().slice(0, 10)}`
-      : previous?.period;
+  const previousLabel = cutPoint ? `same point in ${fullPrevious!.period}` : previous?.period;
 
   const delta =
     latest && previous ? Number((latest.value - previous.value).toFixed(1)) : undefined;
