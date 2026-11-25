@@ -342,11 +342,18 @@ const MetricStat = ({
     return periodSeries(datasetRows, metric, periodicity);
   }, [isDataset, dynamic.points, datasetRows, metric, periodicity]);
 
+  // A dataset can hold rows from other surveys, so only rows with a value for this metric
+  // offer filter values.
+  const measuredRows = React.useMemo(() => {
+    const key = metric.value_column;
+    return key ? (rows.data ?? []).filter((row) => String(row.data?.[key] ?? "").trim() !== "") : [];
+  }, [rows.data, metric.value_column]);
+
   // Publish the periods and segments this metric knows about to the filter bar.
   const facetSignature = JSON.stringify({
     periods: points.map((point) => point.period),
     segments: Object.fromEntries(
-      filterColumns.map((column) => [column.label, distinct(rows.data ?? [], column.key)]),
+      filterColumns.map((column) => [column.label, distinct(measuredRows, column.key)]),
     ),
   });
   React.useEffect(() => {
