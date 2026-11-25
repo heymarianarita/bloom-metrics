@@ -73,7 +73,7 @@ export const DATA_SOURCE_DEFS: {
   {
     key: "getdx",
     label: "GetDX",
-    description: "Source for teams and business units.",
+    description: "Source for teams, business units and survey study answers.",
     mode: "dynamic",
     credential: "GETDX_API_TOKEN",
     fields: [],

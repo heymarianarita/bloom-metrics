@@ -62,12 +62,14 @@ const DesignInputText = React.forwardRef<HTMLInputElement, DesignInputTextProps>
     const resolvedLabel = label || title;
     const resolvedHelper = helperText || note;
     const isCompact = size !== "default";
+    const generatedId = React.useId();
+    const inputId = props.id ?? generatedId;
 
     return (
       <div className={cn("flex flex-col", className)}>
         {/* Label */}
         {resolvedLabel && (
-          <label className="text-sm leading-[18px] font-medium text-[var(--input-title)] mb-1">
+          <label htmlFor={inputId} className="text-sm leading-[18px] font-medium text-[var(--input-title)] mb-1">
             {resolvedLabel}
           </label>
         )}
@@ -124,11 +126,13 @@ const DesignInputText = React.forwardRef<HTMLInputElement, DesignInputTextProps>
               disabled && "cursor-not-allowed text-[var(--greyscale-3)]"
             )}
             {...props}
+            id={inputId}
           />
 
           {/* Suffix */}
+          {/* Bloom's clickable suffix icon: an icon-only DesignButton shrinks to a 24px square, with the same gap to the field's edge on every side. */}
           {suffix && (
-            <span className="ml-2 flex-shrink-0 text-[var(--input-icon)] flex items-center">
+            <span className="ml-2 flex-shrink-0 text-[var(--input-icon)] flex items-center has-[>[data-design-button]]:-mr-3 [&>[data-design-button]]:size-6 [&>[data-design-button]]:px-0">
               {suffix}
             </span>
           )}
@@ -216,12 +220,14 @@ const DesignInputTextArea = React.forwardRef<
     const [focused, setFocused] = React.useState(false);
     const resolvedLabel = label || title;
     const resolvedHelper = helperText || note;
+    const generatedId = React.useId();
+    const textareaId = props.id ?? generatedId;
 
     return (
       <div className={cn("flex flex-col", className)}>
         {/* Label */}
         {resolvedLabel && (
-          <label className="text-sm leading-[18px] font-medium text-[var(--input-title)] mb-1">
+          <label htmlFor={textareaId} className="text-sm leading-[18px] font-medium text-[var(--input-title)] mb-1">
             {resolvedLabel}
           </label>
         )}
@@ -261,6 +267,7 @@ const DesignInputTextArea = React.forwardRef<
               disabled && "cursor-not-allowed text-[var(--greyscale-3)]"
             )}
             {...props}
+            id={textareaId}
           />
           {suffix && (
             <span className="ml-2 flex-shrink-0 text-[var(--input-icon)] flex items-start pt-0.5">

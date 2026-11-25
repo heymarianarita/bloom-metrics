@@ -9,6 +9,9 @@ import { DesignLoader } from "@/components/ds/DesignLoader";
 import { DesignNote } from "@/components/ds/DesignNote";
 import { DesignCheckbox } from "@/components/ds/DesignCheckbox";
 import { DesignBadge } from "@/components/ds/DesignBadge";
+import { DescriptionField } from "@/components/settings/metrics/DescriptionField";
+import { FormSection } from "@/components/settings/metrics/FormSection";
+import { writeMetricDescription } from "@/lib/metricDescription";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/formatDate";
 import { useMetricGroups } from "@/hooks/useMetricGroups";
@@ -179,6 +182,7 @@ const QualitativeBlockSheet = ({
   sortOrder,
   datasetId,
   inline = false,
+  kindPicker,
   onSaved,
   onDeleted,
 }: {
@@ -193,6 +197,8 @@ const QualitativeBlockSheet = ({
   sortOrder?: number;
   /** Drawn in the page instead of a side sheet. */
   inline?: boolean;
+  /** Inline only: the choice between kinds of metric, under the heading of a new one. */
+  kindPicker?: React.ReactNode;
   /** After saving, with the insight's id (to select a new one). */
   onSaved?: (id: string) => void;
   onDeleted?: () => void;
@@ -239,6 +245,23 @@ const QualitativeBlockSheet = ({
     } catch (e) {
       toast({ title: "Could not start the analysis", description: errorText(e), variant: "destructive" });
     }
+  };
+
+  const missingForDescription = !draft.name.trim()
+    ? "add a name"
+    : !draft.dataset_id || !draft.text_column
+      ? "pick a dataset and its answers column"
+      : null;
+  const describe = () => {
+    const column = (key: string) => profile.find((c) => c.key === key)?.label;
+    return writeMetricDescription("qualitative", {
+      Name: draft.name,
+      Group: draft.group_name,
+      Dataset: (datasets.data ?? []).find((d) => d.id === draft.dataset_id)?.name,
+      "Answers column (the survey question)": column(draft.text_column),
+      "Kind of answers": TONES.find((t) => t.value === draft.tone)?.label,
+      "Broken down by": draft.breakdowns.map((b) => b.label).join(", "),
+    });
   };
 
   const onSave = async () => {
@@ -297,77 +320,87 @@ const QualitativeBlockSheet = ({
     </div>
   );
   const body = (
-    <div className={inline ? "space-y-4" : "p-4 space-y-4"}>
+    <div className={inline ? "flex flex-col gap-4" : "p-4 flex flex-col gap-4"}>
       {source && <AnalysisStatus source={source} busy={run.isPending} onAnalyse={() => analyse(source.id)} />}
-      <DesignInputText
-        label="Name"
-        placeholder="What needs improvement"
-        helperText="Shown as the tab name on the metric group page."
-        value={draft.name}
-        onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-      />
-      <DesignInputSelect
-        label="Group"
-        placeholder="Pick a group"
-        helperText="The Metrics area it belongs to. Where it's shown, and how often it's compared, is set in Metrics → Views."
-        value={draft.group_name}
-        onChange={(group_name) => setDraft({ ...draft, group_name })}
-        options={(groups.data ?? []).filter((g) => !g.parent_id).map((g) => ({ value: g.name, label: g.name }))}
-      />
-      <DesignInputText
-        label="Description"
-        value={draft.description}
-        onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-      />
-      <DesignInputSelect
-        label="Dataset"
-        placeholder="Pick a dataset"
-        value={draft.dataset_id}
-        onChange={(dataset_id) => setDraft({ ...draft, dataset_id, text_column: "", period_column: "", breakdowns: [] })}
-        options={(datasets.data ?? []).filter((d) => !d.archived).map((d) => ({ value: d.id, label: d.name }))}
-      />
-      <DesignInputSelect
-        label="Answers column"
-        placeholder={draft.dataset_id ? "Pick the free-text column" : "Pick a dataset first"}
-        disabled={!draft.dataset_id}
-        value={draft.text_column}
-        onChange={(text_column) => {
-          const col = profile.find((c) => c.key === text_column);
-          setDraft({
-            ...draft,
-            text_column,
-            name: draft.name || col?.label || "",
-            tone: guessTone(`${text_column} ${col?.label ?? ""}`),
-            breakdowns: draft.breakdowns.filter((b) => b.column !== text_column),
-          });
-        }}
-        options={textColumns.map((c) => ({ value: c.key, label: c.freeText ? `${c.label} (${c.filled} answers)` : c.label }))}
-      />
-      <DesignInputSelect
-        label="Period column"
-        placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
-        disabled={!draft.dataset_id}
-        value={draft.period_column}
-        onChange={(period_column) => setDraft({ ...draft, period_column })}
-        options={profile.map((c) => ({ value: c.key, label: c.label }))}
-      />
-      <DesignInputSelect
-        label="Kind of answers"
-        helperText="Decides whether a growing theme is good or bad news."
-        value={draft.tone}
-        onChange={(tone) => setDraft({ ...draft, tone: tone as QuestionTone })}
-        options={TONES}
-      />
 
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground">Break down by</p>
-        <DesignNote className="p-0" text="Summaries are written for each value, such as each role. Team columns are grouped into business units with the GetDX team mapping." />
+      <FormSection title="Data" description="The survey answers to read.">
+        <DesignInputSelect
+          label="Dataset"
+          placeholder="Pick a dataset"
+          value={draft.dataset_id}
+          onChange={(dataset_id) => setDraft({ ...draft, dataset_id, text_column: "", period_column: "", breakdowns: [] })}
+          options={(datasets.data ?? []).filter((d) => !d.archived).map((d) => ({ value: d.id, label: d.name }))}
+        />
+        {draft.dataset_id && (
+          <>
+            <DesignInputSelect
+              label="Answers column"
+              placeholder="Pick the free-text column"
+              value={draft.text_column}
+              onChange={(text_column) => {
+                const col = profile.find((c) => c.key === text_column);
+                setDraft({
+                  ...draft,
+                  text_column,
+                  name: draft.name || col?.label || "",
+                  tone: guessTone(`${text_column} ${col?.label ?? ""}`),
+                  breakdowns: draft.breakdowns.filter((b) => b.column !== text_column),
+                });
+              }}
+              options={textColumns.map((c) => ({ value: c.key, label: c.freeText ? `${c.label} (${c.filled} answers)` : c.label }))}
+            />
+            <DesignInputSelect
+              label="Period column"
+              helperText="The date or quarter each answer belongs to."
+              placeholder="Pick a column"
+              value={draft.period_column}
+              onChange={(period_column) => setDraft({ ...draft, period_column })}
+              options={profile.map((c) => ({ value: c.key, label: c.label }))}
+            />
+          </>
+        )}
+      </FormSection>
+
+      <FormSection title="About this metric" description="How it's named and shown on the page.">
+        <DesignInputText
+          label="Name"
+          placeholder="What needs improvement"
+          value={draft.name}
+          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+        />
+        <DesignInputSelect
+          label="Group"
+          placeholder="Pick a group"
+          helperText="Where it's shown is set in Metrics → Views."
+          value={draft.group_name}
+          onChange={(group_name) => setDraft({ ...draft, group_name })}
+          options={(groups.data ?? []).filter((g) => !g.parent_id).map((g) => ({ value: g.name, label: g.name }))}
+        />
+        <DesignInputSelect
+          label="Kind of answers"
+          helperText="Decides whether a growing theme is good or bad news."
+          value={draft.tone}
+          onChange={(tone) => setDraft({ ...draft, tone: tone as QuestionTone })}
+          options={TONES}
+        />
+        <DescriptionField
+          value={draft.description}
+          onChange={(description) => setDraft((d) => ({ ...d, description }))}
+          missing={missingForDescription}
+          write={describe}
+        />
+      </FormSection>
+
+      <FormSection
+        title="Break down by"
+        description="A summary is written for each value, such as each role. Team columns are grouped into business units."
+      >
         {!draft.dataset_id ? (
           <p className="text-sm text-muted-foreground">Pick a dataset first.</p>
         ) : breakdownColumns.length === 0 ? (
           <p className="text-sm text-muted-foreground">No columns to break down by.</p>
         ) : (
-          <div className="space-y-3 pt-1">
+          <div className="flex flex-col gap-3">
             {breakdownColumns.map((c) => {
               const team = isTeamLabel(c.label);
               const breakdown: QualitativeBreakdown = team
@@ -390,11 +423,10 @@ const QualitativeBlockSheet = ({
             })}
           </div>
         )}
-      </div>
+        <DesignNote className="p-0" text="The AI finds the themes itself and keeps them up to date as new answers come in. Only the answers and breakdown values are sent to it, never emails or other columns; names, teams and emails are removed from the quotes people see." />
+      </FormSection>
 
       {source && <Results source={source} />}
-
-      <DesignNote className="p-0" text="The AI finds the themes itself and keeps them up to date as new answers come in. Only the answers and breakdown values are sent to it, never emails or other columns; names, teams and emails are removed from the quotes people see." />
     </div>
   );
 
@@ -402,7 +434,8 @@ const QualitativeBlockSheet = ({
   if (inline) {
     return (
       <div className="flex flex-col gap-4">
-        <h2 className="text-base font-medium text-foreground">{editingId ? `Configure — ${source?.name}` : "New qualitative metric"}</h2>
+        <h2 className="text-lg font-semibold text-foreground">{editingId ? `Configure — ${source?.name}` : "New metric"}</h2>
+        {kindPicker}
         {body}
         <div className="border-t border-border pt-4">{footer}</div>
       </div>

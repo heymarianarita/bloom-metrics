@@ -46,6 +46,9 @@ const DesignCell = React.forwardRef<HTMLDivElement, DesignCellProps>(
     checked, onCheckedChange, radioValue, ...props
   }, ref) => {
     const isClickable = (!!onClick || !!controlType || clickable) && !disabled;
+    // The control is named by the cell's title, so screen readers announce what it toggles.
+    const titleId = React.useId();
+    const labelledBy = title ? titleId : undefined;
 
     const handleClick = () => {
       if (disabled) return;
@@ -60,7 +63,7 @@ const DesignCell = React.forwardRef<HTMLDivElement, DesignCellProps>(
         {prefix && <div className="mr-4 flex-shrink-0 flex items-center">{prefix}</div>}
         {Icon && <Icon className={cn("w-6 h-6 text-muted-foreground mr-4 flex-shrink-0", iconClassName)} />}
         <div className="flex-1 min-w-0">
-          {title && <span className="text-base font-medium leading-[22px] text-foreground">{title}</span>}
+          {title && <span id={titleId} className="text-base font-medium leading-[22px] text-foreground">{title}</span>}
           {bodyText && (
             <p className={cn("text-sm font-normal leading-[18px] text-muted-foreground", title && "mt-0.5")}>{bodyText}</p>
           )}
@@ -69,7 +72,7 @@ const DesignCell = React.forwardRef<HTMLDivElement, DesignCellProps>(
         {suffix && <div className="ml-2 flex-shrink-0">{suffix}</div>}
         {controlType === "checkbox" && (
           <div onClick={handleControlClick} className="ml-2 flex-shrink-0">
-            <DesignCheckbox checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
+            <DesignCheckbox checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} aria-labelledby={labelledBy} />
           </div>
         )}
         {controlType === "radio" && (
@@ -93,7 +96,7 @@ const DesignCell = React.forwardRef<HTMLDivElement, DesignCellProps>(
         )}
         {controlType === "toggle" && (
           <div onClick={handleControlClick} className="ml-2 flex-shrink-0">
-            <DesignToggle checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
+            <DesignToggle checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} aria-labelledby={labelledBy} />
           </div>
         )}
         {SuffixIcon && <SuffixIcon className={cn("w-5 h-5 text-muted-foreground ml-2 flex-shrink-0", suffixIconClassName)} />}

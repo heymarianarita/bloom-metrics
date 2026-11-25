@@ -1,15 +1,24 @@
 import { tableStyles as ts } from "@/components/ds/tableStyles";
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Cube, MagnifyingGlass, Plus, Trash, X } from "@phosphor-icons/react";
+import { CaretDown, Cube, MagnifyingGlass, Plus, Trash } from "@phosphor-icons/react";
 import { supabase } from "@/integrations/supabase/client";
 import AppShell from "@/components/layout/AppShell";
 import RequireRole from "@/components/auth/RequireRole";
 import { DesignPageHeader } from "@/components/ds/DesignPageHeader";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignCard } from "@/components/ds/DesignCard";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
+import {
+  DesignDropdown,
+  DesignDropdownContent,
+  DesignDropdownItem,
+  DesignDropdownCheckboxItem,
+  DesignDropdownLabel,
+  DesignDropdownTrigger,
+} from "@/components/ds/DesignDropdown";
+import { DesignTooltip } from "@/components/ds/DesignTooltip";
+import { badgeVariants } from "@/components/ds/DesignBadge";
+import { cn } from "@/lib/utils";
 import { DesignInputBar } from "@/components/ds/DesignInputBar";
 import { DesignInputText } from "@/components/ds/DesignInput";
 import { DesignButton } from "@/components/ds/DesignButton";
@@ -27,57 +36,153 @@ import {
   type ComponentTable,
 } from "@/hooks/useComponentAliases";
 
-/** Small + icon button that opens a searchable list of names to add. */
-const AddNamePicker = ({ options, onPick }: { options: string[]; onPick: (v: string) => void }) => {
-  const [open, setOpen] = React.useState(false);
+/** Spreadsheet density, as in the dataset grid. */
+const dense = {
+  th: cn(ts.th, ts.thSticky, "px-2 py-1"),
+  tdAction: cn(ts.td, "px-1 py-0"),
+  input: cn(ts.cellInput, "px-2 py-1"),
+  iconButton:
+    "flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]",
+};
+
+/** A platform's names for one component: the whole cell opens a searchable checklist. */
+const NamesCell = ({
+  label,
+  names,
+  free,
+  onToggle,
+}: {
+  label: string;
+  names: string[];
+  /** Names not yet matched to any row. */
+  free: string[];
+  onToggle: (name: string, on: boolean) => void;
+}) => {
   const [q, setQ] = React.useState("");
-  const list = options.filter((o) => o.toLowerCase().includes(q.trim().toLowerCase()));
+  const search = React.useRef<HTMLInputElement>(null);
+  const term = q.trim().toLowerCase();
+  const listed = [...names, ...free].filter((n) => n.toLowerCase().includes(term));
+  const text = names.join(", ");
   return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQ(""); }}>
-      <PopoverTrigger asChild>
-        <button
-          aria-label="Add name"
-          disabled={options.length === 0}
-          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-md border border-border text-primary hover:bg-foreground/[0.06] disabled:opacity-[0.48] disabled:pointer-events-none"
+    <td className={ts.tdEditable}>
+      <DesignDropdown onOpenChange={(open) => !open && setQ("")}>
+        <DesignDropdownTrigger>
+          <button
+            type="button"
+            className={cn(dense.input, "flex min-h-8 max-w-[280px] flex-wrap items-center gap-1 text-left")}
+          >
+            {names.map((n, i) => (
+              <span key={n} className={cn(badgeVariants({ theme: "muted", styling: "light" }), "max-w-full")}>
+                <span className="truncate">{n}</span>
+                {i < names.length - 1 && <span className="sr-only">,</span>}
+              </span>
+            ))}
+            <span className="sr-only">{text ? `, ${label}` : `${label}, no names`}</span>
+            {!text && <Plus size={14} className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />}
+          </button>
+        </DesignDropdownTrigger>
+        <DesignDropdownContent
+          width={280}
+          height={320}
+          onKeyDownCapture={(e) => {
+            // Typing while an item has focus keeps filtering instead of jumping to a match.
+            if (e.key.length === 1 && e.target !== search.current) search.current?.focus();
+          }}
         >
-          <Plus size={14} />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-[260px] p-2">
-        <DesignInputBar autoFocus placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
-        <div className="mt-2 max-h-[240px] overflow-y-auto">
-          {list.length === 0 ? (
-            <p className="px-2 py-2 text-sm text-muted-foreground">No names left</p>
+          <div className="px-2 pb-1">
+            <DesignInputBar
+              ref={search}
+              autoFocus
+              size="small"
+              aria-label={`Search ${label} names`}
+              placeholder="Search names"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  e.currentTarget.closest("[role=menu]")?.querySelector<HTMLElement>("[role=menuitemcheckbox]")?.focus();
+                } else if (e.key !== "Escape" && e.key !== "Tab") {
+                  e.stopPropagation();
+                }
+              }}
+            />
+          </div>
+          {listed.length === 0 ? (
+            <DesignDropdownLabel>{term ? "No names match" : "No names left"}</DesignDropdownLabel>
           ) : (
-            list.map((o) => (
-              <button
-                key={o}
-                className="block w-full truncate rounded-md px-2 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.06]"
-                onClick={() => { onPick(o); setOpen(false); setQ(""); }}
-              >
-                {o}
-              </button>
+            listed.map((n) => (
+              <DesignDropdownCheckboxItem key={n} checked={names.includes(n)} onCheckedChange={(on) => onToggle(n, on)}>
+                {n}
+              </DesignDropdownCheckboxItem>
             ))
           )}
-        </div>
-      </PopoverContent>
-    </Popover>
+        </DesignDropdownContent>
+      </DesignDropdown>
+    </td>
   );
 };
+
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 /** Text input that saves on blur / Enter instead of every keystroke. */
-const BlurInput = ({ value, onSave, placeholder }: { value: string; onSave: (v: string) => void; placeholder?: string }) => {
+const BlurInput = ({
+  value,
+  onSave,
+  placeholder,
+  "aria-label": ariaLabel,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  placeholder?: string;
+  "aria-label"?: string;
+}) => {
   const [v, setV] = React.useState(value);
   React.useEffect(() => setV(value), [value]);
   return (
     <DesignInputText
       size="small"
+      aria-label={ariaLabel}
       value={v}
       placeholder={placeholder}
       onChange={(e) => setV(e.target.value)}
       onBlur={() => v !== value && onSave(v)}
       onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+    />
+  );
+};
+
+/** Borderless input filling a grid cell; saves on blur, Enter and arrows move up and down the column. */
+const CellInput = ({
+  id,
+  value,
+  onSave,
+  onMove,
+  "aria-label": ariaLabel,
+}: {
+  id: string;
+  value: string;
+  onSave: (v: string) => void;
+  onMove: (step: 1 | -1) => void;
+  "aria-label": string;
+}) => {
+  const [v, setV] = React.useState(value);
+  React.useEffect(() => setV(value), [value]);
+  return (
+    <input
+      id={id}
+      aria-label={ariaLabel}
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => (v.trim() ? v !== value && onSave(v.trim()) : setV(value))}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setV(value);
+        else if (e.key === "Enter" || e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          onMove(e.key === "ArrowUp" ? -1 : 1);
+        }
+      }}
+      className={dense.input}
     />
   );
 };
@@ -291,11 +396,15 @@ const ComponentsSettings = () => {
       : datasets.find((d) => d.id === id)?.name ?? "Unknown dataset";
   const columnLabel = (dsId: string, key: string) =>
     columns.find((c) => c.dataset_id === dsId && c.key === key)?.label ?? key;
+  const sourceTitle = (c: { datasetId: string; columnKey: string }) =>
+    datasetName(c.datasetId) +
+    (!c.datasetId.startsWith("figma:") && !/component/i.test(c.columnKey) ? ` · ${columnLabel(c.datasetId, c.columnKey)}` : "");
 
   const addColumnOptions = columns
     .filter((c) => ids.includes(c.dataset_id))
     .map((c) => ({ value: `${c.dataset_id}::${c.key}`, label: `${datasetName(c.dataset_id)} · ${c.label}` }))
-    .concat(libraries.map((l) => ({ value: `figma:${l.key}::component`, label: `Figma · ${l.name}` })));
+    .concat(libraries.map((l) => ({ value: `figma:${l.key}::component`, label: `Figma · ${l.name}` })))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   const loading = dsLoading || colLoading || cfgLoading || (ids.length > 0 && rowsLoading);
   const figmaPending = !!bloomLib && figmaLoading;
@@ -347,21 +456,9 @@ const ComponentsSettings = () => {
                   <DesignCard key={t.id} className="p-4">
                     <div className="flex items-center gap-3 pb-3">
                       <div className="max-w-[280px] flex-1">
-                        <BlurInput value={t.name} onSave={(name) => updateTable(t.id, (x) => ({ ...x, name }))} />
+                        <BlurInput aria-label="Table name" value={t.name} onSave={(name) => updateTable(t.id, (x) => ({ ...x, name }))} />
                       </div>
                       <div className="ml-auto flex items-center gap-2">
-                        <div className="w-[260px]">
-                          <DesignInputSelect
-                            size="small"
-                            placeholder="Add column"
-                            value=""
-                            options={addColumnOptions.filter((o) => !usedCols.has(o.value))}
-                            onChange={(v) => {
-                              const [datasetId, columnKey] = v.split("::");
-                              updateTable(t.id, (x) => autoMatch({ ...x, columns: [...x.columns, { id: uid(), datasetId, columnKey }] }));
-                            }}
-                          />
-                        </div>
                         <DesignButton size="small" variant="outlined" theme="primary" onClick={() => updateTable(t.id, cleanUp)}>
                           Clean up
                         </DesignButton>
@@ -377,123 +474,143 @@ const ComponentsSettings = () => {
                       <table className={`${ts.table} ${ts.colDividers}`}>
                         <thead>
                           <tr className={ts.headRow}>
-                            <th className={`${ts.th} ${ts.thSticky} left-0 z-20 min-w-[200px]`}>Component</th>
-                            {t.columns.map((c) => (
-                              <th key={c.id} className={`${ts.th} ${ts.thSticky} min-w-[200px]`}>
-                                <div className="flex items-center gap-1">
-                                  <span className="truncate">
-                                    {datasetName(c.datasetId)}
-                                    {!c.datasetId.startsWith("figma:") && !/component/i.test(c.columnKey) && ` · ${columnLabel(c.datasetId, c.columnKey)}`}
-                                  </span>
-                                  <button
-                                    aria-label="Remove column"
-                                    className="rounded-md p-1 hover:bg-foreground/[0.06]"
-                                    onClick={() =>
-                                      updateTable(t.id, (x) => ({
-                                        ...x,
-                                        columns: x.columns.filter((y) => y.id !== c.id),
-                                        rows: x.rows.map((r) => {
-                                          const { [c.id]: _, ...cells } = r.cells;
-                                          return { ...r, cells };
-                                        }),
-                                      }))
-                                    }
-                                  >
-                                    <X size={14} />
+                            <th className={cn(dense.th, "left-0 z-20 min-w-[200px]")}>Component</th>
+                            {t.columns.map((c) => {
+                              const title = sourceTitle(c);
+                              return (
+                                <th key={c.id} className={cn(dense.th, "min-w-[200px]")}>
+                                  <div className="flex max-w-[264px] items-center gap-1">
+                                    <DesignTooltip content={title}>
+                                      <span className="flex-1 truncate">{title}</span>
+                                    </DesignTooltip>
+                                    <DesignDropdown>
+                                      <DesignDropdownTrigger>
+                                        <button aria-label={`Options for ${title}`} className={cn(dense.iconButton, "-my-1 h-5 w-5")}>
+                                          <CaretDown size={14} />
+                                        </button>
+                                      </DesignDropdownTrigger>
+                                      <DesignDropdownContent width={200}>
+                                        <DesignDropdownItem
+                                          icon={<Trash size={16} />}
+                                          onSelect={() =>
+                                            updateTable(t.id, (x) => ({
+                                              ...x,
+                                              columns: x.columns.filter((y) => y.id !== c.id),
+                                              rows: x.rows.map((r) => {
+                                                const { [c.id]: _, ...cells } = r.cells;
+                                                return { ...r, cells };
+                                              }),
+                                            }))
+                                          }
+                                        >
+                                          Remove column
+                                        </DesignDropdownItem>
+                                      </DesignDropdownContent>
+                                    </DesignDropdown>
+                                  </div>
+                                </th>
+                              );
+                            })}
+                            <th className={cn(dense.th, "w-8 px-1 py-0")}>
+                              <DesignDropdown>
+                                <DesignDropdownTrigger>
+                                  <button aria-label="Add column" className={dense.iconButton}>
+                                    <Plus size={14} />
                                   </button>
-                                </div>
-                              </th>
-                            ))}
-                            <th className={`${ts.th} ${ts.thSticky} w-[56px]`} />
+                                </DesignDropdownTrigger>
+                                <DesignDropdownContent width={280} height={320}>
+                                  <DesignDropdownLabel>Add a column from</DesignDropdownLabel>
+                                  {addColumnOptions.filter((o) => !usedCols.has(o.value)).length === 0 ? (
+                                    <DesignDropdownLabel>Every source is already a column</DesignDropdownLabel>
+                                  ) : (
+                                    addColumnOptions
+                                      .filter((o) => !usedCols.has(o.value))
+                                      .map((o) => (
+                                        <DesignDropdownItem
+                                          key={o.value}
+                                          onSelect={() => {
+                                            const [datasetId, columnKey] = o.value.split("::");
+                                            updateTable(t.id, (x) =>
+                                              autoMatch({ ...x, columns: [...x.columns, { id: uid(), datasetId, columnKey }] }),
+                                            );
+                                          }}
+                                        >
+                                          {o.label}
+                                        </DesignDropdownItem>
+                                      ))
+                                  )}
+                                </DesignDropdownContent>
+                              </DesignDropdown>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {visible.map((r) => (
+                          {visible.map((r, i) => (
                             <tr key={r.id} className={`group ${ts.row}`}>
-                              <td className={`${ts.td} sticky left-0 z-[5] bg-inherit`}>
-                                <BlurInput
+                              <td className={cn(ts.tdEditable, "sticky left-0 z-[5] bg-inherit")}>
+                                <CellInput
+                                  id={`cmp-${t.id}-${i}`}
+                                  aria-label={`Component name, row ${i + 1}`}
                                   value={r.name}
-                                  placeholder="Component name"
                                   onSave={(name) =>
                                     updateTable(t.id, (x) => ({ ...x, rows: x.rows.map((y) => (y.id === r.id ? { ...y, name } : y)) }))
                                   }
+                                  onMove={(step) => {
+                                    const next = document.getElementById(`cmp-${t.id}-${i + step}`) as HTMLInputElement | null;
+                                    if (next) {
+                                      next.focus();
+                                      next.select();
+                                    } else (document.activeElement as HTMLElement | null)?.blur();
+                                  }}
                                 />
                               </td>
                               {t.columns.map((c) => (
-                                <td key={c.id} className={ts.td}>
-                                  <div className="flex flex-wrap items-center gap-1">
-                                    {(r.cells[c.id] ?? []).length > 0 && (
-                                      <>
-                                        {(r.cells[c.id] ?? []).map((n) => (
-                                          <span
-                                            key={n}
-                                            className="inline-flex items-center gap-1 rounded-md bg-spacing-bg px-2 py-1 text-xs text-foreground"
-                                          >
-                                            {n}
-                                            <button
-                                              aria-label={`Remove ${n}`}
-                                              className="rounded-md text-muted-foreground hover:text-destructive"
-                                              onClick={() =>
-                                                updateTable(t.id, (x) => ({
-                                                  ...x,
-                                                  rows: x.rows.map((y) =>
-                                                    y.id === r.id
-                                                      ? { ...y, cells: { ...y.cells, [c.id]: (y.cells[c.id] ?? []).filter((z) => z !== n) } }
-                                                      : y,
-                                                  ),
-                                                }))
-                                              }
-                                            >
-                                              <X size={12} />
-                                            </button>
-                                          </span>
-                                        ))}
-                                      </>
-                                    )}
-                                    <AddNamePicker
-                                      onPick={(v) =>
-                                        updateTable(t.id, (x) => ({
-                                          ...x,
-                                          rows: x.rows.map((y) =>
-                                            y.id === r.id
-                                              ? { ...y, cells: { ...y.cells, [c.id]: [...(y.cells[c.id] ?? []), v] } }
-                                              : { ...y, cells: { ...y.cells, [c.id]: (y.cells[c.id] ?? []).filter((z) => z !== v) } },
-                                          ),
-                                        }))
-                                      }
-                                      options={valuesOf(c.datasetId, c.columnKey).filter(
-                                        (n) => !t.rows.some((y) => (y.cells[c.id] ?? []).includes(n)),
-                                      )}
-                                    />
-                                  </div>
-                                </td>
+                                <NamesCell
+                                  key={c.id}
+                                  label={sourceTitle(c)}
+                                  names={r.cells[c.id] ?? []}
+                                  free={valuesOf(c.datasetId, c.columnKey).filter(
+                                    (n) => !t.rows.some((y) => (y.cells[c.id] ?? []).includes(n)),
+                                  )}
+                                  onToggle={(n, on) =>
+                                    updateTable(t.id, (x) => ({
+                                      ...x,
+                                      rows: x.rows.map((y) => {
+                                        const list = (y.cells[c.id] ?? []).filter((z) => z !== n);
+                                        return { ...y, cells: { ...y.cells, [c.id]: y.id === r.id && on ? [...list, n] : list } };
+                                      }),
+                                    }))
+                                  }
+                                />
                               ))}
-                              <td className={`${ts.td} px-2`}>
+                              <td className={dense.tdAction}>
                                 <button
-                                  aria-label="Delete row"
-                                  className="rounded-md p-1.5 text-muted-foreground hover:bg-foreground/[0.06] hover:text-destructive"
+                                  aria-label={`Delete ${r.name || "row"}`}
+                                  className={cn(
+                                    dense.iconButton,
+                                    "opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100",
+                                  )}
                                   onClick={() => updateTable(t.id, (x) => ({ ...x, rows: x.rows.filter((y) => y.id !== r.id) }))}
                                 >
-                                  <Trash size={16} />
+                                  <Trash size={14} />
                                 </button>
                               </td>
                             </tr>
                           ))}
+                          <tr>
+                            <td colSpan={t.columns.length + 2} className={ts.footerCell}>
+                              <button
+                                className={cn(ts.footerAction, "px-2 py-1")}
+                                onClick={() =>
+                                  updateTable(t.id, (x) => ({ ...x, rows: [...x.rows, { id: uid(), name: "New component", cells: {} }] }))
+                                }
+                              >
+                                <Plus size={14} /> New row
+                              </button>
+                            </td>
+                          </tr>
                         </tbody>
                       </table>
-                    </div>
-                    <div className="pt-3">
-                      <DesignButton
-                        size="small"
-                        variant="flat"
-                        theme="primary"
-                        icon={<Plus size={16} />}
-                        onClick={() =>
-                          updateTable(t.id, (x) => ({ ...x, rows: [...x.rows, { id: uid(), name: "New component", cells: {} }] }))
-                        }
-                      >
-                        Add row
-                      </DesignButton>
                     </div>
                   </DesignCard>
                 );

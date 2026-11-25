@@ -31,6 +31,7 @@ import { type SeriesPoint } from "@/lib/periodBuckets";
 import { periodSeries } from "../../../server/shared/aggregate.ts";
 import type { Periodicity } from "@/hooks/useMetricGroups";
 import { isTeamLabel, useTeamBusinessUnits } from "@/hooks/useTeamBusinessUnits";
+import { emptyBreakdownCopy, periodCaption } from "@/lib/periodCaption";
 
 const COLORS = [
   "var(--primary)",
@@ -73,6 +74,8 @@ const Breakdown = ({
   rows,
   periodicity,
   period,
+  segments,
+  skipLabels,
   valueMap,
   unavailable,
   limit,
@@ -89,6 +92,9 @@ const Breakdown = ({
   rows: ManualDatasetRow[];
   periodicity: Periodicity;
   period: string;
+  segments: Record<string, string>;
+  /** Filter columns this breakdown ignores, because it splits by them. */
+  skipLabels: string[];
 }) => {
   const series: SegmentSeries[] = React.useMemo(() => {
     const groups = new Map<string, ManualDatasetRow[]>();
@@ -129,6 +135,10 @@ const Breakdown = ({
     [series, period],
   );
   const current = limit ? ranked.slice(0, limit) : ranked;
+  const latestElsewhere = series
+    .flatMap((segment) => segment.points.map((point) => point.period))
+    .filter((label) => label !== period)
+    .sort((a, b) => comparePeriods(b, a))[0];
   // Over time, the same top groups.
   const lineSeries = React.useMemo(
     () => (limit ? series.filter((s) => ranked.slice(0, limit).some((c) => c.segment === s.value)) : series),
@@ -161,8 +171,8 @@ const Breakdown = ({
           <BreakdownHeading fallback={`${metric.surface || metric.name} per ${label.toLowerCase()}`} />
         </p>
 
-        <p className="text-xs text-muted-foreground">
-          {period === ALL ? "Latest period" : period}
+        <p className="shrink-0 text-right text-xs text-muted-foreground">
+          {periodCaption(period, segments, skipLabels)}
         </p>
       </div>
       <DesignSpacer size="small" />
@@ -172,8 +182,7 @@ const Breakdown = ({
       ) : !hasData ? (
         <DesignEmptyState
           icon={<ChartBar size={40} />}
-          title="No breakdown yet"
-          body={`This metric has no values split by ${label.toLowerCase()} for the selected period.`}
+          {...emptyBreakdownCopy(label.toLowerCase(), period, segments, skipLabels, latestElsewhere)}
         />
       ) : view === "table" ? (
         <div className={`${ts.container} overflow-x-auto`}><table className={ts.table}>
@@ -371,6 +380,8 @@ const MetricBreakdowns = ({
             rows={filtered}
             periodicity={periodicity}
             period={filters.period}
+            segments={segments}
+            skipLabels={[column.label]}
             limit={limit}
           />
         );

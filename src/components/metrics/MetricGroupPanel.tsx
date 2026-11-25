@@ -32,6 +32,7 @@ import { BreakdownCard, ShareRow } from "@/components/metrics/BreakdownCard";
 import { useQualitativeSources } from "@/hooks/useQualitative";
 import { LINE_COLORS } from "@/lib/chartColors";
 import { compactNumber } from "@/lib/chartFormat";
+import { periodCaption, withFilterNote } from "@/lib/periodCaption";
 import { pluralLabel } from "@/lib/pluralLabel";
 import {
   Area,
@@ -213,9 +214,11 @@ const distinct = (rows: ManualDatasetRow[], key?: string) =>
 const ScoreDistributions = ({
   metrics,
   distributions,
+  segments,
 }: {
   metrics: ManualMetric[];
   distributions: Record<string, ScoreDistribution | null>;
+  segments: Record<string, string>;
 }) => {
   const heading = useSectionHeading("How people answered");
   const rated = metrics.filter((m) => distributions[m.id]);
@@ -225,7 +228,7 @@ const ScoreDistributions = ({
     <section className="pt-2">
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-base font-medium text-foreground">{heading}</p>
-        <p className="text-xs text-muted-foreground">{period}</p>
+        <p className="shrink-0 text-right text-xs text-muted-foreground">{period ? periodCaption(period, segments) : ""}</p>
       </div>
       <div className="grid gap-3 md:grid-cols-2 mt-3">
         {rated.map((m) => {
@@ -715,7 +718,7 @@ const MetricGroupPanel = ({
       <section className={parts ? undefined : "pt-2"}>
         <div className="flex items-baseline justify-between gap-3">
           <p className="text-base font-medium text-foreground">{trendHeading}</p>
-          <p className="text-xs text-muted-foreground">{periodicityLabel}</p>
+          <p className="shrink-0 text-right text-xs text-muted-foreground">{withFilterNote(periodicityLabel, filters.segments)}</p>
         </div>
         {comparableMetrics.length > 0 && (
           <>
@@ -829,7 +832,9 @@ const MetricGroupPanel = ({
       </section>
       )}
 
-      {(!parts || parts.distribution) && <ScoreDistributions metrics={groupMetrics} distributions={distributions} />}
+      {(!parts || parts.distribution) && (
+        <ScoreDistributions metrics={groupMetrics} distributions={distributions} segments={filters.segments} />
+      )}
 
       {parts && !parts.breakdowns ? null : groupMetrics.length > 1 ? (
         <MergedBreakdowns

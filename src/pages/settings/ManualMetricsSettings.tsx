@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ClockCounterClockwise, Copy, DotsThree, Eraser, PencilSimple, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
+import { ClockCounterClockwise, CloudArrowDown, Copy, DotsThree, Eraser, PencilSimple, Plus, Trash, UploadSimple } from "@phosphor-icons/react";
 import AppShell from "@/components/layout/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import RequireRole from "@/components/auth/RequireRole";
@@ -34,6 +34,9 @@ import {
 import { useNavigate } from "react-router-dom";
 import DatasetGrid from "@/components/datasets/DatasetGrid";
 import CsvImportSheet from "@/components/datasets/CsvImportSheet";
+import GetDXAddSheet from "@/components/datasets/GetDXAddSheet";
+import { useDataSourceConfigs, useSaveDataSourceConfig } from "@/hooks/useDataSources";
+import { readGetdxConfig } from "@/lib/getdxSync";
 import type { ImportPlan } from "@/components/datasets/importPlan";
 import { inferDateOrder, type DateOrder } from "../../../server/shared/dates.ts";
 import BulkCsvImportSheet, {
@@ -85,6 +88,9 @@ const kindOptions = [
   { value: "text", label: "Text" },
   { value: "period", label: "Quarter (e.g. 2026-Q3)" },
 ];
+
+const NO_COLUMNS: ManualDatasetColumn[] = [];
+const NO_ROWS: ManualDatasetRow[] = [];
 
 /** A dataset's name, description and how its data is entered (the new and edit sheets). */
 type DatasetDraft = { name: string; description: string; entry_method: string; entry_notes: string; one_off: boolean };
@@ -219,6 +225,10 @@ const DatasetsTab = () => {
 
   const activeDataset = datasets.data?.find((d) => d.id === datasetId);
   const synced = isSyncedDataset(activeDataset);
+  const sourceConfigs = useDataSourceConfigs();
+  const saveSourceConfig = useSaveDataSourceConfig();
+  const getdxSaved = sourceConfigs.data?.find((c) => c.source_key === "getdx")?.config;
+  const [getdxSheet, setGetdxSheet] = React.useState(false);
   const activeStats = useDatasetStats(datasetId ? [datasetId] : []);
   const lastUpdated = activeStats.data?.[datasetId];
 
@@ -303,7 +313,14 @@ const DatasetsTab = () => {
   const undo = async (entry: DatasetImport) => {
     try {
       await undoImport.mutateAsync(entry);
-      toast({ title: "Import undone", description: `Removed the ${entry.row_count} rows from ${entry.file_name || "the file"}.` });
+      const source = entry.file_name || "the file";
+      const updated = entry.replaced?.length ?? 0;
+      const description = !updated
+        ? `Removed the ${entry.row_count} rows from ${source}.`
+        : entry.row_count
+          ? `Removed the ${entry.row_count} rows from ${source} and put back the earlier values in ${updated}.`
+          : `Put back the earlier values in the ${updated} rows ${source} updated.`;
+      toast({ title: "Import undone", description });
     } catch (err) {
       toast({ title: "Could not undo the import", description: String(err), variant: "destructive" });
     }
@@ -648,6 +665,18 @@ const DatasetsTab = () => {
               Import CSV or Excel
             </DesignButton>
             )}
+            {!synced && (
+              <DesignButton
+                variant="outlined"
+                theme="primary"
+                size="medium"
+                icon={<CloudArrowDown size={16} />}
+                disabled={!datasetId}
+                onClick={() => setGetdxSheet(true)}
+              >
+                Add from GetDX
+              </DesignButton>
+            )}
             {activeDataset && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -710,6 +739,11 @@ const DatasetsTab = () => {
                     onSelect={() => {
                       if (!confirm(`Delete “${activeDataset.name}” and all of its rows?`)) return;
                       deleteDataset.mutate(activeDataset.id);
+                      const getdxLinks = readGetdxConfig(getdxSaved).datasets;
+                      if (getdxLinks[activeDataset.id]) {
+                        const { [activeDataset.id]: _deleted, ...datasets } = getdxLinks;
+                        saveSourceConfig.mutate({ source_key: "getdx", label: "GetDX", config: { ...getdxSaved, datasets } });
+                      }
                       setDatasetId("");
                     }}
                   >
@@ -805,6 +839,17 @@ const DatasetsTab = () => {
         onImport={handleCsvImport}
       />
 
+      {activeDataset && !synced && (
+        <GetDXAddSheet
+          open={getdxSheet}
+          onOpenChange={setGetdxSheet}
+          dataset={activeDataset}
+          columns={columns.data ?? NO_COLUMNS}
+          rows={rows.data ?? NO_ROWS}
+          saved={getdxSaved}
+        />
+      )}
+
       <ImportHistorySheet
         open={historySheet}
         onOpenChange={setHistorySheet}
@@ -814,7 +859,9 @@ const DatasetsTab = () => {
         onUndo={(entry) => {
           if (
             !confirm(
-              `Remove the ${entry.row_count} rows added from “${entry.file_name || "this file"}”, including any edits made to them since? Columns the import created go too, unless other rows use them.`,
+              entry.row_count || !entry.replaced?.length
+                ? `Remove the ${entry.row_count} rows added from “${entry.file_name || "this file"}”, including any edits made to them since? Columns the import created go too, unless other rows use them.${entry.replaced?.length ? ` The ${entry.replaced.length} rows it updated get their earlier values back.` : ""}`
+                : `Put back the earlier values in the ${entry.replaced.length} rows “${entry.file_name}” updated? Columns it created go too, unless other rows use them.`,
             )
           )
             return;
@@ -893,8 +940,8 @@ const ImportHistorySheet = ({
   <DesignSideSheet open={open} onOpenChange={onOpenChange} title="Import history">
     <div className="p-4 space-y-3">
       <p className="text-sm text-muted-foreground">
-        CSV imports into {datasetName}. Undoing one removes exactly the rows it added; they stay listed in Data history →
-        Change history.
+        File imports and GetDX adds into {datasetName}. Undoing one removes exactly the rows it added and puts back any values it replaced;
+        they stay listed in Data history → Change history.
       </p>
       {imports.length === 0 ? (
         <DesignEmptyState
@@ -908,6 +955,7 @@ const ImportHistorySheet = ({
               <p className="truncate text-sm font-medium text-foreground">{entry.file_name || "Imported file"}</p>
               <p className="text-xs text-muted-foreground">
                 {formatDateTime(entry.created_at)} · {entry.row_count} rows
+                {(entry.replaced?.length ?? 0) > 0 && ` · ${entry.replaced!.length} updated`}
                 {entry.created_columns.length > 0 &&
                   ` · ${entry.created_columns.length} new column${entry.created_columns.length === 1 ? "" : "s"}`}
               </p>

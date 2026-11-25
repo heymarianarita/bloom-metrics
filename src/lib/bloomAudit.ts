@@ -1,14 +1,17 @@
 /**
- * Dev-only console audit of the page on screen: web-ui (Design*) adoption, Bloom token use,
- * hand-written HTML/CSS, typeface, icons, date format and WCAG 2.2 AA (axe-core).
+ * Audit of the page on screen: web-ui (Design*) adoption, Bloom token use, hand-written HTML/CSS,
+ * typeface, icons, date format and WCAG 2.2 AA (axe-core).
  *
+ * Under `npm run dev` it's a console tool:
  *   bloomAudit()                 run on the whole page (or press Alt+Shift+B)
  *   bloomAudit({ root: "main" }) run on part of it
  *   bloomAudit({ a11y: false })  skip the slower accessibility pass
  *   bloomAudit.highlight("native" | "shadcn" | "custom" | "offToken" | "a11y" | "dates")
  *   bloomAudit.clear()
  *
- * Origins come from React's dev-only `_debugSource`, so it only works under `npm run dev`.
+ * The Bloom compliance page also runs it, quietly, inside a hidden frame (see auditFrame.ts).
+ * Origins (Design* vs hand-written) come from React's dev-only `_debugSource`, so in a production
+ * build every element reads as "library" and only the token, type, date and a11y checks mean anything.
  */
 import type { Result as AxeResult } from "axe-core";
 
@@ -33,15 +36,39 @@ interface Origin {
 
 type HighlightKind = "native" | "shadcn" | "custom" | "offToken" | "a11y" | "dates";
 
-interface Options {
+export interface BloomAuditOptions {
   root?: Element | string;
   a11y?: boolean;
+  /** Don't print to the console; just return the report */
+  quiet?: boolean;
+}
+
+export interface AuditTokenRow {
+  category: string;
+  checked: number;
+  on: number;
+  offenders: { value: string; count: number; examples: string }[];
+}
+
+export interface AuditA11yRule {
+  rule: string;
+  impact: string;
+  wcag: string;
+  elements: number;
+  problem: string;
+  helpUrl: string;
 }
 
 export interface BloomAuditReport {
   url: string;
   summary: Record<string, { value: string; detail: string }>;
   elements: Record<HighlightKind, Element[]>;
+  /** Whether origins could be read (dev build); without them adoption and custom CSS are empty */
+  originsKnown: boolean;
+  tokens: AuditTokenRow[];
+  typeface: { checked: number; on: number; offenders: { value: string; count: number; examples: string }[] };
+  dates: { text: string; where: string }[];
+  a11y: { passes: number; failed: number; incomplete: number; violations: AuditA11yRule[]; bestPractices: AuditA11yRule[] } | null;
 }
 
 const OVERLAY_ID = "bloom-audit-overlay";
@@ -263,7 +290,22 @@ const DATE_PATTERNS = [
 
 let last: BloomAuditReport | null = null;
 
-async function bloomAudit(options: Options = {}): Promise<BloomAuditReport> {
+const criterion = (tags: string[]) =>
+  tags
+    .filter((t) => /^wcag\d{3,}$/.test(t))
+    .map((t) => t.slice(4).split("").join("."))
+    .join(", ");
+
+const ruleRow = (v: AxeResult): AuditA11yRule => ({
+  rule: v.id,
+  impact: v.impact ?? "",
+  wcag: criterion(v.tags),
+  elements: v.nodes.length,
+  problem: v.help,
+  helpUrl: v.helpUrl,
+});
+
+async function bloomAudit(options: BloomAuditOptions = {}): Promise<BloomAuditReport> {
   clear();
   const root = typeof options.root === "string" ? document.querySelector(options.root) : (options.root ?? document.body);
   if (!root) throw new Error(`bloomAudit: no element matches ${String(options.root)}`);
@@ -479,6 +521,25 @@ async function bloomAudit(options: Options = {}): Promise<BloomAuditReport> {
     summary["A11y best practices"] = { value: `${a11y.best.length}`, detail: "issues outside AA (headings, landmarks, …)" };
   }
 
+  const rows: [string, Tally][] = [["Colour", colour], ["Font size", typeSize], ["Line height", lineHeight], ["Font weight", weight], ["Spacing", spacing], ["Radius", radius]];
+  last = {
+    url: location.href,
+    summary,
+    elements,
+    originsKnown: import.meta.env.DEV,
+    tokens: rows.map(([category, t]) => ({ category, checked: t.checked, on: t.on, offenders: t.offenderRows() })),
+    typeface: { checked: family.checked, on: family.on, offenders: family.offenderRows() },
+    dates: dateHits,
+    a11y: a11y && {
+      passes: a11y.passes,
+      failed: a11y.failed,
+      incomplete: a11y.incomplete,
+      violations: a11y.violations.map(ruleRow),
+      bestPractices: a11y.best.map(ruleRow),
+    },
+  };
+  if (options.quiet) return last;
+
   const title = `Bloom audit · ${location.pathname}${root === document.body ? "" : ` · ${describe(root)}`}`;
   console.group(`%c${title}`, "font: 600 14px V-Inter, sans-serif; color: #007782");
   console.table(summary);
@@ -495,7 +556,6 @@ async function bloomAudit(options: Options = {}): Promise<BloomAuditReport> {
   }
 
   console.groupCollapsed("Bloom tokens by category");
-  const rows: [string, Tally][] = [["Colour", colour], ["Font size", typeSize], ["Line height", lineHeight], ["Font weight", weight], ["Spacing", spacing], ["Radius", radius]];
   console.table(
     Object.fromEntries(
       rows.map(([label, t]) => [label, { "on scale": pct(t.on, t.checked), checked: t.checked, "feature code": pct(t.featureOn, t.featureChecked), "Design*": pct(t.on - t.featureOn, t.checked - t.featureChecked) }]),
@@ -528,11 +588,6 @@ async function bloomAudit(options: Options = {}): Promise<BloomAuditReport> {
 
   if (a11y?.violations.length || a11y?.best.length) {
     console.groupCollapsed(`Accessibility (${a11y.failed} AA rules failing)`);
-    const criterion = (tags: string[]) =>
-      tags
-        .filter((t) => /^wcag\d{3,}$/.test(t))
-        .map((t) => t.slice(4).split("").join("."))
-        .join(", ");
     const table = (list: AxeResult[]) =>
       console.table(list.map((v) => ({ rule: v.id, impact: v.impact, wcag: criterion(v.tags), elements: v.nodes.length, problem: v.help })));
     if (a11y.violations.length) table(a11y.violations);
@@ -558,7 +613,6 @@ async function bloomAudit(options: Options = {}): Promise<BloomAuditReport> {
   );
   console.groupEnd();
 
-  last = { url: location.href, summary, elements };
   return last;
 }
 
@@ -619,6 +673,8 @@ declare global {
     bloomAudit: typeof bloomAudit & { highlight: typeof highlight; clear: typeof clear; last: () => BloomAuditReport | null };
   }
 }
+
+export { bloomAudit };
 
 export function install() {
   window.bloomAudit = Object.assign(bloomAudit, { highlight, clear, last: () => last });

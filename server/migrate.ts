@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { PoolConnection } from "mysql2/promise";
+import { loggedQualitativeCost } from "./ai.ts";
 import { pool } from "./db.ts";
 import { looksLikeDates, normalizeDateColumn, toIsoDate } from "./shared/dates.ts";
 import { isSnapshot, loadSnapshot } from "./snapshot.ts";
@@ -46,6 +47,8 @@ const ADDED_COLUMNS: { table: string; column: string; definition: string }[] = [
   { table: "manual_metrics", column: "aggregation_options", definition: "JSON NOT NULL DEFAULT (JSON_OBJECT()) AFTER `aggregation`" },
   // The CSV import (dataset_imports) a row came from; empty for rows typed or pasted in.
   { table: "manual_dataset_rows", column: "import_id", definition: "CHAR(36) NULL AFTER `dataset_id`" },
+  // Values an import overwrote in rows already there ([{row_id, before}]), so undoing puts them back.
+  { table: "dataset_imports", column: "replaced", definition: "JSON NOT NULL DEFAULT (JSON_ARRAY()) AFTER `created_columns`" },
   // A survey asked once (questions that change every period); views list it under "One-off questions".
   { table: "manual_datasets", column: "one_off", definition: "TINYINT(1) NOT NULL DEFAULT 0 AFTER `archived`" },
   // When someone first signed in, and when they last used the app (Settings → Users).
@@ -750,6 +753,32 @@ async function firstSignInBackfill(conn: PoolConnection) {
   console.log(`first sign-in filled in for ${(res as { affectedRows?: number }).affectedRows ?? 0} people`);
 }
 
+/** Qualitative runs used to mention one total in their log line. Copy those in once. */
+const QUALITATIVE_COST_NAME = "2026-11-25-qualitative-ai-cost";
+
+async function qualitativeCostBackfill(conn: PoolConnection) {
+  const [done] = await conn.query("SELECT 1 FROM app_migrations WHERE name = ?", [QUALITATIVE_COST_NAME]);
+  if ((done as unknown[]).length) return;
+  const [rows] = await conn.query(
+    "SELECT id, source_key, message, ran_at FROM sync_runs WHERE source_key LIKE 'qualitative:%' AND message LIKE '%AI cost about $%'",
+  );
+  let recorded = 0;
+  for (const row of rows as { id: string; source_key: string; message: string; ran_at: unknown }[]) {
+    const cost = loggedQualitativeCost(String(row.message ?? ""));
+    if (cost == null) continue;
+    const detail = row.source_key.replace(/^qualitative:/, "").slice(0, 191);
+    await conn.query(
+      `INSERT IGNORE INTO ai_usage
+         (id, feature, detail, model, input_tokens, output_tokens, cache_write_tokens, cache_read_tokens, cost_usd, created_at)
+       VALUES (?, 'qualitative', ?, '', 0, 0, 0, 0, ?, ?)`,
+      [row.id, detail, cost, row.ran_at],
+    );
+    recorded++;
+  }
+  await conn.query("INSERT INTO app_migrations (name) VALUES (?)", [QUALITATIVE_COST_NAME]);
+  console.log(`recorded ${recorded} earlier qualitative AI costs`);
+}
+
 /** The database may still be starting (dev db, or a restarting MySQL pod): retry for up to a minute. */
 async function connectWithRetry() {
   const deadline = Date.now() + 60_000;
@@ -829,10 +858,12 @@ async function main() {
       await metricDirection(conn);
       await snapshotMetrics(conn);
       await firstSignInBackfill(conn);
+      await qualitativeCostBackfill(conn);
       return;
     }
     if (!existsSync(EXPORT_FILE)) {
       console.log(`no export at ${EXPORT_FILE}, skipping import`);
+      await qualitativeCostBackfill(conn);
       return;
     }
 
@@ -877,6 +908,7 @@ async function main() {
     await metricDirection(conn);
     await snapshotMetrics(conn);
     await firstSignInBackfill(conn);
+    await qualitativeCostBackfill(conn);
   } finally {
     conn.release();
     await pool.end();

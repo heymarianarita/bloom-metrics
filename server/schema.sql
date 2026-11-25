@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS `dataset_imports` (
   `file_name` TEXT NOT NULL DEFAULT (''),
   `row_count` INT NOT NULL DEFAULT 0,
   `created_columns` JSON NOT NULL DEFAULT (JSON_ARRAY()),
+  `replaced` JSON NOT NULL DEFAULT (JSON_ARRAY()),
   `undone_at` DATETIME(6) NULL,
   `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -399,6 +400,22 @@ CREATE TABLE IF NOT EXISTS `qualitative_summaries` (
   `generated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`source_id`, `question`, `period`, `segment_type`, `segment_value`),
   CONSTRAINT `qualitative_summaries_source_fk` FOREIGN KEY (`source_id`) REFERENCES `qualitative_sources` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One row per model call, so Settings → AI usage can total spend by feature.
+CREATE TABLE IF NOT EXISTS `ai_usage` (
+  `id` CHAR(36) NOT NULL,
+  `feature` VARCHAR(64) NOT NULL,
+  `detail` VARCHAR(191) NOT NULL DEFAULT '',
+  `model` VARCHAR(64) NOT NULL DEFAULT '',
+  `input_tokens` INT NOT NULL DEFAULT 0,
+  `output_tokens` INT NOT NULL DEFAULT 0,
+  `cache_write_tokens` INT NOT NULL DEFAULT 0,
+  `cache_read_tokens` INT NOT NULL DEFAULT 0,
+  `cost_usd` DECIMAL(12, 6) NOT NULL DEFAULT 0,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `ai_usage_feature_idx` (`feature`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- The layout of each Metrics view (a metric_groups row): rows top to bottom, each split into

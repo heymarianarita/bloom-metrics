@@ -75,7 +75,10 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
     const [isOpen, setIsOpen] = React.useState(false);
     const [internalValue, setInternalValue] = React.useState(defaultValue || "");
     const triggerRef = React.useRef<HTMLButtonElement>(null);
+    const listRef = React.useRef<HTMLDivElement>(null);
     const [portalContainer, setPortalContainer] = React.useState<HTMLElement | null>(null);
+    const labelId = React.useId();
+    const valueId = React.useId();
 
     const currentValue = value !== undefined ? value : internalValue;
     const selectedOption = options.find((opt) => opt.value === currentValue);
@@ -99,6 +102,23 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
       setIsOpen(open);
     };
 
+    // Arrow keys, Home and End move between options; Enter or Space picks the focused one.
+    const optionButtons = () => [...(listRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [])];
+    const handleListKeyDown = (e: React.KeyboardEvent) => {
+      const items = optionButtons();
+      if (!items.length) return;
+      const at = items.indexOf(document.activeElement as HTMLButtonElement);
+      const next =
+        e.key === "ArrowDown" ? Math.min(at + 1, items.length - 1)
+        : e.key === "ArrowUp" ? Math.max(at - 1, 0)
+        : e.key === "Home" ? 0
+        : e.key === "End" ? items.length - 1
+        : undefined;
+      if (next === undefined) return;
+      e.preventDefault();
+      items[next].focus();
+    };
+
     return (
       <div
         ref={ref}
@@ -106,7 +126,7 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
       >
         {/* Label */}
         {resolvedLabel && (
-          <label className="text-sm leading-[18px] font-medium text-[var(--input-title)] mb-1">
+          <label id={labelId} className="text-sm leading-[18px] font-medium text-[var(--input-title)] mb-1">
             {resolvedLabel}
           </label>
         )}
@@ -120,8 +140,17 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
             disabled={disabled}
             aria-expanded={isOpen}
             aria-haspopup="listbox"
+            aria-labelledby={resolvedLabel ? `${labelId} ${valueId}` : undefined}
+            onKeyDown={(e) => {
+              if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !isOpen) {
+                e.preventDefault();
+                handleOpenChange(true);
+              }
+            }}
             className={cn(
               "w-full flex items-center justify-between rounded-[6px] transition-all outline-none cursor-pointer",
+              !disabled && !error && "focus-visible:border-[var(--primary)] focus-visible:shadow-[0_0_0_1px_var(--primary)]",
+              error && "focus-visible:shadow-[0_0_0_1px_var(--error-default)]",
               // Padding
               isCompact ? "px-4" : "px-4 py-2.5",
               // Height
@@ -157,6 +186,7 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
 
             {/* Value / Placeholder */}
             <span
+              id={valueId}
               className={cn(
                 "flex-1 text-left truncate",
                 "text-sm leading-[18px]",
@@ -194,7 +224,14 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
               align="start"
               sideOffset={4}
               collisionPadding={8}
-              onOpenAutoFocus={(e) => e.preventDefault()}
+              ref={listRef}
+              onOpenAutoFocus={(e) => {
+                // Focus the chosen option (or the first) so the keyboard can move through the list.
+                e.preventDefault();
+                const items = optionButtons();
+                (items.find((b) => b.getAttribute("aria-selected") === "true") ?? items[0])?.focus();
+              }}
+              onKeyDown={handleListKeyDown}
               className="z-[1100] w-[var(--radix-popover-trigger-width)] min-w-[160px] max-w-[min(360px,calc(100vw-16px))] bg-[var(--background)] border border-[var(--border)] rounded-[6px] shadow-lg max-h-[min(240px,var(--radix-popover-content-available-height))] overflow-auto py-1 outline-none"
               role="listbox"
             >
@@ -211,7 +248,7 @@ const DesignInputSelect = React.forwardRef<HTMLDivElement, DesignInputSelectProp
                       "w-full text-left px-4 flex items-center gap-2 transition-colors cursor-pointer",
                       "py-2 text-sm leading-[18px]",
                       "font-normal",
-                      "hover:bg-[var(--surface-hover)] active:bg-[var(--surface-active)]",
+                      "outline-none hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)] active:bg-[var(--surface-active)]",
                       isSelected
                         ? "text-[var(--primary)]"
                         : "text-[var(--input-value)]"

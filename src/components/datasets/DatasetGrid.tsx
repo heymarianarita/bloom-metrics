@@ -204,12 +204,14 @@ const GridCell = ({
   };
 
   const base = dense.input;
+  const cellLabel = `${column.label}, row ${rowIndex + 1}`;
 
   if (column.kind === "period") {
     return (
       <td className={ts.tdEditable}>
         <input
           id={cellId(rowIndex, columnIndex)}
+          aria-label={cellLabel}
           list="dsg-quarters"
           disabled={readOnly}
           value={draft}
@@ -233,6 +235,7 @@ const GridCell = ({
     <td className={ts.tdEditable}>
       <input
         id={cellId(rowIndex, columnIndex)}
+        aria-label={cellLabel}
         type={column.kind === "email" ? "email" : "text"}
         inputMode={column.kind === "number" || column.kind === "rating" ? "decimal" : undefined}
         disabled={readOnly}

@@ -53,6 +53,8 @@ const DesignAccordion = React.forwardRef<HTMLDivElement, DesignAccordionProps>(
       >
         {/* Header */}
         <button
+          type="button"
+          aria-expanded={isExpanded}
           onClick={() => !disabled && onToggle?.(!isExpanded)}
           disabled={disabled}
           className={cn(
@@ -85,7 +87,7 @@ const DesignAccordion = React.forwardRef<HTMLDivElement, DesignAccordionProps>(
         <div
           className={cn(
             "overflow-hidden transition-all duration-300 ease-in-out",
-            isExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+            isExpanded ? "max-h-[1000px] opacity-100 visible" : "max-h-0 opacity-0 invisible"
           )}
         >
           <div

@@ -209,6 +209,18 @@ function DesignDataTableInner<T>(
   };
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
   const [page, setPage] = useState(1);
+  /** A table wider than its card scrolls sideways; keyboard users then need to focus it to scroll. */
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
+  const [scrolls, setScrolls] = useState(false);
+  React.useEffect(() => {
+    if (!scroller) return;
+    const measure = () => setScrolls(scroller.scrollWidth > scroller.clientWidth + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(scroller);
+    if (scroller.firstElementChild) observer.observe(scroller.firstElementChild);
+    return () => observer.disconnect();
+  }, [scroller]);
   const [internalSelected, setInternalSelected] = useState<string[]>([]);
   const [internalToggled, setInternalToggled] = useState<string[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -484,7 +496,13 @@ function DesignDataTableInner<T>(
       {/* ── Table ── */}
       {pagedData.length > 0 ? (
         <div className={cn(tableStyles.container, "overflow-hidden", inset && "mx-5 mb-5")}>
-          <div className="overflow-x-auto">
+          <div
+            ref={setScroller}
+            className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--primary)]"
+            tabIndex={scrolls ? 0 : undefined}
+            role={scrolls ? "region" : undefined}
+            aria-label={scrolls ? (title ? `${title}, scrolls sideways` : "Table, scrolls sideways") : undefined}
+          >
           <table className={cn(tableStyles.table, "table-fixed")} style={{ minWidth }}>
             {/* Fixed widths (px, rem, %) are applied; "fr" columns share the rest equally. */}
             <colgroup>

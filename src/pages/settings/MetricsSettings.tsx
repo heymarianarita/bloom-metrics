@@ -6,7 +6,7 @@ import RequireRole from "@/components/auth/RequireRole";
 import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignButton } from "@/components/ds/DesignButton";
 import { DesignLoader } from "@/components/ds/DesignLoader";
-import { DesignTabs } from "@/components/ds/DesignTabs";
+import { DesignSelectionGroup } from "@/components/ds/DesignSelectionGroup";
 import { SelectList } from "@/components/settings/SelectList";
 import { SettingsLayout } from "@/components/settings/SettingsLayout";
 import NumberBlockSheet from "@/components/settings/metrics/NumberBlockSheet";
@@ -190,18 +190,35 @@ const MetricLibrary = () => {
 
   /** Switches a new metric between the two kinds, keeping the dataset picked from Unused data. */
   const kindSwitch = (current: "number" | "insight") => (
-    <DesignTabs
-      tabs={[
-        { id: "number", label: "Quantitative" },
-        { id: "insight", label: "Qualitative" },
-      ]}
-      activeTab={current}
-      onTabChange={(kind) => {
-        if (kind === current) return;
-        const dataset = params.get("dataset");
-        setParams({ new: kind, ...(dataset ? { dataset } : {}) }, { replace: true });
-      }}
-    />
+    <div className="flex flex-col gap-1 border-b border-border pb-4">
+      <span id="new-metric-kind" className="text-sm font-medium text-[var(--input-title)]">
+        Kind of metric
+      </span>
+      <DesignSelectionGroup role="radiogroup" aria-labelledby="new-metric-kind" styling="tight" className="flex-nowrap">
+        {[
+          { kind: "number" as const, title: "Quantitative", body: "A number tracked over time" },
+          { kind: "insight" as const, title: "Qualitative", body: "Written answers grouped into themes" },
+        ].map(({ kind, title, body }) => (
+          <DesignSelectionGroup.SelectionItem
+            key={kind}
+            type="button"
+            role="radio"
+            aria-checked={kind === current}
+            className="flex-1 basis-0 min-w-0"
+            size="small"
+            prefix={kind === "number" ? <ChartBar size={16} /> : <ChatText size={16} />}
+            title={title}
+            body={body}
+            isSelected={kind === current}
+            onClick={() => {
+              if (kind === current) return;
+              const dataset = params.get("dataset");
+              setParams({ new: kind, ...(dataset ? { dataset } : {}) }, { replace: true });
+            }}
+          />
+        ))}
+      </DesignSelectionGroup>
+    </div>
   );
   const placement = (text: string) => <p className="text-xs text-muted-foreground">{text}</p>;
 
@@ -249,10 +266,10 @@ const MetricLibrary = () => {
       case "new-number":
         return (
           <>
-            {kindSwitch("number")}
             <NumberBlockSheet
               key={`new:${resetKey}`}
               inline
+              kindPicker={kindSwitch("number")}
               open
               onOpenChange={(open) => !open && clear()}
               metric={null}
@@ -286,10 +303,10 @@ const MetricLibrary = () => {
       case "new-insight":
         return (
           <>
-            {kindSwitch("insight")}
             <QualitativeBlockSheet
               key={`new-insight:${resetKey}`}
               inline
+              kindPicker={kindSwitch("insight")}
               open
               onOpenChange={(open) => !open && clear()}
               source={null}
@@ -314,8 +331,7 @@ const MetricLibrary = () => {
         onSelect={select}
         onReorder={reorder}
         actions={[
-          { label: "New quantitative metric", icon: <Plus size={16} />, onClick: () => setParams({ new: "number" }, { replace: true }) },
-          { label: "New qualitative metric", icon: <Plus size={16} />, onClick: () => setParams({ new: "insight" }, { replace: true }) },
+          { label: "New metric", icon: <Plus size={16} />, onClick: () => setParams({ new: "number" }, { replace: true }) },
         ]}
       />
       }

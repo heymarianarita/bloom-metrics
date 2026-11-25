@@ -1,5 +1,8 @@
 /* V-Inter, as web-ui loads it (packages/web-ui/.storybook/preview-head.html). Bloom only has 375, 500
-   and 580; the ranges send any other requested weight to the nearest of those three files. */
+   and 580; the ranges send any other requested weight to the nearest of those three files.
+   Semibold's CDN woff2 is rejected by Chrome: glyph 99 (exclamdown) has an empty contour,
+   so OTS drops the whole file and the console reports "Failed to decode downloaded font".
+   The CDN woff is that same face without the empty contour, so Semibold uses it directly. */
 @font-face {
   font-family: 'V-Inter';
   src:
@@ -20,9 +23,7 @@
 
 @font-face {
   font-family: 'V-Inter';
-  src:
-    url('https://web-ui-assets.vinted.com/fonts/V-Inter-Semibold-580.woff2') format('woff2'),
-    url('https://web-ui-assets.vinted.com/fonts/V-Inter-Semibold-580.woff') format('woff');
+  src: url('https://web-ui-assets.vinted.com/fonts/V-Inter-Semibold-580.woff') format('woff');
   font-weight: 550 900;
   font-display: swap;
 }

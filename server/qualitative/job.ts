@@ -2,7 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { randomUUID } from "node:crypto";
 import { z } from "zod/v4";
-import { anthropicClient, costOf, FALLBACK, MODEL, TAG_MODEL } from "../ai.ts";
+import { anthropicClient, costOf, FALLBACK, MODEL, recordAiUsage, TAG_MODEL, type AiFeature } from "../ai.ts";
 import { execute, nowMysql, query } from "../db.ts";
 import {
   getSource,
@@ -41,6 +41,7 @@ class Run {
   ) {}
 
   async parse<T extends z.ZodTypeAny>(opts: {
+    feature: AiFeature;
     schema: T;
     system: string;
     prompt: string;
@@ -61,7 +62,9 @@ class Run {
         betas: [...FALLBACK.betas],
       })
       .finalMessage();
-    this.cost += costOf(res.usage as Usage, model);
+    const usage = res.usage as Usage;
+    this.cost += costOf(usage, model);
+    await recordAiUsage({ feature: opts.feature, model, reportedModel: res.model, usage, detail: this.source.name });
     if (res.stop_reason === "refusal") throw new Error("The AI declined to process these answers.");
     if (res.stop_reason === "max_tokens") throw new Error("The AI response was cut off.");
     if (!res.parsed_output) throw new Error("The AI response didn't match the expected format.");
@@ -99,6 +102,7 @@ async function proposeThemes(
   count: string,
 ) {
   const out = await run.parse({
+    feature: "qualitative_themes",
     schema: themeSchema,
     effort: "high",
     system: `You design the coding scheme for open-ended survey answers. ${DATA_NOTE}`,
@@ -143,6 +147,7 @@ const tagSchema = z.object({
 async function tagBatch(run: Run, loaded: LoadedSource, question: QualitativeSource["questions"][number], themes: Theme[], batch: Response[]) {
   const keyOf = new Map(themes.map((t, i) => [`T${i + 1}`, t.id]));
   const out = await run.parse({
+    feature: "qualitative_tagging",
     schema: tagSchema,
     model: TAG_MODEL,
     effort: "low",
@@ -296,6 +301,7 @@ async function summarizeQuestion(run: Run, loaded: LoadedSource, question: Quali
 
     await run.progress(`Summarising "${question.label}" for ${period}`);
     const out = await run.parse({
+      feature: "qualitative_summaries",
       schema: summarySchema,
       effort: "low",
       system: `You write the short summaries shown under survey charts on an internal dashboard. ${DATA_NOTE}`,
@@ -372,6 +378,7 @@ async function summarizeTrend(
 
   await run.progress(`Summarising how "${question.label}" changed over time`);
   const out = await run.parse({
+    feature: "qualitative_summaries",
     schema: trendSchema,
     effort: "low",
     system: `You write the short trend summary shown above a chart of survey themes over time on an internal dashboard. ${DATA_NOTE}`,

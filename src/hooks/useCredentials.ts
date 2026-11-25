@@ -49,7 +49,7 @@ export const CREDENTIAL_DEFS: {
     sourceKey: "getdx",
     name: "GETDX_API_TOKEN",
     label: "GetDX access token",
-    helper: "getdx.com → Settings → Web API → create a token with read access to teams.",
+    helper: "getdx.com → Settings → Web API → create a token with read access to teams, plus the “datacloud:query” scope for survey studies.",
     secret: true,
   },
   {

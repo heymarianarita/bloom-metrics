@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { readSession } from "../auth.ts";
-import { anthropicClient, FALLBACK, MODEL } from "../ai.ts";
+import { anthropicClient, FALLBACK, MODEL, recordAiUsage } from "../ai.ts";
 import { runTool, toolDefinitions, toolStatus } from "./tools.ts";
 
 /**
@@ -147,6 +147,13 @@ async function chat(req: Request, res: Response) {
         usage.input += u.input_tokens + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
         usage.output += u.output_tokens;
         send({ type: "usage", inputTokens: usage.input, outputTokens: usage.output });
+        await recordAiUsage({
+          feature: "insights_chat",
+          model: MODEL,
+          reportedModel: message.model,
+          usage: u,
+          detail: [context?.page, context?.subject].filter(Boolean).join(" · ") || "Insights",
+        });
       } catch (err) {
         // With eager input streaming a tool input can arrive unparseable: re-issue the turn.
         if (err instanceof Anthropic.APIError || abort.signal.aborted || jsonRetries++ >= 2) throw err;

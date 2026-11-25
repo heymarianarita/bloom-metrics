@@ -108,6 +108,7 @@ const DesignButton = React.forwardRef<HTMLButtonElement, DesignButtonProps>(
 
     return (
       <button
+        data-design-button=""
         className={classes}
         ref={ref}
         disabled={disabled || isLoading}

@@ -100,8 +100,8 @@ export const TABLES: Record<string, TableDef> = {
     updatedAt: true,
   },
   dataset_imports: {
-    columns: ["id", "dataset_id", "file_name", "row_count", "created_columns", "undone_at", ...ts],
-    json: ["created_columns"],
+    columns: ["id", "dataset_id", "file_name", "row_count", "created_columns", "replaced", "undone_at", ...ts],
+    json: ["created_columns", "replaced"],
     read: "public",
     write: "editor",
     audited: true,
@@ -166,6 +166,14 @@ export const TABLES: Record<string, TableDef> = {
     write: "editor",
     audited: true,
     updatedAt: true,
+  },
+  ai_usage: {
+    columns: [
+      "id", "feature", "detail", "model", "input_tokens", "output_tokens",
+      "cache_write_tokens", "cache_read_tokens", "cost_usd", "created_at",
+    ],
+    read: "editor",
+    write: "none",
   },
   data_change_log: {
     columns: ["id", "table_name", "row_id", "action", "changed_by", "old_data", "new_data", "changed_at"],

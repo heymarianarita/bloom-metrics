@@ -67,10 +67,13 @@ export const SelectList = ({
     return acc;
   }, []);
   return (
-    <DesignCard className="p-2">
+    // On wide screens the card fills its column and only the items scroll, so the actions below
+    // stay in reach without covering the last items.
+    <DesignCard className="p-2 flex flex-col xl:h-full">
       {/* The page's title lives here, at the top of its list (the pages have no header above the columns). */}
       <h1 className="px-3 pt-2 pb-3 text-xl font-semibold text-foreground truncate">{title}</h1>
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-0.5 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+
         {onReorder ? (
           groups.map((g, gi) => (
             <React.Fragment key={g.group ?? gi}>
@@ -98,18 +101,22 @@ export const SelectList = ({
             </React.Fragment>
           ))
         )}
-        {actions.map((action) => (
-          <button
-            key={action.label}
-            type="button"
-            className={`${rowClass(false)} flex items-center gap-2 text-sm text-muted-foreground ${onReorder ? "pl-[37px]" : ""}`}
-            onClick={action.onClick}
-          >
-            <span className="shrink-0 flex">{action.icon}</span>
-            {action.label}
-          </button>
-        ))}
       </div>
+      {actions.length > 0 && (
+        <div className="-mx-2 -mb-2 mt-1 flex shrink-0 flex-col gap-0.5 rounded-b-xl border-t border-border bg-design-card p-2">
+          {actions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              className={`${rowClass(false)} flex items-center gap-2 text-sm text-muted-foreground ${onReorder ? "pl-[37px]" : ""}`}
+              onClick={action.onClick}
+            >
+              <span className="shrink-0 flex">{action.icon}</span>
+              {action.label}
+            </button>
+          ))}
+        </div>
+      )}
     </DesignCard>
   );
 };

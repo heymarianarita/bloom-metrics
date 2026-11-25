@@ -358,6 +358,8 @@ export interface DatasetImport {
   row_count: number;
   /** Keys of the columns the import created. */
   created_columns: string[];
+  /** Values it overwrote in rows already there (null: the row had none), restored on undo. */
+  replaced?: { row_id: string; before: Record<string, unknown> }[];
   undone_at: string | null;
   created_at: string;
 }
@@ -383,6 +385,7 @@ export const createDatasetImport = async (input: {
   file_name: string;
   row_count: number;
   created_columns: string[];
+  replaced?: DatasetImport["replaced"];
 }) => {
   const { data, error } = await supabase
     .from("dataset_imports")
@@ -404,6 +407,26 @@ export const useUndoDatasetImport = () => {
     mutationFn: async (entry: DatasetImport) => {
       const { error } = await supabase.from("manual_dataset_rows").delete().eq("import_id", entry.id);
       if (error) throw new Error(error.message);
+
+      if (entry.replaced?.length) {
+        const { data: current, error: readError } = await supabase
+          .from("manual_dataset_rows")
+          .select("id, data")
+          .in("id", entry.replaced.map((r) => r.row_id));
+        if (readError) throw new Error(readError.message);
+        const byId = new Map(((current ?? []) as unknown as { id: string; data: Record<string, unknown> | null }[]).map((r) => [r.id, r.data ?? {}]));
+        for (const { row_id, before } of entry.replaced) {
+          const data = byId.get(row_id);
+          if (!data) continue;
+          const restored = { ...data };
+          for (const [key, value] of Object.entries(before)) {
+            if (value === undefined || value === null) delete restored[key];
+            else restored[key] = value;
+          }
+          const { error: restoreError } = await supabase.from("manual_dataset_rows").update({ data: restored } as never).eq("id", row_id);
+          if (restoreError) throw new Error(restoreError.message);
+        }
+      }
 
       if (entry.created_columns.length) {
         const { data: remaining, error: rowsError } = await supabase

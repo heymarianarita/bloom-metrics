@@ -7,6 +7,10 @@ import { DesignSideSheet } from "@/components/ds/DesignSideSheet";
 import { DesignDataTable, type DataTableColumn } from "@/components/ds/DesignDataTable";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { DesignNote } from "@/components/ds/DesignNote";
+import { DesignAccordion } from "@/components/ds/DesignAccordion";
+import { DescriptionField } from "@/components/settings/metrics/DescriptionField";
+import { FormSection } from "@/components/settings/metrics/FormSection";
+import { writeMetricDescription } from "@/lib/metricDescription";
 import { useToast } from "@/hooks/use-toast";
 import { DIRECTION_OPTIONS, type MetricDirection,
   useSaveManualMetric,
@@ -126,7 +130,7 @@ const ValuesPreview = ({ draft }: { draft: Draft }) => {
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-foreground">Values</p>
+      <p className="text-sm font-medium text-input-title">Values</p>
       {!ready ? (
         <p className="text-sm text-muted-foreground">Pick where the data comes from to preview its values.</p>
       ) : isDynamic && !dynamic.configured ? (
@@ -155,6 +159,7 @@ const NumberBlockSheet = ({
   sortOrder,
   datasetId,
   inline = false,
+  kindPicker,
   onSaved,
   onDeleted,
 }: {
@@ -171,6 +176,8 @@ const NumberBlockSheet = ({
   datasetId?: string;
   /** Drawn in the page instead of a side sheet. */
   inline?: boolean;
+  /** Inline only: the choice between kinds of metric, under the heading of a new one. */
+  kindPicker?: React.ReactNode;
   /** After saving, with the metric's slug (to select a new one). */
   onSaved?: (slug: string) => void;
   onDeleted?: () => void;
@@ -182,6 +189,7 @@ const NumberBlockSheet = ({
   const deleteMetric = useDeleteManualMetric();
   const liveSources = useDynamicSourceOptions();
   const [draft, setDraft] = React.useState<Draft>(emptyDraft);
+  const [calculationOpen, setCalculationOpen] = React.useState(false);
   const editingId = metric && !duplicate ? metric.id : null;
   const allGroups = React.useMemo(() => groups.data ?? [], [groups.data]);
 
@@ -233,6 +241,46 @@ const NumberBlockSheet = ({
           { value: draft.source_key, label: `${findDynamicSource(draft.source_key)?.label ?? draft.source_key} (not set up)` },
         ]
       : liveSources.options;
+
+  const labelOf = (options: { value: string; label: string }[], value: string) =>
+    options.find((o) => o.value === value)?.label ?? value;
+
+  const missingForDescription = !draft.name.trim()
+    ? "add a name"
+    : draft.source_type === "dynamic"
+      ? !draft.source_key || !draft.source_field
+        ? "pick a live source and its value"
+        : null
+      : !draft.dataset_id || !draft.value_column
+        ? "pick a dataset and its value column"
+        : null;
+  const describe = () => {
+    const column = (key: string) => (draftColumns.data ?? []).find((c) => c.key === key)?.label;
+    const dynamic = draft.source_type === "dynamic";
+    const scale = Object.entries(draft.scale_labels)
+      .filter(([, v]) => v.trim())
+      .map(([k, v]) => `${k} = ${v.trim()}`)
+      .join(", ");
+    return writeMetricDescription("quantitative", {
+      Name: draft.name,
+      Unit: draft.unit,
+      Group: draft.surface,
+      "Going up is": draft.direction === "down" ? "bad" : draft.direction === "up" ? "good" : undefined,
+      ...(dynamic
+        ? {
+            "Live source": findDynamicSource(draft.source_key)?.label,
+            Value: findDynamicField(draft.source_key, draft.source_field)?.label,
+          }
+        : {
+            Dataset: (datasets.data ?? []).find((d) => d.id === draft.dataset_id)?.name,
+            "Value column": column(draft.value_column),
+            "Period column": column(draft.period_column),
+            "Rows combined by": labelOf(AGGREGATION_OPTIONS, draft.aggregation),
+            "Divided by": draft.aggregation === "ratio" ? column(draft.aggregation_options.denominator_column ?? "") : undefined,
+            "Score meanings (1–5)": valueIsRating ? scale : undefined,
+          }),
+    });
+  };
 
   const save = async () => {
     if (!draft.name.trim()) {
@@ -313,174 +361,202 @@ const NumberBlockSheet = ({
       </div>
     </div>
   );
+  const fromDataset = draft.source_type !== "dynamic";
+  const calculationSummary = [
+    labelOf(AGGREGATION_OPTIONS, draft.aggregation),
+    labelOf(OVER_TIME_OPTIONS, draft.aggregation_options.over_time ?? "average").toLowerCase(),
+  ].join(" · ");
+
   const body = (
-    <div className={inline ? "space-y-4" : "p-4 space-y-4"}>
-      <DesignInputText label="Name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-      <DesignInputText
-        label="Unit"
-        placeholder="%, count, hours"
-        value={draft.unit}
-        onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
-      />
-      <DesignInputSelect
-        label="When it changes"
-        helperText="Colours its change on the page: green when it moves the good way, red when it doesn't."
-        value={draft.direction}
-        onChange={(direction) => setDraft({ ...draft, direction: direction as MetricDirection })}
-        options={DIRECTION_OPTIONS}
-      />
-      <DesignInputSelect
-        label="Group"
-        helperText="The Metrics area it belongs to. Where it's shown, and how often it's compared, is set in Metrics → Views."
-        placeholder={groupOptions.length ? "Pick a group" : "Create a view first"}
-        disabled={groupOptions.length === 0}
-        value={metricGroupId(allGroups, draft)}
-        onChange={(id) => setDraft({ ...draft, ...placement(id) })}
-        options={groupOptions}
-      />
-      <DesignInputText
-        label="Description"
-        value={draft.description}
-        onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-      />
-      <DesignInputSelect
-        label="Where the data comes from"
-        value={draft.source_type}
-        onChange={(source_type) =>
-          setDraft({ ...draft, source_type, dataset_id: "", value_column: "", period_column: "", source_key: "", source_field: "" })
-        }
-        options={[
-          { value: "dataset", label: "A dataset entered here" },
-          { value: "dynamic", label: "A connected live source" },
-        ]}
-      />
-
-      {draft.source_type === "dynamic" ? (
-        <>
-          <DesignInputSelect
-            label="Live source"
-            placeholder={liveSourceOptions.length ? "Pick a source" : "Nothing set up in Dynamic sources yet"}
-            disabled={liveSourceOptions.length === 0}
-            value={draft.source_key}
-            onChange={(source_key) => setDraft({ ...draft, source_key, source_field: "" })}
-            options={liveSourceOptions.map((s) => ({ value: s.value, label: s.label }))}
-          />
-          <DesignInputSelect
-            label="Value"
-            placeholder={draft.source_key ? "Pick a value" : "Pick a source first"}
-            disabled={!draft.source_key}
-            value={draft.source_field}
-            onChange={(source_field) => {
-              const unit = findDynamicField(draft.source_key, source_field)?.unit;
-              setDraft({ ...draft, source_field, unit: draft.unit || unit || "" });
-            }}
-            options={(findDynamicSource(draft.source_key)?.fields ?? []).map((f) => ({ value: f.key, label: f.label }))}
-          />
-          <DesignNote
-            text={
-              liveSourceOptions.length
-                ? "Lists the Figma libraries, GitHub reports and Google Analytics properties set up in Settings → Dynamic sources. Values refresh automatically — nothing to type in."
-                : "Add a Figma library, a GitHub report or a Google Analytics property in Settings → Dynamic sources, then pick it here."
-            }
-          />
-        </>
-      ) : (
-        <>
-          <DesignInputSelect
-            label="Dataset"
-            placeholder="Pick a dataset"
-            value={draft.dataset_id}
-            onChange={(dataset_id) => setDraft({ ...draft, dataset_id, value_column: "", period_column: "" })}
-            options={(datasets.data ?? []).map((d) => ({ value: d.id, label: d.name }))}
-          />
-          <DesignInputSelect
-            label="Value column"
-            placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
-            disabled={!draft.dataset_id}
-            value={draft.value_column}
-            onChange={(value_column) => setDraft({ ...draft, value_column })}
-            options={valueColumnOptions}
-          />
-          {valueIsRating && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">What each score means</p>
-              <DesignNote text="Optional. Shown on the metric's card and next to the answer distribution, e.g. 4 = “Somewhat speeds me up”." />
-              {SCALE_POINTS.map((point) => (
-                <DesignInputText
-                  key={point}
-                  size="small"
-                  prefix={<span className="text-sm font-medium text-foreground w-4">{point}</span>}
-                  aria-label={`Meaning of ${point}`}
-                  placeholder={point === "1" ? "Lowest, e.g. “Much slower”" : point === "5" ? "Highest, e.g. “Over 40% faster”" : ""}
-                  value={draft.scale_labels[point] ?? ""}
-                  onChange={(e) => setDraft({ ...draft, scale_labels: { ...draft.scale_labels, [point]: e.target.value } })}
-                />
-              ))}
-            </div>
-          )}
-          <DesignInputSelect
-            label="Period column"
-            placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
-            disabled={!draft.dataset_id}
-            value={draft.period_column}
-            onChange={(period_column) => setDraft({ ...draft, period_column })}
-            options={columnOptions}
-          />
-          <DesignInputSelect
-            label="Combine rows by"
-            value={draft.aggregation}
-            onChange={(aggregation) => setDraft({ ...draft, aggregation, unit: aggregation === "ratio" && !draft.unit ? "%" : draft.unit })}
-            options={AGGREGATION_OPTIONS}
-          />
-          <DesignInputSelect
-            label="When a period has several dates"
-            helperText="Things that happen (insertions) add up; snapshots (a weekly scan) use the last date."
-            value={draft.aggregation_options.over_time ?? "average"}
-            onChange={(over_time) =>
-              setDraft({ ...draft, aggregation_options: { ...draft.aggregation_options, over_time: over_time as OverTime } })
-            }
-            options={OVER_TIME_OPTIONS}
-          />
-          {draft.aggregation === "ratio" && (
+    <div className={inline ? "flex flex-col gap-4" : "p-4 flex flex-col gap-4"}>
+      <FormSection title="Data" description="Where the numbers come from.">
+        <DesignInputSelect
+          label="Where the data comes from"
+          value={draft.source_type}
+          onChange={(source_type) =>
+            setDraft({ ...draft, source_type, dataset_id: "", value_column: "", period_column: "", source_key: "", source_field: "" })
+          }
+          options={[
+            { value: "dataset", label: "A dataset entered here" },
+            { value: "dynamic", label: "A connected live source" },
+          ]}
+        />
+        {fromDataset ? (
+          <>
             <DesignInputSelect
-              label="Divided by the total of"
-              placeholder={draft.dataset_id ? "Pick a column" : "Pick a dataset first"}
-              disabled={!draft.dataset_id}
-              value={draft.aggregation_options.denominator_column ?? ""}
-              onChange={(denominator_column) =>
-                setDraft({ ...draft, aggregation_options: { ...draft.aggregation_options, denominator_column } })
-              }
-              options={valueColumnOptions}
-              helperText="E.g. detachments divided by insertions, shown as a percentage."
+              label="Dataset"
+              placeholder="Pick a dataset"
+              value={draft.dataset_id}
+              onChange={(dataset_id) => setDraft({ ...draft, dataset_id, value_column: "", period_column: "" })}
+              options={(datasets.data ?? []).map((d) => ({ value: d.id, label: d.name }))}
             />
-          )}
-          {draft.aggregation === "count_if" && (
-            <div className="grid grid-cols-2 gap-3">
+            {draft.dataset_id && (
+              <>
+                <DesignInputSelect
+                  label="Value column"
+                  placeholder="Pick a column"
+                  value={draft.value_column}
+                  onChange={(value_column) => {
+                    const column = (draftColumns.data ?? []).find((c) => c.key === value_column);
+                    setDraft({ ...draft, value_column, name: draft.name || column?.label || "" });
+                  }}
+                  options={valueColumnOptions}
+                />
+                <DesignInputSelect
+                  label="Period column"
+                  helperText="The date or quarter each row belongs to."
+                  placeholder="Pick a column"
+                  value={draft.period_column}
+                  onChange={(period_column) => setDraft({ ...draft, period_column })}
+                  options={columnOptions}
+                />
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <DesignInputSelect
+              label="Live source"
+              placeholder={liveSourceOptions.length ? "Pick a source" : "Nothing set up in Dynamic sources yet"}
+              disabled={liveSourceOptions.length === 0}
+              value={draft.source_key}
+              onChange={(source_key) => setDraft({ ...draft, source_key, source_field: "" })}
+              options={liveSourceOptions.map((s) => ({ value: s.value, label: s.label }))}
+            />
+            {draft.source_key && (
               <DesignInputSelect
-                label="Count rows where the value"
-                value={draft.aggregation_options.op ?? "eq"}
-                onChange={(op) =>
-                  setDraft({ ...draft, aggregation_options: { ...draft.aggregation_options, op: op as CountOp } })
-                }
-                options={COUNT_OPS}
-              />
-              <DesignInputText
-                label="This number"
-                inputMode="decimal"
-                value={String(draft.aggregation_options.threshold ?? 0)}
-                onChange={(e) => {
-                  const threshold = Number(e.target.value);
-                  if (e.target.value.trim() === "" || Number.isFinite(threshold))
-                    setDraft({ ...draft, aggregation_options: { ...draft.aggregation_options, threshold: e.target.value.trim() === "" ? 0 : threshold } });
+                label="Value"
+                placeholder="Pick a value"
+                value={draft.source_field}
+                onChange={(source_field) => {
+                  const field = findDynamicField(draft.source_key, source_field);
+                  setDraft({ ...draft, source_field, unit: draft.unit || field?.unit || "", name: draft.name || field?.label || "" });
                 }}
+                options={(findDynamicSource(draft.source_key)?.fields ?? []).map((f) => ({ value: f.key, label: f.label }))}
+              />
+            )}
+            <DesignNote
+              text={
+                liveSourceOptions.length
+                  ? "Figma libraries, GitHub reports and Google Analytics properties set up in Settings → Dynamic sources. Values refresh automatically."
+                  : "Add a Figma library, a GitHub report or a Google Analytics property in Settings → Dynamic sources, then pick it here."
+              }
+            />
+          </>
+        )}
+        <ValuesPreview draft={draft} />
+      </FormSection>
+
+      <FormSection title="About this metric" description="How it's named and shown on the page.">
+        <DesignInputText label="Name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+        <DesignInputSelect
+          label="Group"
+          helperText="Where it's shown is set in Metrics → Views."
+          placeholder={groupOptions.length ? "Pick a group" : "Create a view first"}
+          disabled={groupOptions.length === 0}
+          value={metricGroupId(allGroups, draft)}
+          onChange={(id) => setDraft({ ...draft, ...placement(id) })}
+          options={groupOptions}
+        />
+        <DesignInputText
+          label="Unit"
+          placeholder="%, count, hours"
+          value={draft.unit}
+          onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
+        />
+        <DesignInputSelect
+          label="When it changes"
+          helperText="Green when it moves the good way, red when it doesn't."
+          value={draft.direction}
+          onChange={(direction) => setDraft({ ...draft, direction: direction as MetricDirection })}
+          options={DIRECTION_OPTIONS}
+        />
+        <DescriptionField
+          value={draft.description}
+          onChange={(description) => setDraft((d) => ({ ...d, description }))}
+          missing={missingForDescription}
+          write={describe}
+        />
+        {fromDataset && valueIsRating && (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-input-title">What each score means</p>
+            <DesignNote text="Optional. Shown on the metric's card and next to the answer distribution, e.g. 4 = “Somewhat speeds me up”." />
+            {SCALE_POINTS.map((point) => (
+              <DesignInputText
+                key={point}
+                size="small"
+                prefix={<span className="text-sm font-medium text-foreground w-4">{point}</span>}
+                aria-label={`Meaning of ${point}`}
+                placeholder={point === "1" ? "Lowest, e.g. “Much slower”" : point === "5" ? "Highest, e.g. “Over 40% faster”" : ""}
+                value={draft.scale_labels[point] ?? ""}
+                onChange={(e) => setDraft({ ...draft, scale_labels: { ...draft.scale_labels, [point]: e.target.value } })}
+              />
+            ))}
+          </div>
+        )}
+      </FormSection>
+
+      {fromDataset && (
+        <div className="rounded-md border border-border overflow-hidden">
+          <DesignAccordion
+            size="narrow"
+            title="Calculation"
+            subtitle={calculationSummary}
+            isExpanded={calculationOpen}
+            onToggle={setCalculationOpen}
+          >
+            <div className="flex flex-col gap-4">
+              <DesignInputSelect
+                label="Combine rows by"
+                value={draft.aggregation}
+                onChange={(aggregation) => setDraft({ ...draft, aggregation, unit: aggregation === "ratio" && !draft.unit ? "%" : draft.unit })}
+                options={AGGREGATION_OPTIONS}
+              />
+              {draft.aggregation === "ratio" && (
+                <DesignInputSelect
+                  label="Divided by the total of"
+                  placeholder="Pick a column"
+                  value={draft.aggregation_options.denominator_column ?? ""}
+                  onChange={(denominator_column) =>
+                    setDraft({ ...draft, aggregation_options: { ...draft.aggregation_options, denominator_column } })
+                  }
+                  options={valueColumnOptions}
+                  helperText="E.g. detachments divided by insertions, shown as a percentage."
+                />
+              )}
+              {draft.aggregation === "count_if" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <DesignInputSelect
+                    label="Count rows where the value"
+                    value={draft.aggregation_options.op ?? "eq"}
+                    onChange={(op) => setDraft({ ...draft, aggregation_options: { ...draft.aggregation_options, op: op as CountOp } })}
+                    options={COUNT_OPS}
+                  />
+                  <DesignInputText
+                    label="This number"
+                    inputMode="decimal"
+                    value={String(draft.aggregation_options.threshold ?? 0)}
+                    onChange={(e) => {
+                      const threshold = Number(e.target.value);
+                      if (e.target.value.trim() === "" || Number.isFinite(threshold))
+                        setDraft({ ...draft, aggregation_options: { ...draft.aggregation_options, threshold: e.target.value.trim() === "" ? 0 : threshold } });
+                    }}
+                  />
+                </div>
+              )}
+              <DesignInputSelect
+                label="When a period has several dates"
+                helperText="Things that happen (insertions) add up; snapshots (a weekly scan) use the last date."
+                value={draft.aggregation_options.over_time ?? "average"}
+                onChange={(over_time) =>
+                  setDraft({ ...draft, aggregation_options: { ...draft.aggregation_options, over_time: over_time as OverTime } })
+                }
+                options={OVER_TIME_OPTIONS}
               />
             </div>
-          )}
-
-        </>
+          </DesignAccordion>
+        </div>
       )}
-
-      <ValuesPreview draft={draft} />
     </div>
   );
 
@@ -488,7 +564,8 @@ const NumberBlockSheet = ({
   if (inline) {
     return (
       <div className="flex flex-col gap-4">
-        <h2 className="text-base font-medium text-foreground">{editingId ? `Configure — ${metric?.name}` : "New quantitative metric"}</h2>
+        <h2 className="text-lg font-semibold text-foreground">{editingId ? `Configure — ${metric?.name}` : "New metric"}</h2>
+        {kindPicker}
         {body}
         <div className="border-t border-border pt-4">{footer}</div>
       </div>

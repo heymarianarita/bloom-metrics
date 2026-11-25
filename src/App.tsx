@@ -21,9 +21,13 @@ import ManualMetricsSettings from "./pages/settings/ManualMetricsSettings";
 import MetricsSettings from "./pages/settings/MetricsSettings";
 import ViewsSettings from "./pages/settings/ViewsSettings";
 import HistorySettings from "./pages/settings/HistorySettings";
+import AiUsageSettings from "./pages/settings/AiUsageSettings";
 import ComponentsSettings from "./pages/settings/ComponentsSettings";
 import UsersSettings from "./pages/settings/UsersSettings";
 import NotFound from "./pages/NotFound";
+import BloomComplianceSettings from "./pages/settings/BloomComplianceSettings";
+import { settingsNavItems } from "./components/layout/AppShell";
+import { inAuditFrame } from "./lib/auditFrame";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +39,7 @@ const PageViewTracker = () => {
       first.current = false;
       return;
     }
+    if (inAuditFrame()) return;
     const gtag = (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag;
     gtag?.("event", "page_view", {
       page_path: location.pathname + location.search,
@@ -66,7 +71,8 @@ const App = () => (
           <Route path="/metrics/:groupSlug" element={<GroupPage />} />
           <Route path="/metrics/:groupSlug/:subSlug" element={<GroupPage />} />
           <Route path="/performance" element={<Performance />} />
-          <Route path="/settings" element={<Navigate to="/settings/data-sources" replace />} />
+          <Route path="/ai-usage" element={<Navigate to="/settings/ai-usage" replace />} />
+          <Route path="/settings" element={<Navigate to={settingsNavItems[0].path} replace />} />
           <Route path="/settings/data-sources" element={<DataSourcesSettings />} />
           <Route path="/settings/okrs" element={<OkrsSettings />} />
           <Route path="/settings/performance" element={<PerformanceSettings />} />
@@ -78,6 +84,8 @@ const App = () => (
           <Route path="/settings/metric-groups" element={<Navigate to="/settings/metrics" replace />} />
           <Route path="/settings/components" element={<ComponentsSettings />} />
           <Route path="/settings/history" element={<HistorySettings />} />
+          <Route path="/settings/ai-usage" element={<AiUsageSettings />} />
+          <Route path="/settings/bloom-compliance" element={<BloomComplianceSettings />} />
           <Route path="/settings/users" element={<UsersSettings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -39,6 +39,8 @@ import {
   useComponentAliases,
 } from "@/hooks/useComponentAliases";
 import { isTeamLabel, useTeamBusinessUnits } from "@/hooks/useTeamBusinessUnits";
+import { emptyBreakdownCopy, periodCaption } from "@/lib/periodCaption";
+import { comparePeriods } from "../../../server/shared/periods.ts";
 
 const COLORS = [
   "var(--primary)",
@@ -146,6 +148,7 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity, limit }: Props
       {Array.from(aspects.values()).map((aspect) => {
         const bySegment = new Map<string, Record<string, number>>();
         const metricNames: string[] = [];
+        let latestElsewhere = "";
         aspect.entries.forEach(({ metric, column }) => {
           metricNames.push(metric.name);
           const allCols = colsById.get(metric.dataset_id!) ?? [];
@@ -175,7 +178,11 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity, limit }: Props
             const points = periodSeries(groupRows.map((r) => r.data ?? {}), metric, periodicity);
             const point =
               filters.period === ALL ? points[0] : points.find((p) => p.period === filters.period);
-            if (!point) return;
+            if (!point) {
+              const newest = points.find((p) => p.period !== filters.period)?.period ?? "";
+              if (newest && (!latestElsewhere || comparePeriods(newest, latestElsewhere) > 0)) latestElsewhere = newest;
+              return;
+            }
             const entry = bySegment.get(segment) ?? {};
             entry[metric.name] = Number(point.value.toFixed(2));
             bySegment.set(segment, entry);
@@ -203,8 +210,12 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity, limit }: Props
               <p className="text-base font-medium text-foreground">
                 <BreakdownHeading fallback={`${group} per ${aspect.label.toLowerCase()}`} />
               </p>
-              <p className="text-xs text-muted-foreground">
-                {filters.period === ALL ? "Latest period" : filters.period}
+              <p className="shrink-0 text-right text-xs text-muted-foreground">
+                {periodCaption(
+                  filters.period,
+                  filters.segments,
+                  aspect.entries.map((entry) => entry.column.label),
+                )}
               </p>
             </div>
             <DesignSpacer size="small" />
@@ -218,8 +229,13 @@ const MergedBreakdowns = ({ group, metrics, filters, periodicity, limit }: Props
             ) : data.length === 0 ? (
               <DesignEmptyState
                 icon={<ChartBar size={40} />}
-                title="No breakdown yet"
-                body={`No values split by ${aspect.label.toLowerCase()} for the selected period.`}
+                {...emptyBreakdownCopy(
+                  aspect.label.toLowerCase(),
+                  filters.period,
+                  filters.segments,
+                  aspect.entries.map((entry) => entry.column.label),
+                  latestElsewhere || undefined,
+                )}
               />
             ) : asTable ? (
               <div className={`${ts.container} overflow-x-auto`}><table className={`${ts.table} table-fixed`}>

@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   NavigationMenu,
   NavigationMenuList,
@@ -22,6 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { DesignTooltip } from "@/components/ds/DesignTooltip";
+import { DesignDivider } from "@/components/ds/DesignDivider";
 import {
   Settings,
   LogOut,
@@ -40,6 +41,8 @@ import {
   Cube,
   Target,
   ClockCounterClockwise,
+  Sparkle,
+  SealCheck,
   UsersThree,
   SquaresFour,
   type Icon as PhosphorIcon,
@@ -79,6 +82,8 @@ type NavItem = {
   icon: PhosphorIcon;
   badge?: string;
   children?: { label: string; path: string }[];
+  /** Starts a new section of the menu, set apart by a divider. */
+  dividerBefore?: boolean;
 };
 
 export const metricsNavItems: NavItem[] = [
@@ -122,6 +127,12 @@ export const settingsNavItems: NavItem[] = [
 
 export const adminNavItems: NavItem[] = [
   { label: "Users", path: "/settings/users", icon: UsersThree },
+];
+
+/** Reports about the tool itself rather than its configuration, listed below the settings. */
+const reportNavItems: NavItem[] = [
+  { label: "AI usage", path: "/settings/ai-usage", icon: Sparkle, dividerBefore: true },
+  { label: "Bloom compliance", path: "/settings/bloom-compliance", icon: SealCheck },
 ];
 
 interface AppShellProps {
@@ -269,9 +280,7 @@ const AppShell = ({ children }: AppShellProps) => {
   ];
 
   const navItems = inSettings
-    ? isAdmin
-      ? [...settingsNavItems, ...adminNavItems]
-      : settingsNavItems
+    ? [...settingsNavItems, ...(isAdmin ? adminNavItems : []), ...reportNavItems]
     : metricsItems;
   const showSidebar = pathname.startsWith("/metrics") || inSettings;
 
@@ -281,14 +290,13 @@ const AppShell = ({ children }: AppShellProps) => {
       <TooltipProvider>
         <nav className="h-14 w-full bg-primary-dark flex items-center justify-between px-4 shrink-0 sticky top-0 z-50">
           <div className="flex items-center gap-12">
-            <div className="flex items-center gap-2">
-              <img
-                src={vintedIconRounded}
-                alt="Bloom Metrics logo"
-                className="h-8 w-8 rounded-md shrink-0"
-              />
+            <Link
+              to="/"
+              className="flex items-center gap-2 rounded-md pr-2 transition-colors hover:bg-white/[0.06] active:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <img src={vintedIconRounded} alt="" className="h-8 w-8 rounded-md shrink-0" />
               <span className="text-white font-medium text-sm">{APP_NAME}</span>
-            </div>
+            </Link>
             <NavigationMenu>
               <NavigationMenuList className="gap-1">
                 {visibleTabs.map((tab) => {
@@ -322,7 +330,7 @@ const AppShell = ({ children }: AppShellProps) => {
                     variant="ghost"
                     size="icon"
                     aria-label="Settings"
-                    onClick={() => navigate("/settings/data-sources")}
+                    onClick={() => navigate(settingsNavItems[0].path)}
                     className={`w-9 h-9 rounded-md text-white hover:text-white active:text-white hover:bg-white/10 active:bg-white/25 ${
                       inSettings ? "bg-white/[0.12]" : ""
                     }`}
@@ -387,6 +395,7 @@ const AppShell = ({ children }: AppShellProps) => {
                   const childActive = Boolean(item.children?.some((child) => pathname.startsWith(child.path)));
                   return (
                   <div key={item.path} className={collapsed ? "" : "w-full"}>
+                  {item.dividerBefore && <DesignDivider margin={8} />}
                   <NavLink to={item.path} end={!item.children}>
                     {({ isActive: pathActive }) => {
                       const isActive = pathActive || childActive;

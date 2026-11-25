@@ -910,7 +910,6 @@ const SectionCard = ({
       <div
         {...attributes}
         {...listeners}
-        aria-label={`${title}. Click to edit, drag to move.`}
         aria-pressed={selected}
         className={`h-full rounded-xl border bg-background p-4 flex flex-col gap-3 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary ${
           isDragging
@@ -1008,7 +1007,7 @@ const PageFilters = ({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              aria-label={parent ? `Benchmark frequency, shared with ${parent.name}` : "Benchmark frequency"}
+              aria-label={`Benchmark frequency: ${periodLabel(periodView.periodicity ?? "quarterly")}${parent ? `, shared with ${parent.name}` : ""}`}
               className={`${chip} hover:bg-surface-hover`}
             >
               {periodLabel(periodView.periodicity ?? "quarterly")}
