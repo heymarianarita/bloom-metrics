@@ -6,7 +6,7 @@ import type { PoolConnection } from "mysql2/promise";
 import { loggedQualitativeCost } from "./ai.ts";
 import { pool } from "./db.ts";
 import { looksLikeDates, normalizeDateColumn, toIsoDate } from "./shared/dates.ts";
-import { isSnapshot, loadSnapshot } from "./snapshot.ts";
+import { isSnapshot, loadSnapshot, readSnapshotFile } from "./snapshot.ts";
 import { FIGMA_DATASET_SLUG, syncFigmaDatasetWith } from "./functions/figma-dataset.ts";
 import { codeDatasetSlug, domainDatasetSlug, greenhouseDatasetSlug, syncCodeAdoptionDatasetsWith } from "./functions/code-adoption-dataset.ts";
 import { codeAdoptionChartsOf, reportRepo } from "./shared/codeAdoptionCharts.ts";
@@ -20,7 +20,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const IMPORT_NAME = "2026-09-24-lovable-import";
 const EXPORT_FILE = path.join(here, "seed", "lovable-export.sql");
 /** The last production snapshot loaded with `npm run db:load`; a fresh local database starts from it. */
-const SNAPSHOT_FILE = path.join(here, "seed", "snapshot.json");
+const SNAPSHOT_FILE = [path.join(here, "seed", "snapshot.json.gz"), path.join(here, "seed", "snapshot.json")].find((f) => existsSync(f));
 
 /**
  * Columns added to tables that already exist in production. CREATE TABLE IF NOT EXISTS
@@ -835,8 +835,8 @@ async function main() {
     console.log("schema ready");
 
     const [started] = await conn.query("SELECT 1 FROM app_migrations LIMIT 1");
-    if ((started as unknown[]).length === 0 && existsSync(SNAPSHOT_FILE)) {
-      const snapshot: unknown = JSON.parse(readFileSync(SNAPSHOT_FILE, "utf8"));
+    if ((started as unknown[]).length === 0 && SNAPSHOT_FILE) {
+      const snapshot = readSnapshotFile(SNAPSHOT_FILE);
       if (isSnapshot(snapshot)) {
         await loadSnapshot(conn, snapshot);
         console.log(`loaded the production snapshot from ${snapshot.exported_at}`);

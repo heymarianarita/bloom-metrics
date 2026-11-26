@@ -1,5 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+import { gzip } from "node:zlib";
 import express, { type NextFunction, type Request, type Response } from "express";
 import cookieParser from "cookie-parser";
 import cron from "node-cron";
@@ -18,6 +20,7 @@ import { localDevFlag } from "./devmode.ts";
 import { exportSnapshot } from "./snapshot.ts";
 import type { FnHandler } from "./functions/types.ts";
 
+const gzipAsync = promisify(gzip);
 const app = express();
 const port = Number(process.env.PORT ?? 8080);
 const distDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../dist");
@@ -59,9 +62,11 @@ app.get("/api/admin/snapshot", wrap(async (req, res) => {
     return;
   }
   const snapshot = await exportSnapshot();
-  res.setHeader("Content-Disposition", `attachment; filename="bloom-metrics-${snapshot.exported_at.slice(0, 10)}.json"`);
+  const file = await gzipAsync(JSON.stringify(snapshot));
+  res.setHeader("Content-Disposition", `attachment; filename="bloom-metrics-${snapshot.exported_at.slice(0, 10)}.json.gz"`);
+  res.setHeader("Content-Type", "application/gzip");
   res.setHeader("Cache-Control", "no-store");
-  res.json(snapshot);
+  res.send(file);
 }));
 
 /** Local development only: made-up Figma data (server/dev is not in the production image). */

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
 import type { PoolConnection } from "mysql2/promise";
 import { query } from "./db.ts";
 
@@ -34,6 +36,13 @@ export async function exportSnapshot(): Promise<Snapshot> {
 
 export const isSnapshot = (v: unknown): v is Snapshot =>
   Boolean(v && typeof v === "object" && (v as Snapshot).format === SNAPSHOT_FORMAT && (v as Snapshot).tables);
+
+/** The download is gzipped; older downloads are plain JSON. */
+export function readSnapshotFile(file: string): unknown {
+  const bytes = readFileSync(file);
+  const gzipped = bytes[0] === 0x1f && bytes[1] === 0x8b;
+  return JSON.parse((gzipped ? gunzipSync(bytes) : bytes).toString("utf8"));
+}
 
 /**
  * Replaces the rows of every table in the snapshot. Columns the local schema doesn't
