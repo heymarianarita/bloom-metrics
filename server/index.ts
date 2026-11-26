@@ -17,6 +17,7 @@ import { backfillFigmaSnapshots, captureFigmaSnapshots } from "./functions/figma
 import { getdxTeamsAgeDays, refreshGetdxTeams } from "./functions/getdx-teams.ts";
 import { syncCodeAdoption } from "./functions/code-adoption.ts";
 import { syncGrafana } from "./functions/grafana.ts";
+import { runDueReports } from "./slackReports/job.ts";
 import { pool } from "./db.ts";
 import { localDevFlag } from "./devmode.ts";
 import { exportSnapshot } from "./snapshot.ts";
@@ -201,6 +202,12 @@ cron.schedule(
   { timezone: "UTC" },
 );
 
+// Slack reports: one-off ones are scheduled to the quarter hour, quarterly ones to a whole hour (UTC).
+// Also checked on start, so a send missed while the server was down still goes out.
+const sendSlackReports = () =>
+  runDueReports().catch((e) => console.error("slack reports failed", e instanceof Error ? e.message : e));
+cron.schedule("*/5 * * * *", sendSlackReports, { timezone: "UTC" });
+
 app.listen(port, () => {
   console.log(`bloom-metrics listening on :${port}`);
   applyDevAdminPassword()
@@ -209,6 +216,7 @@ app.listen(port, () => {
   // Not with fake Figma data: that must never be stored.
   if (!localDevFlag("FIGMA_FAKE_DATA")) refreshFigmaOnStart();
   syncCode();
+  sendSlackReports();
   resetInterruptedRuns().catch((e) => console.error("could not reset qualitative runs", e));
   getdxTeamsAgeDays()
     .then((age) => {

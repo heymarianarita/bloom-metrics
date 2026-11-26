@@ -468,7 +468,19 @@ CREATE TABLE IF NOT EXISTS `slack_reports` (
   -- manual_metrics ids, in the order they're shown.
   `metric_ids` JSON NOT NULL DEFAULT (JSON_ARRAY()),
   `include_summary` TINYINT(1) NOT NULL DEFAULT 1,
+  -- Adds every metric on the Impact page, in its own section.
+  `include_impact` TINYINT(1) NOT NULL DEFAULT 0,
   `intro` TEXT NOT NULL DEFAULT (''),
+  -- once: about `quarter`, sent now or at `scheduled_at`. quarterly: every quarter, `send_day` days after it ends.
+  `mode` VARCHAR(16) NOT NULL DEFAULT 'quarterly',
+  `quarter` VARCHAR(16) NULL,
+  `scheduled_at` DATETIME(6) NULL,
+  `sent_at` DATETIME(6) NULL,
+  -- The summary as reviewed (and maybe edited) for `summary_quarter`; other quarters get a new one.
+  `summary` TEXT NULL,
+  `summary_quarter` VARCHAR(16) NULL,
+  `summary_by_ai` TINYINT(1) NOT NULL DEFAULT 1,
+  -- once: scheduled. quarterly: on schedule.
   `enabled` TINYINT(1) NOT NULL DEFAULT 1,
   `send_day` INT NOT NULL DEFAULT 3,
   `send_hour` INT NOT NULL DEFAULT 9,

@@ -54,6 +54,14 @@ const ADDED_COLUMNS: { table: string; column: string; definition: string }[] = [
   // When someone first signed in, and when they last used the app (Settings → Users).
   { table: "profiles", column: "first_sign_in_at", definition: "DATETIME(6) NULL AFTER `avatar_url`" },
   { table: "profiles", column: "last_seen_at", definition: "DATETIME(6) NULL AFTER `first_sign_in_at`" },
+  { table: "slack_reports", column: "include_impact", definition: "TINYINT(1) NOT NULL DEFAULT 0 AFTER `include_summary`" },
+  { table: "slack_reports", column: "mode", definition: "VARCHAR(16) NOT NULL DEFAULT 'quarterly' AFTER `intro`" },
+  { table: "slack_reports", column: "quarter", definition: "VARCHAR(16) NULL AFTER `mode`" },
+  { table: "slack_reports", column: "scheduled_at", definition: "DATETIME(6) NULL AFTER `quarter`" },
+  { table: "slack_reports", column: "sent_at", definition: "DATETIME(6) NULL AFTER `scheduled_at`" },
+  { table: "slack_reports", column: "summary", definition: "TEXT NULL AFTER `sent_at`" },
+  { table: "slack_reports", column: "summary_quarter", definition: "VARCHAR(16) NULL AFTER `summary`" },
+  { table: "slack_reports", column: "summary_by_ai", definition: "TINYINT(1) NOT NULL DEFAULT 1 AFTER `summary_quarter`" },
 ];
 
 /**

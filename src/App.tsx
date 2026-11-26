@@ -21,6 +21,7 @@ import ManualMetricsSettings from "./pages/settings/ManualMetricsSettings";
 import MetricsSettings from "./pages/settings/MetricsSettings";
 import ViewsSettings from "./pages/settings/ViewsSettings";
 import HistorySettings from "./pages/settings/HistorySettings";
+import SlackReportsSettings from "./pages/settings/SlackReportsSettings";
 import AiUsageSettings from "./pages/settings/AiUsageSettings";
 import ComponentsSettings from "./pages/settings/ComponentsSettings";
 import UsersSettings from "./pages/settings/UsersSettings";
@@ -84,6 +85,7 @@ const App = () => (
           <Route path="/settings/metric-groups" element={<Navigate to="/settings/metrics" replace />} />
           <Route path="/settings/components" element={<ComponentsSettings />} />
           <Route path="/settings/history" element={<HistorySettings />} />
+          <Route path="/settings/slack-reports" element={<SlackReportsSettings />} />
           <Route path="/settings/ai-usage" element={<AiUsageSettings />} />
           <Route path="/settings/bloom-usage" element={<BloomUsageSettings />} />
           <Route path="/settings/bloom-compliance" element={<Navigate to="/settings/bloom-usage" replace />} />

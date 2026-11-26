@@ -13,6 +13,7 @@ import metricDescription from "./metric-description.ts";
 import performanceSheet from "./performance-sheet.ts";
 import qualitative from "./qualitative.ts";
 import sheetsAnalytics from "./sheets-analytics.ts";
+import slackReports from "./slack-reports.ts";
 
 export const FUNCTIONS: Record<string, FnHandler> = {
   "ai-usage": aiUsage,
@@ -29,4 +30,5 @@ export const FUNCTIONS: Record<string, FnHandler> = {
   "performance-sheet": performanceSheet,
   qualitative,
   "sheets-analytics": sheetsAnalytics,
+  "slack-reports": slackReports,
 };

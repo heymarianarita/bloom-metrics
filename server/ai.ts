@@ -66,6 +66,10 @@ export const AI_FEATURES = {
     label: "Metric descriptions",
     description: "The sentence written when a metric is saved without a description.",
   },
+  slack_reports: {
+    label: "Slack reports",
+    description: "The summary at the top of each quarterly Slack report, including previews.",
+  },
   qualitative: {
     label: "Qualitative analysis",
     description: "Themes, tagging and summaries from before those were recorded separately.",

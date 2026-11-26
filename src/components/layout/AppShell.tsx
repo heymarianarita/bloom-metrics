@@ -34,6 +34,7 @@ import {
   SealCheck,
   UsersThree,
   SquaresFour,
+  SlackLogo,
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
 import vintedIconRounded from "@/assets/vinted-icon-rounded.svg";
@@ -71,9 +72,10 @@ type NavItem = {
   icon: PhosphorIcon;
   badge?: string;
   children?: { label: string; path: string }[];
-  /** Starts a new section of the menu, set apart by a divider. */
-  dividerBefore?: boolean;
 };
+
+/** A labelled part of the sidebar; the label is left out where there's only one. */
+type NavSection = { label?: string; items: NavItem[] };
 
 export const metricsNavItems: NavItem[] = [
   { label: "Impact", path: "/metrics/impact", icon: TrendUp },
@@ -111,16 +113,21 @@ export const settingsNavItems: NavItem[] = [
   { label: "OKRs", path: "/settings/okrs", icon: Target },
   { label: "Components", path: "/settings/components", icon: Cube },
   { label: "Performance", path: "/settings/performance", icon: Table },
-  { label: "Data history", path: "/settings/history", icon: ClockCounterClockwise },
 ];
 
 export const adminNavItems: NavItem[] = [
   { label: "Users", path: "/settings/users", icon: UsersThree },
 ];
 
-/** Reports about the tool itself rather than its configuration, listed below the settings. */
-const reportNavItems: NavItem[] = [
-  { label: "AI usage", path: "/settings/ai-usage", icon: Sparkle, dividerBefore: true },
+/** What the app sends out to people. */
+const communicationNavItems: NavItem[] = [
+  { label: "Slack reports", path: "/settings/slack-reports", icon: SlackLogo },
+];
+
+/** Reports about the data and the tool itself rather than its configuration. */
+const analysisNavItems: NavItem[] = [
+  { label: "Data history", path: "/settings/history", icon: ClockCounterClockwise },
+  { label: "AI usage", path: "/settings/ai-usage", icon: Sparkle },
   { label: "Bloom usage", path: "/settings/bloom-usage", icon: SealCheck },
 ];
 
@@ -268,9 +275,13 @@ const AppShell = ({ children }: AppShellProps) => {
     ...builtInItems.filter((item) => !tree.some(({ group }) => item.path === `/metrics/${group.slug}`)),
   ];
 
-  const navItems = inSettings
-    ? [...settingsNavItems, ...(isAdmin ? adminNavItems : []), ...reportNavItems]
-    : metricsItems;
+  const navSections: NavSection[] = inSettings
+    ? [
+        { label: "Configuration", items: [...settingsNavItems, ...(isAdmin ? adminNavItems : [])] },
+        { label: "Communication", items: communicationNavItems },
+        { label: "Analysis", items: analysisNavItems },
+      ]
+    : [{ items: metricsItems }];
   const showSidebar = pathname.startsWith("/metrics") || inSettings;
 
   return (
@@ -361,14 +372,27 @@ const AppShell = ({ children }: AppShellProps) => {
             <nav
               className={`flex-1 overflow-y-auto pt-4 ${collapsed ? "px-2" : "px-3"}`}
             >
+              {navSections.map((section, sectionIndex) => {
+                const headingId = `settings-nav-${sectionIndex}`;
+                return (
+              <div
+                key={section.label ?? "main"}
+                role={section.label ? "group" : undefined}
+                aria-labelledby={section.label ? headingId : undefined}
+              >
+              {sectionIndex > 0 && <DesignDivider margin={8} />}
+              {section.label && (
+                <p id={headingId} className={collapsed ? "sr-only" : "px-3 pt-1 pb-1 text-xs font-medium text-muted-foreground"}>
+                  {section.label}
+                </p>
+              )}
               <div className={`flex flex-col gap-0.5 ${collapsed ? "items-center" : ""}`}>
-                {navItems.map((item) => {
+                {section.items.map((item) => {
                   const ItemIcon = item.icon;
                   // A parent is active on any of its children's pages too, even when their paths differ.
                   const childActive = Boolean(item.children?.some((child) => pathname.startsWith(child.path)));
                   return (
                   <div key={item.path} className={collapsed ? "" : "w-full"}>
-                  {item.dividerBefore && <DesignDivider margin={8} />}
                   <NavLink to={item.path} end={!item.children}>
                     {({ isActive: pathActive }) => {
                       const isActive = pathActive || childActive;
@@ -428,6 +452,9 @@ const AppShell = ({ children }: AppShellProps) => {
                   );
                 })}
               </div>
+              </div>
+                );
+              })}
             </nav>
 
             {/* Sidebar footer */}

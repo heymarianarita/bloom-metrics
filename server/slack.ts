@@ -1,9 +1,10 @@
 import { getCredential } from "./credentials.ts";
 
 /**
- * Sends one-time sign-in links to people as a Slack direct message from the app's bot.
- * Needs SLACK_BOT_TOKEN (Settings → Data sources, or the environment) from a Slack app
- * with the `chat:write`, `users:read` and `users:read.email` bot scopes, installed in the workspace.
+ * Posts from the app's Slack bot: one-time sign-in links as direct messages, and reports to
+ * channels (Settings → Slack reports). Needs SLACK_BOT_TOKEN (set by admins in Settings → Slack
+ * reports or Data sources, or the environment) from a Slack app with the `chat:write`, `users:read` and `users:read.email`
+ * bot scopes, installed in the workspace. Reports only reach channels the app was invited to.
  */
 
 export type SlackResult = { sent: true } | { sent: false; error: string };
@@ -18,7 +19,27 @@ const ERRORS: Record<string, string> = {
   account_inactive: "The Slack app was uninstalled. Reinstall it and save its new token.",
   missing_scope: "The Slack app needs the chat:write, users:read and users:read.email scopes.",
   ratelimited: "Slack is busy. Try again in a minute.",
+  channel_not_found: "Slack can't find that channel. Check the channel ID, and invite the app to private channels first.",
+  not_in_channel: "The app isn't in that channel yet. In Slack, open the channel and type /invite followed by the app's name.",
+  is_archived: "That channel is archived. Choose another one.",
+  msg_too_long: "The report is too long for Slack. Choose fewer metrics.",
+  invalid_blocks: "Slack couldn't read the report's layout.",
 };
+
+const slackError = (error: string | undefined) => ERRORS[error ?? ""] ?? `Slack said: ${error ?? "unknown error"}`;
+
+/** Posts a message to a channel the app is in. */
+export async function postToChannel(channel: string, message: { text: string; blocks: unknown[] }): Promise<SlackResult> {
+  const token = await getCredential("SLACK_BOT_TOKEN");
+  if (!token) return { sent: false, error: "Slack isn't connected. An admin can add the bot token in Settings → Dynamic sources." };
+  try {
+    const sent = await postMessage(token, { channel, ...message, unfurl_links: false, unfurl_media: false });
+    return sent.ok ? { sent: true } : { sent: false, error: slackError(sent.error) };
+  } catch (e) {
+    console.error("slack: could not post to channel", e);
+    return { sent: false, error: "Couldn't reach Slack." };
+  }
+}
 
 async function postMessage(token: string, body: Record<string, unknown>) {
   const res = await fetch("https://slack.com/api/chat.postMessage", {
@@ -54,9 +75,7 @@ export async function sendLinkOnSlack(input: {
   if (!token) return { sent: false, error: "Slack isn't connected." };
   try {
     const found = await lookupByEmail(token, input.email);
-    if (!found.ok || !found.user) {
-      return { sent: false, error: ERRORS[found.error ?? ""] ?? `Slack said: ${found.error ?? "unknown error"}` };
-    }
+    if (!found.ok || !found.user) return { sent: false, error: slackError(found.error) };
     const hi = found.user.profile?.first_name ? `Hi ${found.user.profile.first_name}, ` : "Hi, ";
     const text =
       input.purpose === "invite"
@@ -67,7 +86,7 @@ export async function sendLinkOnSlack(input: {
       text: `${text}\nThe link works once and expires on ${utcLabel(input.expires_at)}.`,
       unfurl_links: false,
     });
-    if (!sent.ok) return { sent: false, error: ERRORS[sent.error ?? ""] ?? `Slack said: ${sent.error ?? "unknown error"}` };
+    if (!sent.ok) return { sent: false, error: slackError(sent.error) };
     return { sent: true };
   } catch (e) {
     console.error("slack: could not send sign-in link", e);
