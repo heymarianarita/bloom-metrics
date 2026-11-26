@@ -11,7 +11,8 @@ import { DesignDialog } from "@/components/ds/DesignDialog";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { DesignLoader } from "@/components/ds/DesignLoader";
 import { SlackReportEditor } from "@/components/settings/slack/SlackReportEditor";
-import { SlackConnectionCard } from "@/components/settings/slack/SlackConnectionCard";
+import { SlackConnectionButton, SlackNotConnectedNotice } from "@/components/settings/slack/SlackConnection";
+import { useIsAdmin, useSession } from "@/hooks/useAuth";
 import { useDeleteSlackReport, useSlackReports, type SlackReport } from "@/hooks/useSlackReports";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/formatDate";
@@ -96,6 +97,8 @@ const ReportCard = ({ report, onEdit, onDelete }: { report: SlackReport; onEdit:
 const SlackReportsSettings = () => {
   const { toast } = useToast();
   const reports = useSlackReports();
+  const { user } = useSession();
+  const isAdmin = useIsAdmin(user).data === true;
   const remove = useDeleteSlackReport();
   const [editing, setEditing] = React.useState<{ report: SlackReport | null } | null>(null);
   const [deleting, setDeleting] = React.useState<SlackReport | null>(null);
@@ -125,6 +128,7 @@ const SlackReportsSettings = () => {
           title="Slack reports"
           subtitle="Write a message about a quarter's numbers and see it as it will look in Slack. Then send it now, schedule it, or repeat it every quarter."
           primaryAction={data?.reports.length ? newReport : undefined}
+          secondaryActions={isAdmin && data ? <SlackConnectionButton connected={data.slackConnected} /> : undefined}
         />
         <DesignSpacer size="medium" />
 
@@ -137,7 +141,7 @@ const SlackReportsSettings = () => {
           />
         ) : (
           <div className="flex flex-col gap-4">
-            <SlackConnectionCard connected={data.slackConnected} />
+            {!data.slackConnected && !isAdmin && <SlackNotConnectedNotice />}
             {data.reports.length === 0 ? (
               <DesignCard className="p-4">
                 <DesignEmptyState
