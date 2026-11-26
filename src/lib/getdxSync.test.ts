@@ -47,7 +47,7 @@ const data: DxStudyData = {
     { id: "21", studyId: "2", type: "long_text", prompt: "What have you appreciated most about using Bloom?", position: 1 },
   ],
   responses: [
-    { id: "r1", studyId: "1", respondedAt: "2027-02-11", email: "ana@vinted.com", team: "Order", role: "Product Designer", level: "IC3", answers: { "10": "4", "11": "Tokens", "12": "Weekly", "13": "" } },
+    { id: "r1", studyId: "1", respondedAt: "2027-02-11", email: "ana@vinted.com", team: "Team A", role: "Product Designer", level: "IC3", answers: { "10": "4", "11": "Tokens", "12": "Weekly", "13": "" } },
     { id: "r2", studyId: "2", respondedAt: "2027-02-12", email: "ben@vinted.com", team: "Team B", role: "Web Engineer", level: "IC2", answers: { "20": "5", "21": "" } },
     { id: "r3", studyId: "2", respondedAt: "2027-02-16", email: "cy@vinted.com", team: "Team B", role: "Web Engineer", level: "IC4", answers: { "20": "3" } },
   ],
@@ -110,7 +110,7 @@ describe("planAdd", () => {
     expect(plan.rows[0]).toEqual({
       [RESPONSE_ID_KEY]: "r1",
       email: "ana@vinted.com",
-      team: "Order",
+      team: "Team A",
       role: "Product Designer",
       collection_date: "2027-02-20",
       satisfaction_csat: 4,
@@ -134,7 +134,7 @@ describe("planAdd", () => {
     const plan = planAdd({ data, targets: { [next.key]: { to: "new" }, [docs.key]: { to: "new" } }, roundDates, columns: [], rows: [] });
     expect(plan.newColumns.map((c) => c.key)).toEqual(["email", "team", "level", "role", "collection_date", "how_often_do_you_read_the_docs", "what_should_we_build_next"]);
     expect(plan.rows).toEqual([
-      { [RESPONSE_ID_KEY]: "r1", email: "ana@vinted.com", team: "Order", level: "IC3", role: "Product Designer", collection_date: "2027-02-20", how_often_do_you_read_the_docs: "Weekly", what_should_we_build_next: "" },
+      { [RESPONSE_ID_KEY]: "r1", email: "ana@vinted.com", team: "Team A", level: "IC3", role: "Product Designer", collection_date: "2027-02-20", how_often_do_you_read_the_docs: "Weekly", what_should_we_build_next: "" },
     ]);
   });
 

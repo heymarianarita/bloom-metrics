@@ -33,3 +33,5 @@ server/seed/
 supabase/
 bloom-metrics-instructions.md
 .claude/settings.local.json
+# Company package registry: local only
+.npmrc

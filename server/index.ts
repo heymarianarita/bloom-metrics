@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -98,11 +99,34 @@ app.use("/api", (_req, res) => {
   res.status(404).json({ error: "Not found" });
 });
 
+/** The Google Analytics tag for GA_MEASUREMENT_ID; none when it isn't set. */
+const analyticsTag = (id: string | undefined) =>
+  id && /^G-[A-Z0-9]+$/.test(id)
+    ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${id}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      // The Bloom usage page loads app pages in a hidden frame; those aren't visits.
+      var bloomAuditFrame = window.self !== window.top && new URLSearchParams(location.search).has('bloom-audit');
+      gtag('config', '${id}', bloomAuditFrame ? { send_page_view: false } : {});
+    </script>`
+    : "";
+let indexHtml: Promise<string> | undefined;
+const readIndexHtml = () =>
+  (indexHtml ??= readFile(path.join(distDir, "index.html"), "utf8")
+    .then((html) => html.replace("<!-- google-analytics -->", analyticsTag(process.env.GA_MEASUREMENT_ID?.trim())))
+    .catch((e) => {
+      indexHtml = undefined;
+      throw e;
+    }));
+
 // The built React app, with index.html as the fallback for client-side routes.
 app.use(express.static(distDir, { index: false, maxAge: "1h" }));
-app.get("*", (_req, res) => {
-  res.sendFile(path.join(distDir, "index.html"), { headers: { "Cache-Control": "no-cache" } });
-});
+app.get("*", wrap(async (_req, res) => {
+  res.setHeader("Cache-Control", "no-cache");
+  res.type("html").send(await readIndexHtml());
+}));
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);

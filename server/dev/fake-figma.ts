@@ -1,3 +1,4 @@
+import { query } from "../db.ts";
 import type { FnHandler } from "../functions/types.ts";
 
 /**
@@ -7,10 +8,18 @@ import type { FnHandler } from "../functions/types.ts";
  * library and date range, and roughly Bloom-shaped, so layouts can be tested.
  */
 
-const LIBRARIES: Record<string, string> = {
-  aBcD1234eFgH5678iJkL90: "Bloom Design System Library",
-  bCdE2345fGhI6789jKlM01: "Marketplace Kit",
-  "cDeF3456gHiJ7890kLmN12": "Vinted Go Kit",
+/** Libraries saved in Settings → Dynamic sources, plus any in FIGMA_FILE_KEYS: file key → name. */
+let LIBRARIES: Record<string, string> = {};
+
+const loadLibraries = async () => {
+  const [row] = await query<{ config: unknown }>("SELECT config FROM data_source_configs WHERE source_key = 'figma'").catch(() => []);
+  const config = (typeof row?.config === "string" ? JSON.parse(row.config) : row?.config) as
+    | { libraries?: { fileKey?: string; name?: string }[] }
+    | null
+    | undefined;
+  LIBRARIES = Object.fromEntries(
+    (config?.libraries ?? []).filter((l) => l.fileKey).map((l) => [String(l.fileKey), String(l.name || l.fileKey)]),
+  );
 };
 
 const configuredLibraries = (): Record<string, string> => {
@@ -86,6 +95,7 @@ const daysBetween = (start?: string, end?: string) => {
 const figmaAnalytics: FnHandler = async (req) => {
   const fileKey = String(req.body?.fileKey ?? req.query.get("fileKey") ?? "").trim();
   if (!fileKey) return { status: 400, body: { error: "fileKey is required and must be a valid Figma file key" } };
+  await loadLibraries();
   const startDate = req.body?.startDate ?? req.query.get("startDate") ?? null;
   const endDate = req.body?.endDate ?? req.query.get("endDate") ?? null;
   const components = fakeComponents(fileKey, daysBetween(startDate, endDate));
@@ -128,6 +138,7 @@ const figmaAnalytics: FnHandler = async (req) => {
 const figmaFileName: FnHandler = async (req) => {
   const fileKey = String(req.body?.fileKey ?? req.query.get("fileKey") ?? "").trim();
   if (!fileKey) return { status: 400, body: { error: "A valid Figma file key is required" } };
+  await loadLibraries();
   return { status: 200, body: { fileKey, name: libraryName(fileKey) } };
 };
 
@@ -150,7 +161,8 @@ const recentQuarters = () => {
 const figmaSnapshot: FnHandler = async (req) => {
   if (req.method !== "GET") return { status: 403, body: { error: "Capture is disabled while FIGMA_FAKE_DATA is on" } };
   const only = req.query.get("fileKey")?.trim();
-  const keys = Object.keys(configuredLibraries()).filter((k) => !only || k === only);
+  await loadLibraries();
+  const keys = only ? [only] : Object.keys(configuredLibraries());
   const snapshots = keys.flatMap((fileKey) => {
     const rand = seeded(`${fileKey}-history`);
     let inserts = 40000 + rand() * 250000;

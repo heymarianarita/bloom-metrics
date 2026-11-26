@@ -112,6 +112,11 @@ const Adoption = () => {
     };
   });
   const libraries = useFigmaLibraries();
+  // No library picked on this browser yet, or the picked one was removed: open the first configured one.
+  React.useEffect(() => {
+    const list = libraries.data;
+    if (list?.length && !list.some((l) => l.key === fileKey)) setFileKey(list[0].key);
+  }, [libraries.data, fileKey]);
   const excludedPages = React.useMemo(
     () => (libraries.data ?? []).find((l) => l.key === fileKey)?.excludedPages ?? [],
     [libraries.data, fileKey],

@@ -2,7 +2,7 @@ import mysql from "mysql2/promise";
 
 /**
  * MySQL connection pool. Settings come from the environment so the same code
- * runs on production (the database) and against a local MySQL.
+ * runs in production and against a local MySQL.
  */
 export const pool = mysql.createPool({
   host: process.env.DB_HOST ?? "127.0.0.1",

@@ -1,6 +1,6 @@
 # Sign-in and people
 
-## How it works on production
+## How it works
 
 - Reporting pages are readable without signing in. Only editors and admins need an account.
 - People sign in with their **@vinted.com email and a password**. There is no self sign-up.
@@ -55,7 +55,7 @@ link for each of them to the app log:
 [admin setup] name@vinted.com has no password yet. One-time link (24h): https://…/auth/set-password#token=…
 ```
 
-Open the app's logs in production, copy the link, and set a password. Nothing is logged once every
+Open the live app's logs, copy the link, and set a password. Nothing is logged once every
 admin has one.
 
 ### Local development
@@ -64,7 +64,7 @@ The local database (`npm run db:dev`) starts empty on every run, so passwords fr
 site don't exist there. Set `DEV_ADMIN_PASSWORD` in `.env` (see `.env.example`) and every
 admin in the local database gets that password when the API starts (the `.env.example` value is
 `dev`; no length rule applies to it). It is ignored when
-`NODE_ENV=production` or `PUBLIC_URL` isn't `localhost`, so it never applies on production.
+`NODE_ENV=production` or `PUBLIC_URL` isn't `localhost`, so it never applies to the live app.
 
 To test editor or viewer screens, add a person in **Settings → Users** and open the
 one-time link the dialog shows.

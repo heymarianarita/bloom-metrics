@@ -4,7 +4,7 @@ import { framesToTable, mergeRows, parseGrafanaInput, type Frame } from "../../s
 const esQuery = {
   refId: "A",
   datasource: { type: "elasticsearch", uid: "es-logs" },
-  query: "service:scanner AND report_type:run",
+  query: "service:scanner AND type:run",
   metrics: [{ id: "1", type: "raw_data", settings: { size: "500" } }],
   bucketAggs: [],
   timeField: "@timestamp",
@@ -35,7 +35,7 @@ describe("parseGrafanaInput", () => {
   });
 
   it("explains why a short link can't be used", () => {
-    expect(parseGrafanaInput("https://grafana.example.com/goto/cg4gtc4v02qrka?orgId=1")).toEqual({
+    expect(parseGrafanaInput("https://grafana.example.com/goto/abc123?orgId=1")).toEqual({
       error: expect.stringContaining("Short links"),
     });
   });
@@ -78,9 +78,9 @@ describe("framesToTable", () => {
       schema: { name, meta: { type: "timeseries-multi" }, fields: [{ name: "Time", type: "time" }, { name: "Value", type: "number" }] },
       data: { values: [[Date.UTC(2026, 10, 25)], [value]] },
     });
-    expect(framesToTable([frame("team-01", 459), frame("team-07", 12)]).rows).toEqual([
-      { series: "team-01", time: "2026-11-25", value: 459 },
-      { series: "team-07", time: "2026-11-25", value: 12 },
+    expect(framesToTable([frame("team-a", 459), frame("team-b", 12)]).rows).toEqual([
+      { series: "team-a", time: "2026-11-25", value: 459 },
+      { series: "team-b", time: "2026-11-25", value: 12 },
     ]);
   });
 

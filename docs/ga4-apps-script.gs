@@ -31,7 +31,7 @@
  * 6. Deploy → New deployment → Web app (Execute as: Me, Who has access: Anyone
  *    within Vinted). Put its /exec URL in the dashboard's GA4_APPS_SCRIPT_URL.
  *
- * How the dashboard gets the data: Bloom Metrics runs on production, which Google
+ * How the dashboard gets the data: Bloom Metrics runs on an internal network that Google
  * can't reach, so this script can't push to it. Instead an editor clicks
  * "Sync Google Analytics" on the Documentation page: it opens this web app in a small
  * window, and doGet hands the report prepared this morning back to the dashboard page.
@@ -41,7 +41,7 @@ var DAILY_WINDOW_DAYS = 400;
 
 var PERIOD_KEYS = ['last_30', 'last_60', 'this_quarter', 'last_quarter', 'this_year', 'last_year'];
 
-/** Dashboard pages allowed to receive the report (the live app, and local development). */
+/** Dashboard pages allowed to receive the report: put the live app's address first. */
 var SYNC_ORIGINS = ['https://bloom-metrics.example.com', 'http://localhost:5173'];
 
 /**

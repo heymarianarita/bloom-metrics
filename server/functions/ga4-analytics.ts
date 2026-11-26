@@ -10,7 +10,7 @@ import type { FnHandler } from "./types.ts";
  * 1) Pull: calls a publicly callable Apps Script web app.
  * 2) Push: accepts snapshots posted by Apps Script when the web app is restricted
  *    to a company workspace.
- * 3) Browser sync: production is only reachable inside Vinted's network, so Apps Script
+ * 3) Browser sync: the live app is only reachable inside the company network, so Apps Script
  *    can't push to it and the server can't get past the web app's Vinted-only sign-in.
  *    An editor's browser carries the report instead ("Sync Google Analytics" button):
  *    mode "sync-info" tells the page where the web app is; mode "browser_sync" stores

@@ -60,17 +60,7 @@ export interface FigmaLibrary {
   excludedPages?: string[];
 }
 
-/** Fallback libraries used before any are configured in Settings. */
-export const FIGMA_LIBRARIES: FigmaLibrary[] = [
-  { key: "aBcD1234eFgH5678iJkL90", name: "Bloom Design System Library" },
-  { key: "bCdE2345fGhI6789jKlM01", name: "Marketplace Kit" },
-  { key: "cDeF3456gHiJ7890kLmN12", name: "Vinted Go Kit" },
-];
-
-/** Default Bloom design system library file. */
-export const DEFAULT_FIGMA_FILE_KEY = FIGMA_LIBRARIES[0].key;
-
-/** Libraries configured in Settings → Dynamic sources, with the fallback list as default. */
+/** Libraries configured in Settings → Dynamic sources. */
 export function useFigmaLibraries() {
   return useQuery<FigmaLibrary[]>({
     queryKey: ["figma-libraries"],
@@ -94,7 +84,7 @@ export function useFigmaLibraries() {
           name: l.name || (l.fileKey as string),
           excludedPages: Array.isArray(l.excludedPages) ? l.excludedPages : [],
         }));
-      return libraries.length ? libraries : FIGMA_LIBRARIES;
+      return libraries;
     },
   });
 }
@@ -113,9 +103,9 @@ export async function fetchFigmaFileName(fileKey: string) {
 export function getStoredFigmaFileKey() {
   try {
     const stored = localStorage.getItem(FIGMA_FILE_KEY_STORAGE);
-    return stored && stored.length > 0 ? stored : DEFAULT_FIGMA_FILE_KEY;
+    return stored ?? "";
   } catch {
-    return DEFAULT_FIGMA_FILE_KEY;
+    return "";
   }
 }
 

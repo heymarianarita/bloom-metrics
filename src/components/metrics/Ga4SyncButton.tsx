@@ -7,7 +7,7 @@ import { useCanEdit, useSession } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
 /**
- * "Sync Google Analytics": production can't be reached by Google, and the server can't
+ * "Sync Google Analytics": the live app can't be reached by Google, and the server can't
  * pass the Apps Script web app's Vinted-only sign-in, so the editor's browser carries
  * the report. The web app (opened in a small window) posts its prepared report back to
  * this page, which hands it to the server.

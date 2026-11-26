@@ -24,8 +24,6 @@ import type { FnHandler, FnResponse } from "./types.ts";
  * Required env vars:
  *   FIGMA_FILE_KEYS — JSON array or comma-separated list of library file keys to track,
  *                     e.g. ["abc123..."] or [{"key":"abc123...","label":"Web"}].
- *                     Bloom today: aBcD1234eFgH5678iJkL90, bCdE2345fGhI6789jKlM01,
- *                     cDeF3456gHiJ7890kLmN12
  *   CRON_SECRET     — required for the HTTP POST capture path
  *   FIGMA_ACCESS_TOKEN (credential, via figma-analytics)
  */
@@ -96,7 +94,7 @@ function readFileKeys(): { key: string; label?: string }[] {
   if (!raw) return [];
   if (raw.startsWith("[")) {
     try {
-      // Entries may be plain keys, {key, label} or {id, label} (the format production uses).
+      // Entries may be plain keys, {key, label} or {id, label} (the format the live app uses).
       return (JSON.parse(raw) as unknown[])
         .map((e) => {
           if (typeof e === "string") return { key: e.trim() };

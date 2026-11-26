@@ -2,16 +2,17 @@ import type { Frame, GrafanaQuery } from "../shared/grafana.ts";
 
 /**
  * LOCAL DEVELOPMENT ONLY — made-up Grafana answers (GRAFANA_FAKE_DATA=1 in .env), shaped like the
- * Elasticsearch data source's replies to /api/ds/query, for the iOS component usage logs
- * (service:scanner). Excluded from the production image (.dockerignore) and only
- * loaded when localDevFlag("GRAFANA_FAKE_DATA") allows it. Numbers are deterministic per day,
- * team, framework and component, trend slowly, and add up: teams sum to the run totals.
+ * Elasticsearch data source's replies to /api/ds/query, for a made-up nightly scan of an iOS app's
+ * component usage. Excluded from the production image (.dockerignore) and only loaded when
+ * localDevFlag("GRAFANA_FAKE_DATA") allows it. Numbers are deterministic per day, team, framework
+ * and component, trend slowly, and add up: teams sum to the run totals.
  *
- * Documents, as the real scanner logs them (one set per nightly run, 23:10 UTC):
- *   report_type:run                  — totals: swiftui_usages, native_swiftui_usages, uikit_usages,
- *                                      total_usages (all three), files_scanned, …
- *   type:team — team_name, framework (swiftui | native_swiftui | uikit), usages
- *   type:component       — component, team_name, usages
+ * Documents (one set per nightly run, 23:10 UTC), picked by the query's grouping, else its `type:` term:
+ *   type:component (grouped by component)        — component, team_name, usages
+ *   type:team (grouped by team_name or framework) — team_name, framework (swiftui | native_swiftui | uikit), usages
+ *   type:run (anything else)                     — run totals: swiftui_usages, native_swiftui_usages,
+ *                                                  uikit_usages, total_usages (all three), files_scanned, …
+ * `field:value` terms on fields a document has filter it; other terms are ignored.
  *
  * Answers by query shape, like Grafana:
  *   raw_data                         -> one table of documents
@@ -23,18 +24,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** The made-up scanner's first nightly run. */
 const FIRST_RUN = Date.UTC(2026, 6, 1);
 
-const TEAMS = [
-  "team-01", "team-02", "team-03", "team-04", "team-05", "team-06", "team-07",
-  "team-08", "team-09", "team-10", "team-11", "team-12",
-  "team-13", "team-14", "team-15", "team-16", "team-17", "team-18",
-  "team-19", "team-20", "team-21", "team-22", "team-23", "team-24",
-  "team-25", "team-26", "team-27", "team-28", "team-29", "team-30", "team-31",
-];
+const TEAMS = Array.from({ length: 31 }, (_, i) => `team-${String(i + 1).padStart(2, "0")}`);
 const FRAMEWORKS = ["swiftui", "native_swiftui", "uikit"] as const;
-const GREENHOUSE = [
-  "PromoBanner", "ComponentB", "ComponentC", "ComponentD", "ComponentE", "ComponentF",
-  "ComponentG", "ComponentH", "ComponentI", "ComponentJ", "ComponentK", "ComponentL",
-];
+const COMPONENTS = Array.from({ length: 12 }, (_, i) => `Component${String.fromCharCode(65 + i)}`);
 
 /** A number in [0, 1) that's always the same for the same seed. */
 const seeded = (seed: string) => {
@@ -60,7 +52,7 @@ function teamUsages(team: string, framework: string, day: number): number {
   return Math.round(base * weight * wobble);
 }
 
-const greenhouseUsages = (component: string, day: number) =>
+const componentUsages = (component: string, day: number) =>
   Math.round((5 + seeded(`${component}:size`) * 60) * (0.6 + 0.6 * progress(day)) * (0.97 + seeded(`${component}:${day}`) * 0.06));
 
 /** A run's total for one of its fields. */
@@ -71,7 +63,7 @@ function runTotal(field: string, day: number): number {
   if ((FRAMEWORKS as readonly string[]).includes(framework)) return of(framework);
   if (field === "files_scanned") return 4200 + Math.round(progress(day) * 180);
   if (field === "teams_with_usages") return TEAMS.length;
-  if (field === "greenhouse_components") return GREENHOUSE.length;
+  if (field === "components") return COMPONENTS.length;
   return Math.round(10 + seeded(field) * 40);
 }
 
@@ -89,36 +81,38 @@ function runDays(from: number, to: number): number[] {
 }
 
 type Doc = Record<string, string | number>;
-type Kind = "run" | "module" | "greenhouse";
+type Kind = "run" | "team" | "component";
 
-const kindOf = (lucene: string): Kind =>
-  /component/.test(lucene) ? "greenhouse" : /team|run_component/.test(lucene) ? "module" : "run";
+const kindOf = (lucene: string, termFields: string[]): Kind => {
+  if (termFields.includes("component")) return "component";
+  if (termFields.includes("team_name") || termFields.includes("framework")) return "team";
+  const type = /(?<![\w.])type:"?(run|team|component)\b/.exec(lucene)?.[1];
+  return (type as Kind | undefined) ?? "run";
+};
 
 /** One nightly run's documents of a kind. */
 function docs(kind: Kind, day: number): Doc[] {
-  const common = { "@timestamp": runAt(day), run_id: runId(day), branch: "master" };
-  if (kind === "greenhouse") {
-    return GREENHOUSE.map((component, i) => ({
+  const common = { "@timestamp": runAt(day), type: kind, run_id: runId(day), branch: "master" };
+  if (kind === "component") {
+    return COMPONENTS.map((component, i) => ({
       ...common,
-      report_type: "component",
       component,
       team_name: TEAMS[(i * 7) % TEAMS.length],
-      usages: greenhouseUsages(component, day),
+      usages: componentUsages(component, day),
     }));
   }
-  if (kind === "module") {
+  if (kind === "team") {
     return TEAMS.flatMap((team_name) =>
-      FRAMEWORKS.map((framework) => ({ ...common, report_type: "team", team_name, framework, usages: teamUsages(team_name, framework, day) })),
+      FRAMEWORKS.map((framework) => ({ ...common, team_name, framework, usages: teamUsages(team_name, framework, day) })),
     );
   }
-  const fields = ["files_scanned", "teams_with_usages", "greenhouse_components", "swiftui_usages", "native_swiftui_usages", "uikit_usages", "total_usages"];
-  return [{ ...common, report_type: "run", generated_at: new Date(runAt(day)).toISOString(), ...Object.fromEntries(fields.map((f) => [f, runTotal(f, day)])) }];
+  const fields = ["files_scanned", "teams_with_usages", "components", "swiftui_usages", "native_swiftui_usages", "uikit_usages", "total_usages"];
+  return [{ ...common, generated_at: new Date(runAt(day)).toISOString(), ...Object.fromEntries(fields.map((f) => [f, runTotal(f, day)])) }];
 }
 
-/** Keeps documents matching the query's simple `field:value` terms (other syntax is ignored). */
+/** Keeps documents matching the query's simple `field:value` terms on their own fields. */
 function matches(doc: Doc, lucene: string): boolean {
   for (const [, field, value] of lucene.matchAll(/(?<![\w.])([a-z_]+):"?([\w-]+)"?/g)) {
-    if (field === "task_name" || field === "report_type" || field === "_exists_") continue;
     if (field in doc && String(doc[field]) !== value) return false;
   }
   return true;
@@ -155,11 +149,13 @@ function aggregate(m: Agg, group: Doc[]): number | null {
 /** Grafana's /api/ds/query frames for one query between two times. */
 export function fakeGrafanaFrames(query: GrafanaQuery, from: number, to: number): Frame[] {
   const lucene = String(query.query ?? "");
-  const kind = kindOf(lucene);
-  const days = runDays(from, to);
-  const all = days.flatMap((day) => docs(kind, day).map((d) => ({ day, doc: d }))).filter(({ doc }) => matches(doc, lucene));
   const metrics = ((query.metrics as Agg[] | undefined) ?? []).filter((m) => !m.hide);
   const aggs = (query.bucketAggs as Agg[] | undefined) ?? [];
+  const termFields = aggs.filter((a) => a.type === "terms").map((a) => (a.field ?? "").replace(/\.keyword$/, ""));
+  const kind = kindOf(lucene, termFields);
+  const all = runDays(from, to)
+    .flatMap((day) => docs(kind, day).map((d) => ({ day, doc: d })))
+    .filter(({ doc }) => matches(doc, lucene));
 
   if (!aggs.length || metrics.some((m) => m.type === "raw_data" || m.type === "raw_document" || m.type === "logs")) {
     const names = [...new Set(all.flatMap(({ doc }) => Object.keys(doc)))];
@@ -174,7 +170,6 @@ export function fakeGrafanaFrames(query: GrafanaQuery, from: number, to: number)
     ];
   }
 
-  const termFields = aggs.filter((a) => a.type === "terms").map((a) => (a.field ?? "").replace(/\.keyword$/, ""));
   const groups = new Map<string, { day: number; terms: string[]; docs: Doc[] }>();
   for (const { day, doc } of all) {
     const terms = termFields.map((f) => String(doc[f] ?? ""));

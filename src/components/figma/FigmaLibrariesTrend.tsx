@@ -5,7 +5,7 @@ import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { DesignLoader } from "@/components/ds/DesignLoader";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { useFigmaHistory } from "@/hooks/useFigmaHistory";
-import { FIGMA_LIBRARIES } from "@/hooks/useFigmaAnalytics";
+import { useFigmaLibraries } from "@/hooks/useFigmaAnalytics";
 import { LINE_COLORS } from "@/lib/chartColors";
 
 /** Figma keeps library analytics for about a year, so the chart shows the last four quarters. */
@@ -32,9 +32,10 @@ const recentQuarters = (count: number, now = new Date()) => {
  */
 export const FigmaLibrariesTrend = () => {
   const history = useFigmaHistory();
+  const libraryList = useFigmaLibraries();
 
   const { data, libraries } = React.useMemo(() => {
-    const names = new Map(FIGMA_LIBRARIES.map((l) => [l.key, l.name]));
+    const names = new Map((libraryList.data ?? []).map((l) => [l.key, l.name]));
     const shown = new Set(recentQuarters(QUARTERS_SHOWN));
     const byQuarter = new Map<string, Record<string, string | number>>();
     const seen: string[] = [];
@@ -49,7 +50,7 @@ export const FigmaLibrariesTrend = () => {
     }
     const rows = [...byQuarter.values()].sort((a, b) => String(a.period).localeCompare(String(b.period)));
     return { data: rows, libraries: seen.sort((a, b) => a.localeCompare(b)) };
-  }, [history.data]);
+  }, [history.data, libraryList.data]);
 
   return (
     <section className="pt-2">

@@ -301,7 +301,7 @@ CREATE TABLE IF NOT EXISTS `code_adoption_snapshots` (
   UNIQUE KEY `code_adoption_snapshots_repo_generated_key` (`repo`, `generated_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Email + password sign-in while the app runs on production (no Google OAuth client there).
+-- Email + password sign-in while the live app has no Google OAuth client.
 -- People are identified by their @vinted.com email in `profiles`, which is what Google
 -- sign-in matches on too, so moving to Google later only means dropping these two tables.
 CREATE TABLE IF NOT EXISTS `user_passwords` (
@@ -456,6 +456,31 @@ CREATE TABLE IF NOT EXISTS `view_items` (
   KEY `view_items_view_idx` (`view_id`, `sort_order`),
   KEY `view_items_row_idx` (`row_id`, `slot`),
   CONSTRAINT `view_items_view_fk` FOREIGN KEY (`view_id`) REFERENCES `metric_groups` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Quarterly reports posted to a Slack channel (Settings → Slack reports). Each finished quarter is
+-- sent `send_day` days after it ends at `send_hour`:00 UTC; `last_sent_quarter` stops a second send.
+CREATE TABLE IF NOT EXISTS `slack_reports` (
+  `id` CHAR(36) NOT NULL DEFAULT (UUID()),
+  `name` VARCHAR(150) NOT NULL DEFAULT '',
+  -- A channel ID (C0123ABCD) or name (#design-system).
+  `channel` VARCHAR(191) NOT NULL DEFAULT '',
+  -- manual_metrics ids, in the order they're shown.
+  `metric_ids` JSON NOT NULL DEFAULT (JSON_ARRAY()),
+  `include_summary` TINYINT(1) NOT NULL DEFAULT 1,
+  `intro` TEXT NOT NULL DEFAULT (''),
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+  `send_day` INT NOT NULL DEFAULT 3,
+  `send_hour` INT NOT NULL DEFAULT 9,
+  `last_sent_quarter` VARCHAR(16) NULL,
+  `last_run_at` DATETIME(6) NULL,
+  `last_run_quarter` VARCHAR(16) NULL,
+  `last_run_status` VARCHAR(16) NULL,
+  `last_run_message` TEXT NULL,
+  `created_by` CHAR(36),
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Tracks one-off data steps (the Lovable import) so they never run twice.
