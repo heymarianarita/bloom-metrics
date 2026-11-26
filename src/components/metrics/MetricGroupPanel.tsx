@@ -48,6 +48,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 
 const ALL = "__all__";
@@ -283,9 +284,9 @@ const ScaleInfo = ({ metric }: { metric: ManualMetric }) => (
       </div>
     }
   >
-    <button type="button" aria-label={`What the ${metric.name} scores mean`} className="flex hover:text-foreground">
+    <DesignPressable aria-label={`What the ${metric.name} scores mean`} className="flex hover:text-foreground">
       <Info size={14} />
-    </button>
+    </DesignPressable>
   </DesignTooltip>
 );
 
@@ -459,6 +460,8 @@ interface MetricGroupPanelProps {
   trendChart?: "line" | "bar" | "area";
   /** Cards per row; automatic when left out. */
   cardColumns?: number;
+  /** The metric whose card is featured: large, on the left across two rows. */
+  cardHighlight?: string;
   /** Breakdowns show only their largest this many groups. */
   breakdownLimit?: number;
   /** Overrides the empty-state title when the narrowed list is empty. */
@@ -493,6 +496,7 @@ const MetricGroupPanel = ({
   compareOptions,
   trendChart = "line",
   cardColumns,
+  cardHighlight,
   breakdownLimit,
   filters: pageFilters,
   onFiltersChange,
@@ -686,7 +690,9 @@ const MetricGroupPanel = ({
 
 
       {/* The cards also load each metric's values, so they render (hidden) whatever is shown. */}
-      <DesignStatGroup className={parts && !parts.cards ? "hidden" : undefined} columns={cardColumns}>
+      <DesignStatGroup className={parts && !parts.cards ? "hidden" : undefined} columns={cardColumns}
+        featured={cardHighlight ? groupMetrics.findIndex((m) => m.id === cardHighlight) : undefined}
+      >
         {groupMetrics.map((metric) => (
           <MetricStat
             key={metric.id}

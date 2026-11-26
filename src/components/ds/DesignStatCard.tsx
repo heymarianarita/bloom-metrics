@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { DesignCard } from "./DesignCard";
 import { DesignBadge } from "./DesignBadge";
-import { StatGroupContext } from "./DesignStatGroup";
+import { StatFeaturedContext, StatGroupContext } from "./statGroupContext";
 
 export interface DesignStatCardProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Label displayed at the top-left of the card */
@@ -81,6 +81,7 @@ const DesignStatCard = React.forwardRef<HTMLDivElement, DesignStatCardProps>(
     ref,
   ) => {
     const inGroup = React.useContext(StatGroupContext);
+    const featured = React.useContext(StatFeaturedContext);
     return (
       <DesignCard
         ref={ref}
@@ -96,12 +97,17 @@ const DesignStatCard = React.forwardRef<HTMLDivElement, DesignStatCardProps>(
       >
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-muted-foreground">{label}</span>
-          {icon && <span className="text-muted-foreground">{icon}</span>}
+          {icon && <span className="flex text-muted-foreground">{icon}</span>}
         </div>
         <div className="flex items-end justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-end gap-2 flex-wrap">
-              <span className="min-w-0 max-w-full text-lg font-semibold leading-6 text-foreground break-words">
+              <span
+                className={cn(
+                  "min-w-0 max-w-full font-semibold text-foreground break-words",
+                  featured ? "text-2xl leading-8" : "text-lg leading-6",
+                )}
+              >
                 {value}
                 {unit && <span className="inline-block max-w-full text-sm font-normal text-muted-foreground ml-1 break-words">{unit}</span>}
               </span>

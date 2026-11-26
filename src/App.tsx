@@ -25,7 +25,7 @@ import AiUsageSettings from "./pages/settings/AiUsageSettings";
 import ComponentsSettings from "./pages/settings/ComponentsSettings";
 import UsersSettings from "./pages/settings/UsersSettings";
 import NotFound from "./pages/NotFound";
-import BloomComplianceSettings from "./pages/settings/BloomComplianceSettings";
+import BloomUsageSettings from "./pages/settings/BloomUsageSettings";
 import { settingsNavItems } from "./components/layout/AppShell";
 import { inAuditFrame } from "./lib/auditFrame";
 
@@ -85,7 +85,8 @@ const App = () => (
           <Route path="/settings/components" element={<ComponentsSettings />} />
           <Route path="/settings/history" element={<HistorySettings />} />
           <Route path="/settings/ai-usage" element={<AiUsageSettings />} />
-          <Route path="/settings/bloom-compliance" element={<BloomComplianceSettings />} />
+          <Route path="/settings/bloom-usage" element={<BloomUsageSettings />} />
+          <Route path="/settings/bloom-compliance" element={<Navigate to="/settings/bloom-usage" replace />} />
           <Route path="/settings/users" element={<UsersSettings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -25,12 +25,12 @@ import { useQualitativeSources } from "@/hooks/useQualitative";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  DesignDropdown,
+  DesignDropdownContent,
+  DesignDropdownItem,
+  DesignDropdownSeparator,
+  DesignDropdownTrigger,
+} from "@/components/ds/DesignDropdown";
 import { useNavigate } from "react-router-dom";
 import DatasetGrid from "@/components/datasets/DatasetGrid";
 import CsvImportSheet from "@/components/datasets/CsvImportSheet";
@@ -76,6 +76,7 @@ import {
   type ManualDatasetColumn,
   type ManualDatasetRow,
 } from "@/hooks/useManualDatasets";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 const slugifyMetric = (value: string) =>
   value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -128,41 +129,40 @@ const DatasetMeta = ({ dataset, onEdit }: { dataset: ManualDataset; onEdit: () =
         </>
       )}
       {usedBy.length ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className="text-primary hover:underline">
+        <DesignDropdown>
+          <DesignDropdownTrigger>
+            <DesignPressable className="text-primary hover:underline">
               Used by {usedBy.length} {usedBy.length === 1 ? "metric" : "metrics"}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-[240px]">
+            </DesignPressable>
+          </DesignDropdownTrigger>
+          <DesignDropdownContent width={240}>
             {usedBy.map((m) => (
-              <DropdownMenuItem key={m.id} onSelect={() => navigate(m.href)}>
+              <DesignDropdownItem key={m.id} onSelect={() => navigate(m.href)}>
                 {m.name}
-              </DropdownMenuItem>
+              </DesignDropdownItem>
             ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={addMetric}>
-              <Plus size={16} className="mr-2" />
+            <DesignDropdownSeparator />
+            <DesignDropdownItem onSelect={addMetric} icon={<Plus size={16} />}>
               New metric from this dataset
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DesignDropdownItem>
+          </DesignDropdownContent>
+        </DesignDropdown>
       ) : (
         <span>Not used by any metric yet</span>
       )}
       {dot}
-      <button type="button" className="text-primary hover:underline" onClick={addMetric}>
+      <DesignPressable className="text-primary hover:underline" onClick={addMetric}>
         Add metric
-      </button>
+      </DesignPressable>
       {dot}
       {hasSteps ? (
         <DesignTooltip content={<span className="whitespace-pre-line">{dataset.entry_notes}</span>} delay={0}>
           <span className="underline decoration-dotted underline-offset-2 cursor-default">How to update it</span>
         </DesignTooltip>
       ) : (
-        <button type="button" className="text-primary hover:underline" onClick={onEdit}>
+        <DesignPressable className="text-primary hover:underline" onClick={onEdit}>
           Describe how it's entered
-        </button>
+        </DesignPressable>
       )}
     </p>
   );
@@ -678,44 +678,41 @@ const DatasetsTab = () => {
               </DesignButton>
             )}
             {activeDataset && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
+              <DesignDropdown>
+                <DesignDropdownTrigger>
+                  <DesignButton
+                    variant="outlined"
+                    theme="muted"
                     aria-label="Dataset actions"
-                    className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-surface-hover active:bg-surface-hover"
-                  >
-                    <DotsThree size={20} weight="bold" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[200px]">
+                    icon={<DotsThree size={20} weight="bold" />}
+                    className="w-9 px-0"
+                  />
+                </DesignDropdownTrigger>
+                <DesignDropdownContent width={240}>
                   {!synced && (
-                  <DropdownMenuItem
+                  <DesignDropdownItem
                     onSelect={() => {
                       openEdit();
                     }}
+                    icon={<PencilSimple size={16} />}
                   >
-                    <PencilSimple size={16} className="mr-2" />
                     Edit details
-                  </DropdownMenuItem>
+                  </DesignDropdownItem>
                   )}
                   {!synced && (
-                  <DropdownMenuItem onSelect={() => setHistorySheet(true)}>
-                    <ClockCounterClockwise size={16} className="mr-2" />
+                  <DesignDropdownItem onSelect={() => setHistorySheet(true)} icon={<ClockCounterClockwise size={16} />}>
                     Import history
-                  </DropdownMenuItem>
+                  </DesignDropdownItem>
                   )}
-                  <DropdownMenuItem onSelect={() => duplicate(true)}>
-                    <Copy size={16} className="mr-2" />
+                  <DesignDropdownItem onSelect={() => duplicate(true)} icon={<Copy size={16} />}>
                     Duplicate with data
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => duplicate(false)}>
-                    <Copy size={16} className="mr-2" />
+                  </DesignDropdownItem>
+                  <DesignDropdownItem onSelect={() => duplicate(false)} icon={<Copy size={16} />}>
                     Duplicate structure only
-                  </DropdownMenuItem>
+                  </DesignDropdownItem>
                   {!synced && (
                   <>
-                  <DropdownMenuItem
+                  <DesignDropdownItem
                     onSelect={() => {
                       if (
                         !confirm(
@@ -730,11 +727,11 @@ const DatasetsTab = () => {
                           toast({ title: "Could not clear data", description: error.message }),
                       });
                     }}
+                    icon={<Eraser size={16} />}
                   >
-                    <Eraser size={16} className="mr-2" />
                     Clear all data
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
+                  </DesignDropdownItem>
+                  <DesignDropdownItem
                     className="text-destructive focus:text-destructive"
                     onSelect={() => {
                       if (!confirm(`Delete “${activeDataset.name}” and all of its rows?`)) return;
@@ -746,14 +743,14 @@ const DatasetsTab = () => {
                       }
                       setDatasetId("");
                     }}
+                    icon={<Trash size={16} />}
                   >
-                    <Trash size={16} className="mr-2" />
                     Delete dataset
-                  </DropdownMenuItem>
+                  </DesignDropdownItem>
                   </>
                   )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </DesignDropdownContent>
+              </DesignDropdown>
             )}
           </div>
         </div>

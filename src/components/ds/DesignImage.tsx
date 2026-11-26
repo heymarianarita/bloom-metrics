@@ -17,10 +17,12 @@ export interface DesignImageProps extends React.ImgHTMLAttributes<HTMLImageEleme
   styling?: "default" | "rounded" | "circle";
   label?: string;
   fallbackSrc?: string | null;
+  /** Background behind the image (web-ui `color`); defaults to the image placeholder. */
+  color?: string | null;
 }
 
 const DesignImage = React.forwardRef<HTMLDivElement, DesignImageProps>(
-  ({ className, src, alt, ratio = "square", scaling = "cover", styling = "default", label, fallbackSrc, loading = "lazy", ...imgProps }, ref) => {
+  ({ className, src, alt, ratio = "square", scaling = "cover", styling = "default", label, fallbackSrc, color, loading = "lazy", ...imgProps }, ref) => {
     const [imgSrc, setImgSrc] = React.useState(src);
     const [hasError, setHasError] = React.useState(false);
 
@@ -45,6 +47,7 @@ const DesignImage = React.forwardRef<HTMLDivElement, DesignImageProps>(
             styling === "rounded" && "rounded-lg",
             styling === "circle" && "rounded-full"
           )}
+          style={color ? { backgroundColor: color } : undefined}
         >
           {imgSrc ? (
             <img

@@ -15,11 +15,17 @@ import { CSS } from "@dnd-kit/utilities";
 import { DesignCard } from "@/components/ds/DesignCard";
 import { SettingsLayout } from "@/components/settings/SettingsLayout";
 import { DesignButton } from "@/components/ds/DesignButton";
+import { DesignChip } from "@/components/ds/DesignChip";
 import { DesignInputText, DesignInputTextArea } from "@/components/ds/DesignInput";
 import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignCheckbox } from "@/components/ds/DesignCheckbox";
 import { DesignLoader } from "@/components/ds/DesignLoader";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DesignDropdown,
+  DesignDropdownContent,
+  DesignDropdownItem,
+  DesignDropdownTrigger,
+} from "@/components/ds/DesignDropdown";
 import { useToast } from "@/hooks/use-toast";
 import { useSaveManualMetric, type MetricDirection, BREAKDOWN_VIEW_OPTIONS, useManualMetrics, type BreakdownView, type ManualMetric } from "@/hooks/useManualMetrics";
 import { useDataSourceConfigs } from "@/hooks/useDataSources";
@@ -59,6 +65,7 @@ import {
   type CodeAdoptionCharts,
 } from "../../../../server/shared/codeAdoptionCharts.ts";
 import { comparePeriods, recentPeriods } from "../../../../server/shared/periods.ts";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 /* ─────────── What a section can be ─────────── */
 
@@ -218,10 +225,9 @@ const TypePicker = ({ onPick }: { onPick: (kind: WidgetKind) => void }) => (
   <ul className="-mx-2 flex flex-col">
     {KIND_INFO.map(({ kind, description, demo }) => (
       <li key={kind}>
-        <button
-          type="button"
+        <DesignPressable
           onClick={() => onPick(kind)}
-          className="w-full text-left flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-surface-primary-hover"
+          className="w-full text-left flex items-center gap-3 rounded-md px-2 py-2 transition-colors"
         >
           <span className="w-[72px] h-[40px] shrink-0 overflow-hidden pointer-events-none [&_svg]:h-[40px] [&_p]:hidden">
             <SectionPreview
@@ -234,7 +240,7 @@ const TypePicker = ({ onPick }: { onPick: (kind: WidgetKind) => void }) => (
             <span className="block text-sm text-foreground">{WIDGET_LABELS[kind]}</span>
             <span className="block text-xs text-muted-foreground leading-4">{description}</span>
           </span>
-        </button>
+        </DesignPressable>
       </li>
     ))}
   </ul>
@@ -317,7 +323,24 @@ const SectionPreview = ({
   compact?: boolean;
 }) => {
   switch (item.kind) {
-    case "card":
+    case "card": {
+      const featured = item.options?.highlight ? widgetMetrics(item).indexOf(item.options.highlight) : -1;
+      if (featured >= 0 && names.length >= 3) {
+        const rest = names.filter((_, i) => i !== featured);
+        return (
+          <div
+            className={`grid grid-rows-2 ${compact ? "gap-1" : "gap-x-4 gap-y-3"}`}
+            style={{ gridTemplateColumns: `repeat(${Math.ceil(rest.length / 2) + 1}, minmax(0, 1fr))` }}
+          >
+            <div className="row-span-2 flex">
+              <NumberTile name={names[featured]} />
+            </div>
+            {rest.map((name, i) => (
+              <NumberTile key={i} name={name} />
+            ))}
+          </div>
+        );
+      }
       return (
         <div
           className={`grid ${compact ? "gap-1" : "gap-x-4 gap-y-3"}`}
@@ -328,6 +351,7 @@ const SectionPreview = ({
           ))}
         </div>
       );
+    }
     case "trend":
       return <LinesPreview count={names.length} bars={item.options?.chart === "bar"} />;
     case "breakdown":
@@ -431,19 +455,19 @@ const Segmented = ({
     {options.map((o) => {
       const on = o.value === value;
       return (
-        <button
+        <DesignPressable
           key={o.value}
-          type="button"
           role="radio"
           aria-checked={on}
           title={o.title}
-          className={`h-8 flex-1 rounded-md text-sm transition-colors ${
+          borderRadius="small"
+          className={`h-8 flex-1 text-center text-sm transition-colors ${
             on ? "bg-surface-primary-selected text-primary font-medium" : "text-muted-foreground hover:text-foreground"
           }`}
           onClick={() => onChange(o.value)}
         >
           {o.label}
-        </button>
+        </DesignPressable>
       );
     })}
   </div>
@@ -712,7 +736,23 @@ const SectionForm = ({
         </div>
       )}
 
-      {draft.kind === "card" && ids.length > 1 && (
+      {draft.kind === "card" && ids.length >= 3 && (
+        <DesignInputSelect
+          label="Highlight"
+          helperText="Shown large on the left across two rows, with the other numbers beside it."
+          value={draft.options.highlight && ids.includes(draft.options.highlight) ? draft.options.highlight : ""}
+          options={[
+            { value: "", label: "None" },
+            ...ids.flatMap((id) => {
+              const metric = live.find((m) => m.id === id);
+              return metric ? [{ value: id, label: metric.name }] : [];
+            }),
+          ]}
+          onChange={(highlight) => setOption({ highlight: highlight || undefined })}
+        />
+      )}
+
+      {draft.kind === "card" && ids.length > 1 && !(draft.options.highlight && ids.includes(draft.options.highlight) && ids.length >= 3) && (
         <div className="flex flex-col gap-1">
           <p className="text-sm text-foreground">Numbers per row</p>
           <Segmented
@@ -789,10 +829,9 @@ const SectionInspector = ({
 
   return (
     <div className="flex flex-col gap-5">
-      <button type="button" onClick={onClose} className="self-start flex items-center gap-1 text-sm text-primary hover:underline">
-        <ArrowLeft size={14} />
+      <DesignButton variant="flat" icon={<ArrowLeft size={16} />} onClick={onClose} className="self-start">
         All sections
-      </button>
+      </DesignButton>
       {draft.kind !== "text" && (
         <DesignInputText
           label="Title"
@@ -916,7 +955,7 @@ const SectionCard = ({
             ? "shadow-md border-primary cursor-grabbing"
             : selected
               ? "border-primary ring-1 ring-primary"
-              : "border-design-card-border hover:border-[rgba(21,25,26,0.24)]"
+              : "border-design-card-border hover:border-greyscale-4"
         } ${item.hidden ? "opacity-60" : ""}`}
       >
         <div className="flex items-start justify-between gap-3 min-w-0">
@@ -997,26 +1036,25 @@ const PageFilters = ({
   const fail = (title: string) => (err: unknown) =>
     toast({ title, description: (err as Error).message, variant: "destructive" });
   const setFilters = (filters: string[]) => save.mutateAsync({ id: view.id, filters }).catch(fail("Could not save the filters"));
-  const chip =
-    "inline-flex h-9 items-center gap-1 rounded-md border border-border px-3 text-sm text-foreground";
   return (
     <section className="mt-5">
       <h3 className="text-sm font-medium text-foreground">Page filters</h3>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
+        <DesignDropdown>
+          <DesignDropdownTrigger>
+            <DesignButton
+              variant="outlined"
+              theme="muted"
               aria-label={`Benchmark frequency: ${periodLabel(periodView.periodicity ?? "quarterly")}${parent ? `, shared with ${parent.name}` : ""}`}
-              className={`${chip} hover:bg-surface-hover`}
+              icon={<CaretDown size={14} />}
+              iconPosition="right"
             >
               {periodLabel(periodView.periodicity ?? "quarterly")}
-              <CaretDown size={14} className="ml-1 text-muted-foreground" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[200px]">
+            </DesignButton>
+          </DesignDropdownTrigger>
+          <DesignDropdownContent width={200}>
             {PERIODICITY_OPTIONS.map((o) => (
-              <DropdownMenuItem
+              <DesignDropdownItem
                 key={o.value}
                 onSelect={() =>
                   savePeriodicity
@@ -1025,38 +1063,36 @@ const PageFilters = ({
                 }
               >
                 {periodLabel(o.value)}
-              </DropdownMenuItem>
+              </DesignDropdownItem>
             ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </DesignDropdownContent>
+        </DesignDropdown>
         {saved.map((label) => (
-          <span key={label} className={chip}>
+          <DesignChip
+            key={label}
+            size="small"
+            aria-label={`Remove the ${label} filter`}
+            suffix={<X size={14} />}
+            onClick={() => setFilters(saved.filter((l) => l !== label))}
+          >
             {label}
-            <button
-              type="button"
-              aria-label={`Remove the ${label} filter`}
-              className="-mr-1 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-hover"
-              onClick={() => setFilters(saved.filter((l) => l !== label))}
-            >
-              <X size={14} />
-            </button>
-          </span>
+          </DesignChip>
         ))}
         {offered.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <DesignDropdown>
+            <DesignDropdownTrigger>
               <DesignButton variant="flat" theme="primary" icon={<Plus size={16} />}>
                 Add filter
               </DesignButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[220px]">
+            </DesignDropdownTrigger>
+            <DesignDropdownContent width={220}>
               {offered.map((label) => (
-                <DropdownMenuItem key={label} onSelect={() => setFilters([...saved, label])}>
+                <DesignDropdownItem key={label} onSelect={() => setFilters([...saved, label])}>
                   {label}
-                </DropdownMenuItem>
+                </DesignDropdownItem>
               ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </DesignDropdownContent>
+          </DesignDropdown>
         )}
       </div>
     </section>
@@ -1219,21 +1255,21 @@ export const ViewBlockEditor = ({
                     />
                   ))}
                 </SortableContext>
-                <button
-                  type="button"
+                <DesignPressable
                   onClick={(e) => {
                     e.stopPropagation();
                     select(null);
                   }}
-                  className={`col-span-6 flex min-h-[64px] items-center justify-center gap-2 rounded-xl border border-dashed text-sm transition-colors ${
+                  borderRadius="medium"
+                  className={`col-span-6 flex min-h-[64px] items-center justify-center gap-2 border border-dashed text-sm transition-colors ${
                     selectedId === null
                       ? "border-primary text-primary"
-                      : "border-[rgba(21,25,26,0.24)] text-muted-foreground hover:border-primary hover:text-primary"
+                      : "border-greyscale-4 text-muted-foreground hover:border-primary hover:text-primary"
                   }`}
                 >
                   <Plus size={16} />
                   Add section
-                </button>
+                </DesignPressable>
               </div>
             )}
           </DesignCard>

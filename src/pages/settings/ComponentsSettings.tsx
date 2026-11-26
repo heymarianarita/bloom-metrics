@@ -35,6 +35,7 @@ import {
   useSaveComponentAliases,
   type ComponentTable,
 } from "@/hooks/useComponentAliases";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 /** Spreadsheet density, as in the dataset grid. */
 const dense = {
@@ -42,7 +43,7 @@ const dense = {
   tdAction: cn(ts.td, "px-1 py-0"),
   input: cn(ts.cellInput, "px-2 py-1"),
   iconButton:
-    "flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]",
+    "flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground",
 };
 
 /** A platform's names for one component: the whole cell opens a searchable checklist. */
@@ -67,8 +68,7 @@ const NamesCell = ({
     <td className={ts.tdEditable}>
       <DesignDropdown onOpenChange={(open) => !open && setQ("")}>
         <DesignDropdownTrigger>
-          <button
-            type="button"
+          <DesignPressable
             className={cn(dense.input, "flex min-h-8 max-w-[280px] flex-wrap items-center gap-1 text-left")}
           >
             {names.map((n, i) => (
@@ -79,7 +79,7 @@ const NamesCell = ({
             ))}
             <span className="sr-only">{text ? `, ${label}` : `${label}, no names`}</span>
             {!text && <Plus size={14} className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />}
-          </button>
+          </DesignPressable>
         </DesignDropdownTrigger>
         <DesignDropdownContent
           width={280}
@@ -485,9 +485,9 @@ const ComponentsSettings = () => {
                                     </DesignTooltip>
                                     <DesignDropdown>
                                       <DesignDropdownTrigger>
-                                        <button aria-label={`Options for ${title}`} className={cn(dense.iconButton, "-my-1 h-5 w-5")}>
+                                        <DesignPressable aria-label={`Options for ${title}`} className={cn(dense.iconButton, "-my-1 h-5 w-5")}>
                                           <CaretDown size={14} />
-                                        </button>
+                                        </DesignPressable>
                                       </DesignDropdownTrigger>
                                       <DesignDropdownContent width={200}>
                                         <DesignDropdownItem
@@ -514,9 +514,9 @@ const ComponentsSettings = () => {
                             <th className={cn(dense.th, "w-8 px-1 py-0")}>
                               <DesignDropdown>
                                 <DesignDropdownTrigger>
-                                  <button aria-label="Add column" className={dense.iconButton}>
+                                  <DesignPressable aria-label="Add column" className={dense.iconButton}>
                                     <Plus size={14} />
-                                  </button>
+                                  </DesignPressable>
                                 </DesignDropdownTrigger>
                                 <DesignDropdownContent width={280} height={320}>
                                   <DesignDropdownLabel>Add a column from</DesignDropdownLabel>
@@ -584,7 +584,7 @@ const ComponentsSettings = () => {
                                 />
                               ))}
                               <td className={dense.tdAction}>
-                                <button
+                                <DesignPressable
                                   aria-label={`Delete ${r.name || "row"}`}
                                   className={cn(
                                     dense.iconButton,
@@ -593,20 +593,20 @@ const ComponentsSettings = () => {
                                   onClick={() => updateTable(t.id, (x) => ({ ...x, rows: x.rows.filter((y) => y.id !== r.id) }))}
                                 >
                                   <Trash size={14} />
-                                </button>
+                                </DesignPressable>
                               </td>
                             </tr>
                           ))}
                           <tr>
                             <td colSpan={t.columns.length + 2} className={ts.footerCell}>
-                              <button
+                              <DesignPressable
                                 className={cn(ts.footerAction, "px-2 py-1")}
                                 onClick={() =>
                                   updateTable(t.id, (x) => ({ ...x, rows: [...x.rows, { id: uid(), name: "New component", cells: {} }] }))
                                 }
                               >
                                 <Plus size={14} /> New row
-                              </button>
+                              </DesignPressable>
                             </td>
                           </tr>
                         </tbody>

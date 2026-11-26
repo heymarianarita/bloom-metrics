@@ -2,6 +2,7 @@ import { BookOpenText, Plus, PuzzlePiece, SquaresFour, TrendUp, type Icon as Pho
 import { DesignCard } from "@/components/ds/DesignCard";
 import { SortableList } from "@/components/settings/SortableList";
 import { groupTree, type MetricGroup } from "@/hooks/useMetricGroups";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 const TAB_ICONS: Record<string, PhosphorIcon> = {
   impact: TrendUp,
@@ -29,7 +30,7 @@ export const TabTree = ({
     `flex items-center gap-3 px-3 ${child ? "py-1.5" : "py-2"} rounded-md text-sm transition-colors w-full text-left min-w-0 ${
       selected
         ? "text-[var(--primary-extra-dark)] font-medium bg-surface-primary-selected"
-        : "text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active"
+        : "text-muted-foreground"
     }`;
   const count = (group: MetricGroup) => (
     <span className="text-xs text-muted-foreground font-normal">{counts(group) || ""}</span>
@@ -46,26 +47,25 @@ export const TabTree = ({
               <div key={group.id} ref={row.ref} style={row.style} className="rounded-md">
                 <div className="flex items-center gap-0.5">
                   {row.handle}
-                  <button type="button" className={rowClass(group.id === selectedId)} onClick={() => onSelect(group.id)}>
+                  <DesignPressable className={rowClass(group.id === selectedId)} onClick={() => onSelect(group.id)}>
                     <Icon size={16} className="shrink-0" />
                     <span className="flex-1 truncate">{group.name}</span>
                     {count(group)}
-                  </button>
+                  </DesignPressable>
                 </div>
                 {children.length > 0 && (
-                  <div className="ml-[43px] mt-0.5 mb-1 flex flex-col gap-0.5 border-l border-border pl-1">
+                  <div className="ml-11 mt-0.5 mb-1 flex flex-col gap-0.5 border-l border-border pl-1">
                     <SortableList items={children} getId={(c) => c.id} getLabel={(c) => c.name} onReorder={onReorder}>
                       {(child, childRow) => (
                         <div key={child.id} ref={childRow.ref} style={childRow.style} className="flex items-center gap-0.5 rounded-md">
                           {childRow.handle}
-                          <button
-                            type="button"
+                          <DesignPressable
                             className={rowClass(child.id === selectedId, true)}
                             onClick={() => onSelect(child.id)}
                           >
                             <span className="flex-1 truncate">{child.name}</span>
                             {count(child)}
-                          </button>
+                          </DesignPressable>
                         </div>
                       )}
                     </SortableList>
@@ -75,10 +75,10 @@ export const TabTree = ({
             );
           }}
         </SortableList>
-        <button type="button" className={`${rowClass(false)} pl-[37px]`} onClick={onAdd}>
+        <DesignPressable className={`${rowClass(false)} pl-9`} onClick={onAdd}>
           <Plus size={16} className="shrink-0" />
           <span className="flex-1">Add view</span>
-        </button>
+        </DesignPressable>
       </div>
     </DesignCard>
   );

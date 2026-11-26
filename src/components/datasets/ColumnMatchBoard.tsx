@@ -20,6 +20,7 @@ import { useIsTruncated } from "@/hooks/useIsTruncated";
 import type { DatasetColumnKind, ManualDatasetColumn } from "@/hooks/useManualDatasets";
 import type { DateOrder } from "../../../server/shared/dates.ts";
 import { IGNORE, NEW_COLUMN, guessKind, type ImportPlan, type MetricUse } from "./importPlan";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 export const KIND_LABELS: Record<DatasetColumnKind, string> = {
   text: "Text",
@@ -90,14 +91,13 @@ const Chip = ({
       className={cn(
         "inline-flex h-8 max-w-full items-center gap-0.5 rounded-full border bg-background text-sm text-foreground",
         onRemove ? "pl-3 pr-1" : "px-3",
-        selected ? "border-primary shadow-[0_0_0_1px_var(--primary)]" : "border-border hover:border-[rgba(21,25,26,0.3)]",
+        selected ? "border-primary ring-1 ring-primary" : "border-border hover:border-greyscale-4",
         isDragging && "opacity-40",
         overlay && "cursor-grabbing shadow-lg",
       )}
     >
       <DesignTooltip content={tooltip}>
-        <button
-          type="button"
+        <DesignPressable
           className="flex min-w-0 cursor-grab touch-none items-center gap-1"
           onClick={onSelect}
           {...(overlay ? {} : listeners)}
@@ -106,17 +106,16 @@ const Chip = ({
         >
           <DotsSixVertical size={12} weight="bold" className="shrink-0 text-muted-foreground" />
           <span ref={nameRef} className="truncate">{name}</span>
-        </button>
+        </DesignPressable>
       </DesignTooltip>
       {onRemove && (
-        <button
-          type="button"
+        <DesignPressable
           aria-label={`Leave out “${name}”`}
-          className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+          className="shrink-0 rounded-full p-1 text-muted-foreground hover:text-foreground"
           onClick={onRemove}
         >
           <X size={12} />
-        </button>
+        </DesignPressable>
       )}
     </div>
   );
@@ -298,8 +297,7 @@ const ColumnMatchBoard = ({
           <div className="flex h-8 min-w-0 items-center justify-between gap-2 rounded-full border border-dashed border-border px-3">
             <span className="truncate text-xs text-muted-foreground">{emptyHint}</span>
             {dragging === null && selected === null && (
-              <button
-                type="button"
+              <DesignPressable
                 className="shrink-0 text-xs text-primary opacity-0 hover:underline focus-visible:opacity-100 group-hover:opacity-100"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -307,7 +305,7 @@ const ColumnMatchBoard = ({
                 }}
               >
                 Same for every row
-              </button>
+              </DesignPressable>
             )}
           </div>
         )}

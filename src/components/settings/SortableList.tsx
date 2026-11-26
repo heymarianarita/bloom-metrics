@@ -13,6 +13,7 @@ import {
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 /** What each row needs to be draggable: put `ref` and `style` on the row, `handle` inside it. */
 export interface SortableRowProps {
@@ -35,17 +36,16 @@ const Row = ({
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
   const handle = (
-    <button
-      type="button"
+    <DesignPressable
       aria-label={`Reorder ${label}`}
-      className={`shrink-0 -ml-1 flex h-8 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+      className={`shrink-0 -ml-1 flex h-8 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors ${
         disabled ? "invisible" : isDragging ? "cursor-grabbing" : "cursor-grab"
       }`}
       {...attributes}
       {...listeners}
     >
       <DotsSixVertical size={16} weight="bold" />
-    </button>
+    </DesignPressable>
   );
   return (
     <>

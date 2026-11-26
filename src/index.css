@@ -104,6 +104,12 @@
     --surface-primary-hover: rgba(0, 119, 130, 0.06);
     --surface-primary-active: rgba(0, 119, 130, 0.04);
     --surface-primary-selected: rgba(0, 119, 130, 0.08);
+    /* On the dark top bar: web-ui's inverse button (white, overlay at the focused/clicked
+       opacities 2% and 8%) and a selected tab at Bloom's 12% opacity step */
+    --btn-inverse: #FFFFFF;
+    --btn-inverse-hover-bg: rgba(255, 255, 255, 0.02);
+    --btn-inverse-active-bg: rgba(255, 255, 255, 0.08);
+    --surface-inverse-selected: rgba(255, 255, 255, 0.12);
     --overlay-bg: rgba(21, 25, 26, 0.64);
     --overlay-bg-light: rgba(15, 18, 18, 0.48);
     --sheet-overlay-bg: rgba(21, 25, 26, 0.7);

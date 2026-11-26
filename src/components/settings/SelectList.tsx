@@ -2,6 +2,7 @@ import * as React from "react";
 import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignTooltip } from "@/components/ds/DesignTooltip";
 import { SortableList } from "@/components/settings/SortableList";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 export interface SelectListItem {
   id: string;
@@ -37,12 +38,12 @@ export const SelectList = ({
 }) => {
   const rowClass = (selected: boolean) =>
     `w-full text-left px-3 py-2 rounded-md transition-colors min-w-0 ${
-      selected ? "bg-surface-primary-selected" : "hover:bg-surface-primary-hover active:bg-surface-primary-active"
+      selected ? "bg-surface-primary-selected" : ""
     }`;
   const itemButton = (item: SelectListItem) => {
     const selected = item.id === selectedId;
     return (
-      <button type="button" className={`${rowClass(selected)} flex items-center gap-2`} onClick={() => onSelect(item.id)}>
+      <DesignPressable className={`${rowClass(selected)} flex items-center gap-2`} onClick={() => onSelect(item.id)}>
         {item.icon && (
           <DesignTooltip content={item.iconLabel} side="left">
             <span className="flex shrink-0 text-muted-foreground" aria-label={item.iconLabel} role="img">
@@ -53,7 +54,7 @@ export const SelectList = ({
         <span className={`min-w-0 truncate text-sm ${selected ? "font-medium text-[var(--primary-extra-dark)]" : "text-foreground"}`}>
           {item.label}
         </span>
-      </button>
+      </DesignPressable>
     );
   };
   const heading = (group: string, first: boolean) => (
@@ -105,15 +106,14 @@ export const SelectList = ({
       {actions.length > 0 && (
         <div className="-mx-2 -mb-2 mt-1 flex shrink-0 flex-col gap-0.5 rounded-b-xl border-t border-border bg-design-card p-2">
           {actions.map((action) => (
-            <button
+            <DesignPressable
               key={action.label}
-              type="button"
-              className={`${rowClass(false)} flex items-center gap-2 text-sm text-muted-foreground ${onReorder ? "pl-[37px]" : ""}`}
+              className={`${rowClass(false)} flex items-center gap-2 text-sm text-muted-foreground ${onReorder ? "pl-9" : ""}`}
               onClick={action.onClick}
             >
               <span className="shrink-0 flex">{action.icon}</span>
               {action.label}
-            </button>
+            </DesignPressable>
           ))}
         </div>
       )}

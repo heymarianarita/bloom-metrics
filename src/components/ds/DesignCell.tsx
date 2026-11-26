@@ -43,7 +43,7 @@ const DesignCell = React.forwardRef<HTMLDivElement, DesignCellProps>(
     suffix, suffixIcon: SuffixIcon, suffixIconClassName, showChevron = false,
     showDivider = false, disabled = false, highlighted = false, clickable = false,
     styling = "default", theme = "default", validation, onClick, url, controlType,
-    checked, onCheckedChange, radioValue, ...props
+    checked, onCheckedChange, radioValue, role, tabIndex, onKeyDown, ...props
   }, ref) => {
     const isClickable = (!!onClick || !!controlType || clickable) && !disabled;
     // The control is named by the cell's title, so screen readers announce what it toggles.
@@ -57,6 +57,17 @@ const DesignCell = React.forwardRef<HTMLDivElement, DesignCellProps>(
     };
 
     const handleControlClick = (e: React.MouseEvent) => e.stopPropagation();
+
+    // Like web-ui Cell: a clickable cell is a button for keyboards and screen readers.
+    const pressable = isClickable && !controlType;
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+      onKeyDown?.(e);
+      if (!pressable || e.defaultPrevented || e.target !== e.currentTarget) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleClick();
+      }
+    };
 
     const content = (
       <>
@@ -118,6 +129,7 @@ const DesignCell = React.forwardRef<HTMLDivElement, DesignCellProps>(
       stylingMap[styling],
       isClickable && "cursor-pointer",
       isClickable && "hover:bg-surface-hover active:bg-surface-active",
+      pressable && "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
       highlighted && "bg-cell-hover",
       disabled && "opacity-[0.48] cursor-not-allowed",
       showDivider && "border-b border-divider",
@@ -140,7 +152,16 @@ const DesignCell = React.forwardRef<HTMLDivElement, DesignCellProps>(
     }
 
     return (
-      <div ref={ref} onClick={handleClick} className={classes} {...props}>
+      <div
+        ref={ref}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        role={role ?? (pressable ? "button" : undefined)}
+        tabIndex={tabIndex ?? (pressable ? 0 : undefined)}
+        aria-disabled={disabled || undefined}
+        className={classes}
+        {...props}
+      >
         {inner}
         {validation && <div className="mt-1">{validation}</div>}
       </div>

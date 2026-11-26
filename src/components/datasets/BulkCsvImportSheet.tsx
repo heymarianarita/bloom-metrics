@@ -2,6 +2,7 @@ import * as React from "react";
 import { Trash } from "@phosphor-icons/react";
 import { DesignSideSheet } from "@/components/ds/DesignSideSheet";
 import { DesignButton } from "@/components/ds/DesignButton";
+import { DesignTooltip } from "@/components/ds/DesignTooltip";
 import { DesignInputText } from "@/components/ds/DesignInput";
 import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignNote } from "@/components/ds/DesignNote";
@@ -208,14 +209,16 @@ const BulkCsvImportSheet = ({
                     · {body.length} {body.length === 1 ? "row" : "rows"}
                   </span>
                 </p>
-                <button
-                  type="button"
-                  aria-label={`Remove ${draft.fileName}`}
-                  onClick={() => setDrafts((prev) => prev.filter((d) => d.id !== draft.id))}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[rgba(208,69,85,0.08)] hover:text-destructive"
-                >
-                  <Trash size={16} />
-                </button>
+                <DesignTooltip content="Remove file">
+                  <DesignButton
+                    variant="flat"
+                    theme="muted"
+                    aria-label={`Remove ${draft.fileName}`}
+                    icon={<Trash size={16} />}
+                    onClick={() => setDrafts((prev) => prev.filter((d) => d.id !== draft.id))}
+                    className="w-9 shrink-0 px-0"
+                  />
+                </DesignTooltip>
               </div>
 
               <div className="flex flex-wrap items-end gap-3">

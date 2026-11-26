@@ -8,6 +8,7 @@ import { InsightsChat } from "@/components/metrics/InsightsChat";
 import { useInsightsChat } from "@/hooks/useInsightsChat";
 import { changeTone, type ManualMetric } from "@/hooks/useManualMetrics";
 import type { SeriesPoint } from "@/lib/periodBuckets";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 /**
  * One vocabulary for every Insights panel. The badge label and its colour come
@@ -206,14 +207,13 @@ const ChangeRow = ({ item, comparison, onAsk }: { item: Insight; comparison: [st
   );
   const grid = "grid w-full grid-cols-[minmax(0,1fr)_auto_64px] items-baseline gap-x-3 py-2";
   return onAsk ? (
-    <button
-      type="button"
+    <DesignPressable
       onClick={onAsk}
       title={`${item.body} Click to dig deeper.`}
-      className={`${grid} text-left rounded-md hover:bg-surface-primary-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
+      className={`${grid} text-left rounded-md`}
     >
       {content}
-    </button>
+    </DesignPressable>
   ) : (
     <div className={grid} title={item.body}>
       {content}
@@ -317,14 +317,13 @@ export const InsightsPanel = ({ subject, insights, emptyText, footer, className,
                   return (
                     <li key={i}>
                       {chat ? (
-                        <button
-                          type="button"
+                        <DesignPressable
                           onClick={() => askAbout(item)}
                           title="Click to dig deeper"
-                          className="block w-full py-3 text-left rounded-md hover:bg-surface-primary-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          className="block w-full py-3 text-left rounded-md"
                         >
                           {content}
-                        </button>
+                        </DesignPressable>
                       ) : (
                         <div className="py-3">{content}</div>
                       )}

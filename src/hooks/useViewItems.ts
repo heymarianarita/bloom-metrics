@@ -40,6 +40,8 @@ export interface WidgetOptions {
   title?: string;
   /** card: cards per row (automatic when left out). */
   columns?: number;
+  /** card: the metric shown large on the left across two rows, beside the others. */
+  highlight?: string;
   /** trend: line | bar; code: the chart type of that part. */
   chart?: string;
   /** trend: the metrics people can add to the chart with "Compare with" (none when left out). */

@@ -40,6 +40,8 @@ export interface DataTableColumn<T> {
    * holding several elements, e.g. a badge and a button, which would read as one run-on label.
    */
   cellTooltip?: boolean;
+  /** Long text wraps onto more lines instead of truncating behind a tooltip, as in web-ui's Table. */
+  wrap?: boolean;
 }
 
 export interface DataTableFilter {
@@ -137,6 +139,8 @@ export interface DesignDataTableProps<T> {
   titleAction?: React.ReactNode;
   /** Show the search field in the title row, right-aligned, instead of in the toolbar (needs `title`) */
   searchInTitle?: boolean;
+  /** Name for screen readers when there's no `title`; each table on a page needs a different one */
+  label?: string;
 
   className?: string;
 }
@@ -195,6 +199,7 @@ function DesignDataTableInner<T>(
     title,
     titleAction,
     searchInTitle = false,
+    label,
     subRows,
     defaultExpanded = true,
     className,
@@ -501,7 +506,7 @@ function DesignDataTableInner<T>(
             className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--primary)]"
             tabIndex={scrolls ? 0 : undefined}
             role={scrolls ? "region" : undefined}
-            aria-label={scrolls ? (title ? `${title}, scrolls sideways` : "Table, scrolls sideways") : undefined}
+            aria-label={scrolls ? `${title ?? label ?? "Table"}, scrolls sideways` : undefined}
           >
           <table className={cn(tableStyles.table, "table-fixed")} style={{ minWidth }}>
             {/* Fixed widths (px, rem, %) are applied; "fr" columns share the rest equally. */}
@@ -633,6 +638,8 @@ function DesignDataTableInner<T>(
                                 <div className="min-w-0 [&_p]:truncate [&_span]:truncate truncate">{cellContent}</div>
                               </DesignTooltip>
                             </div>
+                          ) : col.wrap ? (
+                            <div className="min-w-0 break-words">{cellContent}</div>
                           ) : (
                             <DesignTooltip content={tooltipText} side="top">
                               <div className="min-w-0 [&_p]:truncate [&_span]:truncate truncate">
@@ -703,6 +710,7 @@ function DesignDataTableInner<T>(
                 onPageClick={setPage}
                 preservedDistance={2}
                 isLastPageAlwaysShown
+                aria-label={title || label ? `${title ?? label} pages` : "Pagination"}
               />
             </div>
           )}

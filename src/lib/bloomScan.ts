@@ -1,8 +1,8 @@
 /**
- * Build-time scan of the app's source for Bloom compliance: which controls feature code renders
+ * Build-time scan of the app's source for Bloom usage: which controls feature code renders
  * through Design* components, which it hand-writes (raw HTML or shadcn primitives), and which
  * one-off styles it carries. The Vite plugin `bloomScanPlugin` (vite.config.ts) runs it over
- * `src/` and serves the result as `virtual:bloom-scan` to the Bloom compliance page.
+ * `src/` and serves the result as `virtual:bloom-scan` to the Bloom usage page.
  *
  * Only the types are imported by app code; the scan itself (and TypeScript) stays in the build.
  */
@@ -16,7 +16,19 @@ export interface ScanOffender {
   kind: OffenderKind;
   /** `<button>`, `Dialog`, `text-[13px]`, `style` … */
   what: string;
+  /** The component (function or const) it's written in */
+  component?: string;
+  /** Its line of code, trimmed */
+  code: string;
+  /** Why it counts as hand-written, in plain words */
+  why: string;
+  /** What to use instead, or why it can stay */
+  fix: string;
+  /** One-off styles: what the value sets. Sizes and layout are usually fine; the rest miss a Bloom token. */
+  category?: StyleCategory;
 }
+
+export type StyleCategory = "colour" | "type" | "spacing" | "radius" | "size" | "layout";
 
 export interface ScanCounts {
   /** Design* elements, and raw tables styled with `tableStyles` */
@@ -60,7 +72,7 @@ const CONTROL_ROLES = new Set([
   "listbox", "combobox", "dialog", "slider", "tooltip", "progressbar", "separator",
 ]);
 /** shadcn pieces that set up the app rather than draw a control */
-const UI_SETUP = /(Provider|^Toaster$)/;
+const UI_SETUP = /(Provider|^Toaster$|^Sonner$)/;
 const SPACING_UTILITY = /^-?(gap-x|gap-y|gap|space-x|space-y|px|py|pt|pr|pb|pl|ps|pe|p|mx|my|mt|mr|mb|ml|ms|me|m)-(.+)$/;
 const SPACING_STEPS = new Set(["0", "px", "0.5", "1", "1.5", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "14", "16", "24", "32", "auto"]);
 const OFF_WEIGHTS = new Set(["font-thin", "font-extralight", "font-light", "font-bold", "font-extrabold", "font-black"]);
@@ -78,6 +90,80 @@ export function offScaleClasses(classes: string): string[] {
     return Boolean(spacing && !SPACING_STEPS.has(spacing[2]));
   });
 }
+
+interface Context {
+  /** Enclosing JSX element names, nearest first */
+  parents: string[];
+  /** The className expression as written */
+  classText: string;
+  component?: string;
+  /** Spread props, e.g. `{...listeners}` */
+  spreads: string;
+}
+
+const explainNative = (tag: string, role: string | null, ctx: Context): Pick<ScanOffender, "why" | "fix"> => {
+  const inCell = ctx.parents.some((p) => p === "td" || p === "th");
+  const trigger = ctx.parents[0]?.endsWith("Trigger") ? ctx.parents[0] : undefined;
+  if (role && tag !== "button") {
+    if (role === "separator" && /resize/.test(ctx.classText))
+      return { why: "A handle you drag to resize something. web-ui has none.", fix: "Fine to keep: style it with Bloom tokens." };
+    if (role === "separator") return { why: "A divider drawn by hand.", fix: "Use DesignDivider." };
+    return { why: `A <${tag}> acting as a ${role}, styled by hand.`, fix: "Use the matching Design* component." };
+  }
+  switch (tag) {
+    case "a":
+      return { why: "A text link. web-ui has no link component.", fix: "Fine to keep: style it with Bloom tokens, e.g. text-primary." };
+    case "img":
+      return { why: "An image drawn by hand.", fix: "Use DesignImage." };
+    case "table":
+      return { why: "A table not built from Bloom's table styles.", fix: "Use DesignDataTable, or tableStyles for a custom table." };
+    case "input":
+      return inCell
+        ? { why: "An input filling an editable grid cell.", fix: "Fine to keep, styled with tableStyles.cellInput." }
+        : { why: "A text input drawn by hand.", fix: "Use DesignInputText." };
+    case "button":
+      if (trigger) return { why: `The element that opens a menu or tooltip (inside ${trigger}), styled by hand.`, fix: "Use DesignButton as the trigger: it passes its ref through." };
+      if (inCell) return { why: "A small control inside a dense grid cell; DesignButton's smallest size would make rows taller.", fix: "Use DesignPressable: Bloom's states with no size of its own." };
+      if (ctx.parents[0] === "DesignTooltip") return { why: "An icon button under a tooltip, styled by hand.", fix: "Use DesignButton with an icon and aria-label." };
+      if (/listeners/.test(ctx.spreads)) return { why: "A drag handle for reordering.", fix: "Use DesignPressable and spread the drag listeners onto it." };
+      if (/underline/.test(ctx.classText)) return { why: "A button made to look like a text link.", fix: 'Use DesignButton variant="flat".' };
+      if (/chip/i.test(ctx.classText) || /Chip/.test(ctx.component ?? "")) return { why: "A chip styled by hand.", fix: "Use DesignChip." };
+      if (ctx.parents[0] === "li" || /\bw-full\b|row/i.test(ctx.classText) || /Row|List|Tree/.test(ctx.component ?? ""))
+        return { why: "A clickable row or tile styled by hand.", fix: "Use DesignPressable (web-ui Pressable), or DesignCell for plain list rows." };
+      return { why: "A button styled by hand.", fix: "Use DesignButton." };
+    default:
+      return { why: `A raw <${tag}>.`, fix: "Use the matching Design* component." };
+  }
+};
+
+const SHADCN_FIX: Record<string, Pick<ScanOffender, "why" | "fix">> = {
+  DropdownMenu: { why: "A shadcn menu used straight in the page.", fix: "Use DesignDropdown (web-ui Dropdown)." },
+  Button: { why: "A shadcn button used straight in the page.", fix: "Use DesignButton." },
+  NavigationMenu: { why: "shadcn's navigation menu used straight in the page.", fix: "Use DesignNavigation." },
+  ToastAction: { why: "The action button of a shadcn toast. Bloom has no toast with an action yet.", fix: "Keep for now, or add an action to DesignNotification." },
+};
+
+const explainShadcn = (name: string) =>
+  SHADCN_FIX[name] ?? { why: `shadcn's ${name} used straight in the page.`, fix: "Use, or add, the matching Design* component." };
+
+/** Why a class is off Bloom's scales, by what it sets. */
+export const explainClass = (cls: string): Pick<ScanOffender, "why" | "fix" | "category"> => {
+  const value = cls.slice(cls.lastIndexOf(":") + 1);
+  if (/\[(#|rgba?\(|hsla?\()/.test(value) || /(white|black)\/\[/.test(value))
+    return { category: "colour", why: "A colour that isn't a Bloom token.", fix: "Use a token, e.g. bg-surface-hover or text-[var(--primary)]." };
+  if (/^(text-\[\d|leading-|font-|tracking-)/.test(value) || value === "italic")
+    return { category: "type", why: "Type outside Bloom's scale.", fix: "Use text-xs to text-2xl, and font-normal, font-medium or font-semibold." };
+  if (SPACING_UTILITY.test(value)) return { category: "spacing", why: "Spacing between Bloom's steps.", fix: "Use a Bloom step: 2, 4, 6, 8, 12, 16, 20, 24 … px." };
+  if (/^shadow-/.test(value)) return { category: "colour", why: "A shadow that isn't one of Bloom's elevations.", fix: "Use shadow-none or a Bloom elevation token." };
+  if (/^rounded/.test(value)) return { category: "radius", why: "A corner radius that isn't Bloom's.", fix: "Use rounded-md, rounded-xl or rounded-full." };
+  if (/^(min-|max-)?(w|h|size)-/.test(value)) return { category: "size", why: "A fixed width or height. Bloom has no size tokens.", fix: "Usually fine: keep it if the layout needs it." };
+  return { category: "layout", why: "A custom layout value, like grid tracks or alignment.", fix: "Usually fine: check a standard class can't do it." };
+};
+
+const explainStyle = (props: string[]): Pick<ScanOffender, "why" | "fix" | "category"> =>
+  props.some((p) => /^(color|background|border)/.test(p))
+    ? { category: "colour", why: "A colour set inline, usually from data (a chart series or a preview).", fix: "Use a token variable, e.g. var(--primary)." }
+    : { category: "spacing", why: "Spacing or type set inline.", fix: "Use Bloom classes instead." };
 
 const isFeatureFile = (path: string) =>
   /^src\/.*\.(ts|tsx)$/.test(path) &&
@@ -148,10 +234,31 @@ function scanFile(file: SourceFile, known: Set<string>): FileScan {
   const offenders: ScanOffender[] = [];
   const routes: FileScan["routes"] = [];
   const lineOf = (node: ts.Node) => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
-  const flag = (node: ts.Node, kind: OffenderKind, what: string) => {
-    counts[kind]++;
-    offenders.push({ file: file.path, line: lineOf(node), kind, what });
+  const lines = file.text.split("\n");
+  const componentOf = (node: ts.Node) => {
+    for (let p: ts.Node | undefined = node.parent; p; p = p.parent) {
+      if (ts.isFunctionDeclaration(p) && p.name) return p.name.text;
+      if (ts.isVariableDeclaration(p) && ts.isIdentifier(p.name) && p.initializer && (ts.isArrowFunction(p.initializer) || ts.isFunctionExpression(p.initializer) || ts.isCallExpression(p.initializer)))
+        return p.name.text;
+    }
+    return undefined;
   };
+  const flag = (node: ts.Node, kind: OffenderKind, what: string, reason: Pick<ScanOffender, "why" | "fix" | "category">) => {
+    counts[kind]++;
+    const line = lineOf(node);
+    const code = (lines[line - 1] ?? "").trim();
+    offenders.push({ file: file.path, line, kind, what, component: componentOf(node), code: code.length > 160 ? `${code.slice(0, 157)}…` : code, ...reason });
+  };
+  const parentsOf = (node: ts.JsxOpeningElement | ts.JsxSelfClosingElement) => {
+    const names: string[] = [];
+    for (let p = ts.isJsxOpeningElement(node) ? node.parent.parent : node.parent; p; p = p.parent) {
+      if (ts.isJsxElement(p)) names.push(tagName(p.openingElement.tagName));
+    }
+    return names;
+  };
+  /** className refers to the shared table styles, under any import name (tableStyles, ts …). */
+  const tableStyleNames = () =>
+    [...importedFrom.entries()].filter(([, from]) => /^src\/components\/ds\/tableStyles(\.ts)?$/.test(from)).map(([name]) => name);
 
   for (const statement of source.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) || statement.importClause?.isTypeOnly) continue;
@@ -182,12 +289,19 @@ function scanFile(file: SourceFile, known: Set<string>): FileScan {
     if (/^[a-z]/.test(name)) {
       const role = stringValue(attribute(attrs, "role"));
       const type = stringValue(attribute(attrs, "type"));
-      const usesTableStyles = TABLE_TAGS.has(name) && Boolean(className?.initializer?.getText(source).includes("tableStyles"));
+      const classText = className?.initializer?.getText(source) ?? "";
+      const usesTableStyles = TABLE_TAGS.has(name) && tableStyleNames().some((n) => new RegExp(`\\b${n}\\.`).test(classText));
       if (name === "table" && usesTableStyles) {
         counts.design++;
         components.set("tableStyles", (components.get("tableStyles") ?? 0) + 1);
-      } else if ((CONTROL_TAGS.has(name) && !(name === "input" && (type === "file" || type === "hidden"))) || (role && CONTROL_ROLES.has(role))) {
-        flag(node, "native", role && !CONTROL_TAGS.has(name) ? `<${name} role="${role}">` : `<${name}>`);
+      } else if ((CONTROL_TAGS.has(name) && !(name === "input" && (type === "file" || type === "hidden" || attribute(attrs, "hidden")))) || (role && CONTROL_ROLES.has(role))) {
+        const roled = Boolean(role && !CONTROL_TAGS.has(name));
+        flag(node, "native", roled ? `<${name} role="${role}">` : `<${name}>`, explainNative(name, roled ? role : null, {
+          parents: parentsOf(node),
+          classText,
+          component: componentOf(node),
+          spreads: attrs.properties.filter(ts.isJsxSpreadAttribute).map((a) => a.getText(source)).join(" "),
+        }));
       }
     } else {
       const from = importedFrom.get(name) ?? "";
@@ -195,17 +309,17 @@ function scanFile(file: SourceFile, known: Set<string>): FileScan {
         counts.design++;
         components.set(name, (components.get(name) ?? 0) + 1);
       } else if (from.startsWith("src/components/ui/") && !UI_SETUP.test(name) && !insideSameUi(node, from)) {
-        flag(node, "shadcn", name);
+        flag(node, "shadcn", name, explainShadcn(name));
       }
     }
 
-    for (const cls of offScaleClasses(classes.join(" "))) flag(node, "custom", cls);
+    for (const cls of offScaleClasses(classes.join(" "))) flag(node, "custom", cls, explainClass(cls));
 
     const style = attribute(attrs, "style");
     const styleObject = style?.initializer && ts.isJsxExpression(style.initializer) ? style.initializer.expression : undefined;
     if (styleObject && ts.isObjectLiteralExpression(styleObject)) {
       const visual = styleObject.properties.map((p) => (p.name ? p.name.getText(source) : "")).filter((p) => VISUAL_STYLE.test(p));
-      if (visual.length) flag(node, "custom", `style={{ ${visual.join(", ")} }}`);
+      if (visual.length) flag(node, "custom", `style={{ ${visual.join(", ")} }}`, explainStyle(visual));
     }
 
     if (name === "Route") {

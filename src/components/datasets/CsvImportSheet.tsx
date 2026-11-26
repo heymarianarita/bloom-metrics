@@ -283,13 +283,13 @@ const CsvImportSheet = ({
         <div className="flex items-center justify-end gap-3">
           {footerNote && <p className="mr-auto text-xs text-destructive">{footerNote}</p>}
           {step === "clean" && unanswered.length > 0 && !footerNote && (
-            <button
-              type="button"
-              className="mr-auto text-sm text-primary hover:underline"
+            <DesignButton
+              variant="flat"
+              className="mr-auto"
               onClick={() => unanswered.forEach(({ index, raw }) => setOverride(index, raw, ""))}
             >
               Leave {unanswered.length === 1 ? "the answer" : `all ${unanswered.length} answers`} without a number empty
-            </button>
+            </DesignButton>
           )}
           <DesignButton
             variant="outlined"

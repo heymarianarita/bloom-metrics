@@ -9,7 +9,7 @@
  *   bloomAudit.highlight("native" | "shadcn" | "custom" | "offToken" | "a11y" | "dates")
  *   bloomAudit.clear()
  *
- * The Bloom compliance page also runs it, quietly, inside a hidden frame (see auditFrame.ts).
+ * The Bloom usage page also runs it, quietly, inside a hidden frame (see auditFrame.ts).
  * Origins (Design* vs hand-written) come from React's dev-only `_debugSource`, so in a production
  * build every element reads as "library" and only the token, type, date and a11y checks mean anything.
  */

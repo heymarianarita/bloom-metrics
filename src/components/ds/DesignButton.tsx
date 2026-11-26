@@ -95,6 +95,8 @@ const DesignButton = React.forwardRef<HTMLButtonElement, DesignButtonProps>(
       buttonVariants({ size: "medium", theme, variant, className }),
       fullWidth && "w-full",
       inverse && variant === "filled" && "bg-white text-btn-primary border-transparent",
+      inverse && variant === "outlined" && "border-btn-inverse text-btn-inverse hover:bg-btn-inverse-hover-bg active:bg-btn-inverse-active-bg",
+      inverse && variant === "flat" && "text-btn-inverse hover:bg-btn-inverse-hover-bg active:bg-btn-inverse-active-bg",
       isLoading && "pointer-events-none opacity-70"
     );
 

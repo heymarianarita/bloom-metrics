@@ -4,11 +4,9 @@ import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignButton } from "@/components/ds/DesignButton";
 import { DesignSideSheet } from "@/components/ds/DesignSideSheet";
 import { DesignTooltip } from "@/components/ds/DesignTooltip";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 /** Same look as the sidebar's collapse button (AppShell), mirrored for the right side. */
-const toggleClass =
-  "h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1";
-
 const STORAGE_KEY = "bloom.settings.contextPanel";
 
 const readOpen = () => {
@@ -117,9 +115,14 @@ export const SettingsLayout = ({
                   {context.subtitle && <p className="text-sm text-muted-foreground mt-1">{context.subtitle}</p>}
                 </div>
                 <DesignTooltip content={`Collapse ${context.title}`} side="left">
-                  <button type="button" className={`${toggleClass} shrink-0 -mr-1 -mt-1`} aria-label={`Collapse ${context.title}`} onClick={toggle}>
-                    <PanelRightClose className="w-4 h-4" />
-                  </button>
+                  <DesignButton
+                    variant="flat"
+                    theme="muted"
+                    aria-label={`Collapse ${context.title}`}
+                    icon={<PanelRightClose className="w-4 h-4" />}
+                    onClick={toggle}
+                    className="w-9 shrink-0 px-0 -mr-2 -mt-2"
+                  />
                 </DesignTooltip>
               </div>
               <div className="px-4 pb-4 flex-1 overflow-y-auto min-h-0">{context.content}</div>
@@ -127,15 +130,14 @@ export const SettingsLayout = ({
         )}
         {context && (
             <DesignTooltip content={`Expand ${context.title}`} side="left">
-              <button
-                type="button"
+              <DesignPressable
                 onClick={expand}
                 aria-label={`Expand ${context.title}`}
-                className={`hidden lg:flex ${open ? "xl:hidden" : ""} flex-col items-center gap-3 py-3 self-start rounded-xl border border-design-card-border bg-design-card text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active transition-colors`}
+                className={`hidden lg:flex ${open ? "xl:hidden" : ""} flex-col items-center gap-3 py-3 self-start rounded-xl border border-design-card-border bg-design-card text-muted-foreground transition-colors`}
               >
                 <PanelRightOpen className="w-4 h-4" />
                 <span className="text-sm [writing-mode:vertical-rl]">{context.title}</span>
-              </button>
+              </DesignPressable>
             </DesignTooltip>
         )}
       </div>

@@ -3,6 +3,7 @@ import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignTooltip } from "@/components/ds/DesignTooltip";
 import { CaretRight } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 /** One card of a side-by-side breakdown (a metric's score spread, a role's themes): title, count, rows of bars. */
 export const BreakdownCard = ({
@@ -74,14 +75,13 @@ export const ShareRow = ({
   if (!onToggle) return <div>{line}</div>;
   return (
     <div>
-      <button
-        type="button"
+      <DesignPressable
         onClick={onToggle}
         aria-expanded={expanded}
-        className="-mx-1 block w-[calc(100%+8px)] rounded-md px-1 py-0.5 text-left hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="-mx-1 block w-[calc(100%+8px)] rounded-md px-1 py-0.5 text-left"
       >
         {line}
-      </button>
+      </DesignPressable>
       {expanded && children}
     </div>
   );

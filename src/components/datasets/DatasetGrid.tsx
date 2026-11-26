@@ -3,18 +3,19 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Plus, Trash, CaretDown } from "@phosphor-icons/react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  DesignDropdown,
+  DesignDropdownContent,
+  DesignDropdownItem,
+  DesignDropdownSeparator,
+  DesignDropdownTrigger,
+} from "@/components/ds/DesignDropdown";
 import { recentQuarters } from "@/lib/quarters";
 import type {
   DatasetColumnKind,
   ManualDatasetColumn,
   ManualDatasetRow,
 } from "@/hooks/useManualDatasets";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 interface DatasetGridProps {
   columns: ManualDatasetColumn[];
@@ -95,41 +96,40 @@ const ColumnHeader = ({
             className="w-full bg-transparent text-sm text-foreground outline-none"
           />
         ) : (
-          <button
-            type="button"
+          <DesignPressable
             disabled={readOnly}
             onClick={() => !readOnly && setEditing(true)}
             className="flex-1 truncate text-left text-sm hover:text-foreground"
             title={`${column.label} · ${column.kind}`}
           >
             {column.label}
-          </button>
+          </DesignPressable>
         )}
         {!readOnly && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
+          <DesignDropdown>
+            <DesignDropdownTrigger>
+              <DesignPressable
                 aria-label={`Options for ${column.label}`}
-                className={cn(dense.iconButton, "-my-1 h-5 w-5 hover:bg-[var(--surface-hover)]")}
+                className={cn(dense.iconButton, "-my-1 h-5 w-5")}
               >
                 <CaretDown size={14} />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => setEditing(true)}>Rename</DropdownMenuItem>
-              <DropdownMenuSeparator />
+              </DesignPressable>
+            </DesignDropdownTrigger>
+            <DesignDropdownContent width={192}>
+              <DesignDropdownItem onClick={() => setEditing(true)}>Rename</DesignDropdownItem>
+              <DesignDropdownSeparator />
               {kindLabels.map(({ kind, label }) => (
-                <DropdownMenuItem key={kind} onClick={() => onChangeKind(kind)}>
+                <DesignDropdownItem key={kind} onClick={() => onChangeKind(kind)}>
                   {column.kind === kind ? "✓ " : ""}
                   {label}
-                </DropdownMenuItem>
+                </DesignDropdownItem>
               ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={onDelete}>
+              <DesignDropdownSeparator />
+              <DesignDropdownItem className="text-destructive" onClick={onDelete}>
                 Delete column
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </DesignDropdownItem>
+            </DesignDropdownContent>
+          </DesignDropdown>
         )}
       </div>
     </th>
@@ -293,13 +293,13 @@ export const DatasetGrid = ({
           ))}
           <th className={cn(dense.th, "w-8 px-1 py-0")}>
             {!readOnly && (
-              <button
+              <DesignPressable
                 aria-label="Add column"
                 onClick={onAddColumn}
-                className={cn(dense.iconButton, "hover:bg-[var(--surface-hover)]")}
+                className={dense.iconButton}
               >
                 <Plus size={14} />
-              </button>
+              </DesignPressable>
             )}
           </th>
         </tr>
@@ -326,13 +326,13 @@ export const DatasetGrid = ({
             ))}
             <td className={dense.tdAction}>
               {!readOnly && (
-                <button
+                <DesignPressable
                   aria-label="Delete row"
                   onClick={() => onDeleteRow(row)}
-                  className={cn(dense.iconButton, "opacity-0 transition-opacity hover:bg-[rgba(208,69,85,0.08)] hover:text-destructive group-hover:opacity-100")}
+                  className={cn(dense.iconButton, "opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100")}
                 >
                   <Trash size={14} />
-                </button>
+                </DesignPressable>
               )}
             </td>
           </tr>
@@ -340,12 +340,12 @@ export const DatasetGrid = ({
         {!readOnly && (
           <tr>
             <td colSpan={columns.length + 2} className={ts.footerCell}>
-              <button
+              <DesignPressable
                 onClick={onAddRow}
                 className={cn(ts.footerAction, "px-2 py-1")}
               >
                 <Plus size={14} /> New row
-              </button>
+              </DesignPressable>
             </td>
           </tr>
         )}

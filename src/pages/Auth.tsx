@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { GoogleLogo } from "@phosphor-icons/react";
 import { lovable } from "@/integrations/lovable/index";
 import { getProviders, signInWithPassword } from "@/integrations/auth/api";
+import { DesignImage } from "@/components/ds/DesignImage";
 import { DesignCard } from "@/components/ds/DesignCard";
 import { DesignButton } from "@/components/ds/DesignButton";
 import { DesignInputText } from "@/components/ds/DesignInput";
@@ -73,7 +74,7 @@ const Auth = () => {
     <main className="min-h-screen bg-spacing-bg flex items-center justify-center p-4">
       <div className="w-full max-w-[400px]">
         <div className="flex items-center gap-2 mb-6 justify-center">
-          <img src={vintedIconRounded} alt="Bloom Metrics logo" className="h-8 w-8 rounded-md" />
+          <DesignImage src={vintedIconRounded} alt="Bloom Metrics logo" color="transparent" loading="eager" className="h-8 w-8 shrink-0" />
           <span className="text-lg font-semibold text-foreground">Bloom Metrics</span>
         </div>
         <DesignCard className="p-6">

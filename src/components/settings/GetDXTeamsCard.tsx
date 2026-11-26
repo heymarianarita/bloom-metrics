@@ -7,6 +7,7 @@ import { DesignLoader } from "@/components/ds/DesignLoader";
 import { DesignBadge } from "@/components/ds/DesignBadge";
 import { DesignInfoBanner } from "@/components/ds/DesignInfoBanner";
 import { cn } from "@/lib/utils";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 type Team = {
   id: string;
@@ -46,12 +47,11 @@ const Node = ({
 
   return (
     <li>
-      <button
-        type="button"
+      <DesignPressable
         onClick={() => kids.length && setOpen((o) => !o)}
         className={cn(
           "w-full flex items-center gap-2 h-8 px-2 rounded-md text-left text-sm text-foreground",
-          kids.length ? "hover:bg-surface-hover active:bg-surface-hover" : "cursor-default",
+          kids.length ? "" : "cursor-default",
         )}
       >
         <CaretRight
@@ -69,9 +69,9 @@ const Node = ({
         <span className="text-xs text-muted-foreground shrink-0 w-[88px] text-right">
           {total} people
         </span>
-      </button>
+      </DesignPressable>
       {open && kids.length > 0 && (
-        <ul className="ml-[14px] pl-2 border-l border-border">
+        <ul className="ml-3 pl-2 border-l border-border">
           {kids.map((k) => (
             <Node key={k.id} team={k} childrenOf={childrenOf} depth={depth + 1} />
           ))}

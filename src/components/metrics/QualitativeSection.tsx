@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useSectionHeading } from "@/components/metrics/sectionHeading";
 import { CaretDown, CaretRight, Sparkle } from "@phosphor-icons/react";
+import { DesignChip } from "@/components/ds/DesignChip";
 import { DesignInputSelect } from "@/components/ds/DesignInputSelect";
 import { DesignBadge } from "@/components/ds/DesignBadge";
 import { DesignButton } from "@/components/ds/DesignButton";
@@ -263,17 +264,9 @@ const GroupView = ({
         {sources.length > 1 && (
           <div className="flex flex-wrap items-center gap-2 mt-3">
             {sources.map((s, i) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setTab(i)}
-                className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                  i === tab ? "border-primary text-foreground bg-muted" : "border-border text-muted-foreground hover:text-foreground"
-                }`}
-                aria-pressed={i === tab}
-              >
+              <DesignChip key={s.id} size="small" isActive={i === tab} aria-pressed={i === tab} onClick={() => setTab(i)}>
                 {s.name}
-              </button>
+              </DesignChip>
             ))}
           </div>
         )}

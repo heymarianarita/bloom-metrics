@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { ListMagnifyingGlass } from "@phosphor-icons/react";
 import scan from "virtual:bloom-scan";
 import AppShell from "@/components/layout/AppShell";
 import RequireRole from "@/components/auth/RequireRole";
@@ -9,15 +10,18 @@ import { DesignStatCard } from "@/components/ds/DesignStatCard";
 import { DesignDataTable, type DataTableColumn } from "@/components/ds/DesignDataTable";
 import { DesignBadge } from "@/components/ds/DesignBadge";
 import { DesignButton } from "@/components/ds/DesignButton";
+import { DesignTooltip } from "@/components/ds/DesignTooltip";
 import { DesignLoader } from "@/components/ds/DesignLoader";
 import { formatDateTime } from "@/lib/formatDate";
 import { AUDIT_FRAME_PARAM, type AuditFrameWindow } from "@/lib/auditFrame";
-import type { OffenderKind, ScanCounts } from "@/lib/bloomScan";
+import type { OffenderKind, ScanCounts, StyleCategory } from "@/lib/bloomScan";
 
-const NOT_FOUND_ADDRESS = "/bloom-compliance-not-found";
+const NOT_FOUND_ADDRESS = "/bloom-usage-not-found";
 /** A page that keeps changing for this long is checked as it is by then. */
 const SETTLE_TIMEOUT_MS = 20000;
 const WCAG_STORAGE_KEY = "bloom:compliance-wcag";
+/** One-off styles that are usually fine: Bloom has no tokens for sizes or grid tracks. */
+const LAYOUT_CATEGORIES = new Set<StyleCategory>(["size", "layout"]);
 
 const percent = (n: number, d: number) => (d ? `${Math.round((n / d) * 1000) / 10}%` : "–");
 const adoption = (c: ScanCounts) => percent(c.design, c.design + c.native + c.shadcn);
@@ -120,36 +124,82 @@ const wcagText = (route: string, run: WcagRun | null) => {
   return result.failed ? `${share} · ${result.failed} failing: ${result.rules.join(", ")}` : share;
 };
 
+type OffenderTab = "all" | "native" | "shadcn" | "offToken" | "layout";
+
 interface OffenderRow {
   id: string;
+  tab: Exclude<OffenderTab, "all">;
   where: string;
+  /** Full path, for search and the hover text */
+  path: string;
+  component: string;
   kind: OffenderKind;
   kindLabel: string;
   what: string;
+  code: string;
+  why: string;
+  fix: string;
 }
 
-const offenderRows: OffenderRow[] = scan.offenders.map((o, i) => ({
+const TAB_ORDER: Exclude<OffenderTab, "all">[] = ["native", "shadcn", "offToken", "layout"];
+
+/** Most actionable first: raw HTML, shadcn, token misses, then sizes. */
+const offenderRows: OffenderRow[] = scan.offenders.map((o, i): OffenderRow => ({
   id: `${o.file}:${o.line}:${i}`,
-  where: `${o.file}:${o.line}`,
+  tab: o.kind !== "custom" ? o.kind : o.category && LAYOUT_CATEGORIES.has(o.category) ? "layout" : "offToken",
+  where: `${o.file.split("/").pop()}:${o.line}`,
+  path: `${o.file}:${o.line}`,
+  component: o.component ?? "",
   kind: o.kind,
   kindLabel: KIND_LABEL[o.kind],
   what: o.what,
-}));
+  code: o.code,
+  why: o.why,
+  fix: o.fix,
+})).sort((a, b) => TAB_ORDER.indexOf(a.tab) - TAB_ORDER.indexOf(b.tab));
+const tabCount = (tab: OffenderTab) => (tab === "all" ? offenderRows.length : offenderRows.filter((o) => o.tab === tab).length);
+
+/** "41 buttons, 8 links, 9 other": the most common items of one kind. */
+const topItems = (rows: OffenderRow[], label: (what: string) => string) => {
+  const counts = new Map<string, number>();
+  for (const row of rows) counts.set(label(row.what), (counts.get(label(row.what)) ?? 0) + 1);
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  const shown = sorted.slice(0, 2).map(([name, n]) => `${n} ${name}`);
+  const rest = sorted.slice(2).reduce((sum, [, n]) => sum + n, 0);
+  return rest ? `${shown.join(", ")}, ${rest} other` : shown.join(", ");
+};
+const TAG_NAMES: Record<string, string> = { "<button>": "buttons", "<a>": "links", "<input>": "inputs", "<img>": "images", "<table>": "tables" };
+const SHADCN_NAMES: Record<string, string> = { DropdownMenu: "menus", Button: "buttons", ToastAction: "toast actions", NavigationMenu: "navigation" };
 
 const offenderColumns: DataTableColumn<OffenderRow>[] = [
-  { key: "where", header: "Where", width: "2fr" },
   {
-    key: "kindLabel",
-    header: "Kind",
-    width: "140px",
+    key: "where",
+    header: "Where",
+    width: "1.3fr",
     cellTooltip: false,
     render: (row) => (
-      <DesignBadge theme={KIND_THEME[row.kind]} styling="light">
-        {row.kindLabel}
-      </DesignBadge>
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate" title={row.path}>{row.where}</span>
+        {row.component && <span className="truncate text-xs text-muted-foreground">in {row.component}</span>}
+      </span>
     ),
   },
-  { key: "what", header: "What", width: "1.5fr" },
+  {
+    key: "what",
+    header: "What",
+    width: "1.2fr",
+    cellTooltip: false,
+    render: (row) => (
+      <span className="flex min-w-0 flex-col items-start gap-1">
+        <DesignBadge theme={KIND_THEME[row.kind]} styling="light">
+          {row.kindLabel}
+        </DesignBadge>
+        <span className="max-w-full truncate" title={row.code}>{row.what}</span>
+      </span>
+    ),
+  },
+  { key: "why", header: "Why", width: "2fr", wrap: true },
+  { key: "fix", header: "Instead", width: "1.6fr", wrap: true },
 ];
 
 const componentColumns: DataTableColumn<{ name: string; count: number }>[] = [
@@ -159,14 +209,25 @@ const componentColumns: DataTableColumn<{ name: string; count: number }>[] = [
 
 /* ---------- Page ---------- */
 
-const BloomCompliance = () => {
+/** Icon button in a stat card's corner that opens its part of the list below. */
+const ListLink = ({ label, onClick }: { label: string; onClick: () => void }) => (
+  <DesignTooltip content={label}>
+    <DesignButton variant="flat" theme="muted" aria-label={label} icon={<ListMagnifyingGlass size={16} />} onClick={onClick} className="-my-2 -mr-2 h-8 w-8 px-0" />
+  </DesignTooltip>
+);
+
+const BloomUsage = () => {
   const { totals } = scan;
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [wcagRun, setWcagRun] = useState<WcagRun | null>(readWcagRun);
   const [checking, setChecking] = useState<{ route: string; done: number } | null>(null);
-  const [kind, setKind] = useState<"all" | OffenderKind>("all");
-  const offenders = useMemo(() => (kind === "all" ? offenderRows : offenderRows.filter((o) => o.kind === kind)), [kind]);
-  const kindCount = (k: OffenderKind) => offenderRows.filter((o) => o.kind === k).length;
+  const [tab, setTab] = useState<OffenderTab>("all");
+  const offenders = useMemo(() => (tab === "all" ? offenderRows : offenderRows.filter((o) => o.tab === tab)), [tab]);
+  const listRef = useRef<HTMLDivElement>(null);
+  const showTab = (next: OffenderTab) => {
+    setTab(next);
+    listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const pageRows: PageRow[] = useMemo(() => scannedPages.map((p) => ({ ...p, wcag: wcagText(p.route, wcagRun) })), [wcagRun]);
 
@@ -194,8 +255,8 @@ const BloomCompliance = () => {
 
   const pageColumns: DataTableColumn<PageRow>[] = [
     { key: "label", header: "Page", width: "1.5fr" },
-    { key: "adoption", header: "Web-ui adoption", width: "140px" },
-    { key: "design", header: "Design*", width: "100px" },
+    { key: "adoption", header: "Bloom adoption", width: "140px" },
+    { key: "design", header: "Bloom", width: "100px" },
     { key: "handWritten", header: "Hand-written", width: "120px" },
     { key: "custom", header: "One-off styles", width: "130px" },
     {
@@ -217,20 +278,66 @@ const BloomCompliance = () => {
     <RequireRole role="editor">
       <AppShell>
         <DesignPageHeader
-          title="Bloom compliance"
-          subtitle={`How much of Bloom Metrics is built with web-ui components and Bloom tokens, from this release's source (scanned ${formatDateTime(scan.generatedAt)}).`}
+          title="Bloom usage"
+          subtitle={`How much of Bloom Metrics is built with Bloom components and tokens, from this release's source (scanned ${formatDateTime(scan.generatedAt)}).`}
         />
         <DesignSpacer size="medium" />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <DesignStatCard
-            label="Web-ui adoption"
+            label="Bloom adoption"
             value={adoption(totals)}
-            note={`${totals.design} of ${totals.design + totals.native + totals.shadcn} controls use Design*`}
+            note={`${totals.design} of ${totals.design + totals.native + totals.shadcn} components`}
           />
-          <DesignStatCard label="Raw HTML controls" value={String(totals.native)} note="Buttons, links, tables and inputs" />
-          <DesignStatCard label="shadcn used directly" value={String(totals.shadcn)} note="Outside Design* components" />
-          <DesignStatCard label="One-off styles" value={String(totals.custom)} note={`Across ${totals.files} files`} />
+          <DesignStatCard
+            label="Raw HTML controls"
+            value={String(totals.native)}
+            note={topItems(offenderRows.filter((o) => o.tab === "native"), (w) => TAG_NAMES[w] ?? w)}
+            icon={<ListLink label="See the raw HTML controls" onClick={() => showTab("native")} />}
+          />
+          <DesignStatCard
+            label="shadcn used directly"
+            value={String(totals.shadcn)}
+            note={topItems(offenderRows.filter((o) => o.tab === "shadcn"), (w) => SHADCN_NAMES[w] ?? w)}
+            icon={<ListLink label="See the shadcn parts" onClick={() => showTab("shadcn")} />}
+          />
+          <DesignStatCard
+            label="One-off styles"
+            value={String(totals.custom)}
+            note={`${tabCount("offToken")} miss a token, ${tabCount("layout")} sizes`}
+            icon={<ListLink label="See the styles that miss a token" onClick={() => showTab("offToken")} />}
+          />
+        </div>
+
+        <DesignSpacer size="medium" />
+        <div ref={listRef} className="scroll-mt-4">
+          <DesignCard className="p-4">
+            <h2 className="text-lg font-semibold text-foreground">What isn't Bloom, and why</h2>
+            <p className="text-sm text-muted-foreground">
+              Each place feature code draws something itself instead of using a Bloom component or token, with what to use instead.
+              Some can stay: Bloom has no link or size tokens, and dense grids need smaller controls.
+            </p>
+            <DesignSpacer size="small" />
+            <DesignDataTable
+              label="What isn't Bloom"
+              columns={offenderColumns}
+              data={offenders}
+              rowKey={(row) => row.id}
+              searchPlaceholder="Search"
+              tabs={[
+                { id: "all", label: "All", count: tabCount("all") },
+                { id: "native", label: "Raw HTML", count: tabCount("native") },
+                { id: "shadcn", label: "shadcn", count: tabCount("shadcn") },
+                { id: "offToken", label: "Missing a token", count: tabCount("offToken") },
+                { id: "layout", label: "Sizes and layout", count: tabCount("layout") },
+              ]}
+              activeTab={tab}
+              onTabChange={(id) => setTab(id as OffenderTab)}
+              pageSize={20}
+              emptyTitle="Nothing here"
+              emptyBody="Every control of this kind uses a Bloom component."
+            />
+          </DesignCard>
         </div>
 
         <DesignSpacer size="medium" />
@@ -261,42 +368,19 @@ const BloomCompliance = () => {
             className="pointer-events-none fixed left-full top-0 border-0"
           />
           <DesignSpacer size="small" />
-          <DesignDataTable columns={pageColumns} data={pageRows} rowKey={(row) => row.file} searchPlaceholder="Search pages" pageSize={25} />
+          <DesignDataTable columns={pageColumns} data={pageRows} rowKey={(row) => row.file} searchPlaceholder="Search pages" label="Bloom adoption by page" pageSize={25} />
         </DesignCard>
+
 
         <DesignSpacer size="medium" />
         <DesignCard className="p-4">
-          <h2 className="text-lg font-semibold text-foreground">Hand-written in code</h2>
-          <p className="text-sm text-muted-foreground">Places where feature code doesn't use a Design* component or a Bloom token.</p>
+          <h2 className="text-lg font-semibold text-foreground">Bloom components in use</h2>
           <DesignSpacer size="small" />
-          <DesignDataTable
-            columns={offenderColumns}
-            data={offenders}
-            rowKey={(row) => row.id}
-            searchPlaceholder="Search files or values"
-            tabs={[
-              { id: "all", label: "All", count: offenderRows.length },
-              { id: "native", label: "Raw HTML", count: kindCount("native") },
-              { id: "shadcn", label: "shadcn", count: kindCount("shadcn") },
-              { id: "custom", label: "One-off styles", count: kindCount("custom") },
-            ]}
-            activeTab={kind}
-            onTabChange={(id) => setKind(id as typeof kind)}
-            pageSize={20}
-            emptyTitle="Nothing hand-written"
-            emptyBody="Every control here uses a Design* component."
-          />
-        </DesignCard>
-
-        <DesignSpacer size="medium" />
-        <DesignCard className="p-4">
-          <h2 className="text-lg font-semibold text-foreground">Web-ui components in use</h2>
-          <DesignSpacer size="small" />
-          <DesignDataTable columns={componentColumns} data={scan.components} rowKey={(row) => row.name} searchPlaceholder="Search components" pageSize={15} />
+          <DesignDataTable columns={componentColumns} data={scan.components} rowKey={(row) => row.name} searchPlaceholder="Search components" label="Bloom components in use" pageSize={15} />
         </DesignCard>
       </AppShell>
     </RequireRole>
   );
 };
 
-export default BloomCompliance;
+export default BloomUsage;

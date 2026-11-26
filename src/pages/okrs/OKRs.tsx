@@ -16,6 +16,7 @@ import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import { X } from "@phosphor-icons/react";
 import { useJiraGoals, type JiraGoal, type JiraGoalMetric } from "@/hooks/useJiraGoals";
 import { formatDate } from "@/lib/formatDate";
+import { DesignPressable } from "@/components/ds/DesignPressable";
 
 /** Atlassian Goals status labels and colours. */
 const STATUS_THEME: Record<string, "success" | "primary" | "error" | "muted" | "highlight"> = {
@@ -147,7 +148,7 @@ const KR_BRANCH = "relative before:content-[''] before:absolute before:left-[-15
 
 /** Short outline label: O1, KR1… */
 const Tag = ({ children }: { children: React.ReactNode }) => (
-  <span className="w-[36px] shrink-0 text-xs font-medium text-muted-foreground tabular-nums pt-[2px]">{children}</span>
+  <span className="w-[36px] shrink-0 text-xs font-medium text-muted-foreground tabular-nums pt-0.5">{children}</span>
 );
 
 const pct = (n?: number | null) => (n === null || n === undefined ? "—" : `${Math.round(n)}%`);
@@ -184,11 +185,10 @@ const ObjectiveBlock = ({ node, onOpen, selected }: { node: ObjectiveNode; index
   const { goal, subGoals } = node;
   const hasKrs = goal.metrics.length + subGoals.length > 0;
   return (
-    <button
-      type="button"
+    <DesignPressable
       onClick={() => onOpen(node)}
       aria-pressed={selected}
-      className={`relative w-full text-left rounded-md px-4 py-4 flex flex-col gap-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${selected ? "bg-surface-primary-selected" : "hover:bg-surface-hover active:bg-surface-hover"}`}
+      className={`relative w-full text-left rounded-md px-4 py-4 flex flex-col gap-4 transition-colors ${selected ? "bg-surface-primary-selected" : ""}`}
     >
       <div className="flex items-start justify-between gap-6">
         <span className="min-w-0 text-sm font-semibold text-foreground">{goal.name}</span>
@@ -215,7 +215,7 @@ const ObjectiveBlock = ({ node, onOpen, selected }: { node: ObjectiveNode; index
           ))}
         </div>
       )}
-    </button>
+    </DesignPressable>
   );
 };
 
@@ -444,7 +444,7 @@ const OKRs = () => {
                   <DesignCard key={theme.goal?.id ?? theme.name} className="p-0 overflow-hidden">
                     <div className="px-6 py-4 flex items-center gap-3">
                       <div className="min-w-0 flex flex-col gap-1">
-                        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Theme</span>
+                        <span className="text-xs font-medium text-muted-foreground">Theme</span>
                         {theme.goal?.url ? (
                           <a
                             href={theme.goal.url}

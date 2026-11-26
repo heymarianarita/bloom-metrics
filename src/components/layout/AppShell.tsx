@@ -1,28 +1,17 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import {
-  NavigationMenu,
-  NavigationMenuList,
-  NavigationMenuItem,
-  NavigationMenuLink,
-} from "@/components/ui/navigation-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { DesignTooltip } from "@/components/ds/DesignTooltip";
 import { DesignDivider } from "@/components/ds/DesignDivider";
+import { DesignButton } from "@/components/ds/DesignButton";
+import { DesignImage } from "@/components/ds/DesignImage";
+import {
+  DesignDropdown,
+  DesignDropdownContent,
+  DesignDropdownItem,
+  DesignDropdownTrigger,
+} from "@/components/ds/DesignDropdown";
 import {
   Settings,
   LogOut,
@@ -132,7 +121,7 @@ export const adminNavItems: NavItem[] = [
 /** Reports about the tool itself rather than its configuration, listed below the settings. */
 const reportNavItems: NavItem[] = [
   { label: "AI usage", path: "/settings/ai-usage", icon: Sparkle, dividerBefore: true },
-  { label: "Bloom compliance", path: "/settings/bloom-compliance", icon: SealCheck },
+  { label: "Bloom usage", path: "/settings/bloom-usage", icon: SealCheck },
 ];
 
 interface AppShellProps {
@@ -292,85 +281,69 @@ const AppShell = ({ children }: AppShellProps) => {
           <div className="flex items-center gap-12">
             <Link
               to="/"
-              className="flex items-center gap-2 rounded-md pr-2 transition-colors hover:bg-white/[0.06] active:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="flex items-center gap-2 rounded-md pr-2 transition-colors hover:bg-btn-inverse-hover-bg active:bg-btn-inverse-active-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
-              <img src={vintedIconRounded} alt="" className="h-8 w-8 rounded-md shrink-0" />
+              <DesignImage src={vintedIconRounded} alt="" color="transparent" loading="eager" className="h-8 w-8 shrink-0" />
               <span className="text-white font-medium text-sm">{APP_NAME}</span>
             </Link>
-            <NavigationMenu>
-              <NavigationMenuList className="gap-1">
-                {visibleTabs.map((tab) => {
-                  const isActive = pathname.startsWith(tab.match);
-                  return (
-                    <NavigationMenuItem key={tab.label}>
-                      <NavigationMenuLink asChild>
-                        <NavLink
-                          to={tab.path}
-                          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors min-h-[32px] cursor-pointer
-                            ${
-                              isActive
-                                ? "bg-white/[0.12] text-white"
-                                : "text-white/70 hover:bg-white/[0.06] active:bg-white/[0.08]"
-                            }`}
-                        >
-                          {tab.label}
-                        </NavLink>
-                      </NavigationMenuLink>
-                    </NavigationMenuItem>
-                  );
-                })}
-              </NavigationMenuList>
-            </NavigationMenu>
+            <ul className="flex items-center gap-1">
+              {visibleTabs.map((tab) => {
+                const isActive = pathname.startsWith(tab.match);
+                return (
+                  <li key={tab.label}>
+                    <NavLink
+                      to={tab.path}
+                      aria-current={isActive ? "page" : undefined}
+                      className={`flex h-9 items-center px-4 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                        isActive
+                          ? "bg-surface-inverse-selected text-white"
+                          : "text-white/70 hover:bg-btn-inverse-hover-bg active:bg-btn-inverse-active-bg"
+                      }`}
+                    >
+                      {tab.label}
+                    </NavLink>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
           <div className="flex items-center gap-1">
             {canEdit && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Settings"
-                    onClick={() => navigate(settingsNavItems[0].path)}
-                    className={`w-9 h-9 rounded-md text-white hover:text-white active:text-white hover:bg-white/10 active:bg-white/25 ${
-                      inSettings ? "bg-white/[0.12]" : ""
-                    }`}
-                  >
-                    <Settings className="w-5 h-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Settings</TooltipContent>
-              </Tooltip>
+              <DesignTooltip content="Settings" side="bottom">
+                <DesignButton
+                  variant="flat"
+                  inverse
+                  aria-label="Settings"
+                  aria-current={inSettings ? "page" : undefined}
+                  icon={<Settings className="w-5 h-5" />}
+                  onClick={() => navigate(settingsNavItems[0].path)}
+                  className={cn("w-9 px-0", inSettings && "bg-surface-inverse-selected")}
+                />
+              </DesignTooltip>
             )}
             {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="gap-1 h-9 px-3 rounded-md text-white text-sm font-normal hover:text-white active:text-white hover:bg-white/10 active:bg-white/25 data-[state=open]:bg-white/[0.12]"
-                  >
+              <DesignDropdown>
+                <DesignDropdownTrigger>
+                  <DesignButton variant="flat" inverse className="data-[state=open]:bg-surface-inverse-selected">
                     {user.email}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem
-                    className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-                    onClick={async () => {
+                  </DesignButton>
+                </DesignDropdownTrigger>
+                <DesignDropdownContent width={224}>
+                  <DesignDropdownItem
+                    icon={<LogOut className="w-4 h-4" />}
+                    onSelect={async () => {
                       await signOut();
                       navigate("/metrics");
                     }}
                   >
-                    <LogOut className="w-4 h-4" /> Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    Log out
+                  </DesignDropdownItem>
+                </DesignDropdownContent>
+              </DesignDropdown>
             ) : (
-              <Button
-                variant="ghost"
-                onClick={() => navigate("/auth")}
-                className="gap-2 text-white text-sm font-medium rounded-md hover:text-white hover:bg-white/10 active:bg-white/25"
-              >
-                <LogIn className="w-4 h-4" /> Sign in
-              </Button>
+              <DesignButton variant="flat" inverse icon={<LogIn className="w-4 h-4" />} onClick={() => navigate("/auth")}>
+                Sign in
+              </DesignButton>
             )}
           </div>
         </nav>
@@ -432,7 +405,7 @@ const AppShell = ({ children }: AppShellProps) => {
                     item.children &&
                     (pathname.startsWith(item.path) ||
                       item.children.some((child) => pathname.startsWith(child.path))) && (
-                      <div className="ml-[19px] mt-0.5 mb-1 flex flex-col gap-0.5 border-l border-border pl-3">
+                      <div className="ml-5 mt-0.5 mb-1 flex flex-col gap-0.5 border-l border-border pl-3">
                         {item.children.map((child) => (
                           <NavLink key={child.path} to={child.path} end>
                             {({ isActive }) => (
@@ -465,18 +438,14 @@ const AppShell = ({ children }: AppShellProps) => {
                   content={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                   side="right"
                 >
-                  <button
+                  <DesignButton
+                    variant="flat"
+                    theme="muted"
+                    aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                     onClick={() => setCollapsed(!collapsed)}
-                    className={`h-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-surface-primary-hover active:bg-surface-primary-active transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${
-                      collapsed ? "w-10 mx-auto" : "w-8 ml-3"
-                    }`}
-                  >
-                    {collapsed ? (
-                      <PanelLeftOpen className="w-4 h-4" />
-                    ) : (
-                      <PanelLeftClose className="w-4 h-4" />
-                    )}
-                  </button>
+                    icon={collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+                    className={cn("px-0", collapsed ? "w-10 mx-auto" : "w-9 ml-3")}
+                  />
                 </DesignTooltip>
               </div>
             </div>

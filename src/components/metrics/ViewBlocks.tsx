@@ -228,6 +228,7 @@ const ViewBlocks = ({
           compareOptions={item.options?.compare ?? []}
           trendChart={item.options?.chart === "bar" || item.options?.chart === "area" ? item.options.chart : "line"}
           cardColumns={item.kind === "card" ? item.options?.columns : undefined}
+          cardHighlight={item.kind === "card" ? item.options?.highlight : undefined}
           breakdownLimit={item.kind === "breakdown" ? item.options?.limit : undefined}
           showQualitative={false}
           showResponses={showResponses && item.kind === "card"}

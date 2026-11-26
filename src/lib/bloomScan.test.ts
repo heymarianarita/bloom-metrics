@@ -1,4 +1,4 @@
-import { offScaleClasses, scanSources } from "./bloomScan";
+import { explainClass, offScaleClasses, scanSources } from "./bloomScan";
 
 const app = `
 import { Route } from "react-router-dom";
@@ -82,6 +82,41 @@ describe("scanSources", () => {
     expect(scan.pages).toEqual([{ route: "/home", file: "src/pages/Home.tsx", files: 2, design: 3, native: 2, shadcn: 1, custom: 4 }]);
     expect(scan.offenders.some((o) => o.file === "src/pages/Preview.tsx")).toBe(false);
     expect(scan.totals.files).toBe(3);
+  });
+});
+
+describe("reasons", () => {
+  const grid = `
+import { tableStyles as ts } from "@/components/ds/tableStyles";
+import { DesignDropdown, DesignDropdownTrigger } from "@/components/ds/DesignDropdown";
+export default function Grid() {
+  return (
+    <table className={ts.table}><tbody><tr><td><button>x</button></td></tr></tbody></table>
+  );
+}
+export const Menu = () => (
+  <DesignDropdown><DesignDropdownTrigger><button>Open</button></DesignDropdownTrigger></DesignDropdown>
+);`;
+  const scan = scanSources([
+    { path: "src/App.tsx", text: `import Grid from "./pages/Grid";\nexport const App = () => <Route path="/g" element={<Grid />} />;` },
+    { path: "src/pages/Grid.tsx", text: grid },
+    { path: "src/components/ds/tableStyles.ts", text: "export const tableStyles = {};" },
+  ]);
+
+  it("counts a table styled through a renamed tableStyles import as Bloom", () => {
+    expect(scan.offenders.some((o) => o.what === "<table>")).toBe(false);
+  });
+
+  it("says why a control is hand-written, where and what to use instead", () => {
+    const [cell, trigger] = scan.offenders;
+    expect(cell).toMatchObject({ component: "Grid", code: expect.stringContaining("<button>x</button>"), why: expect.stringContaining("dense grid cell") });
+    expect(trigger).toMatchObject({ component: "Menu", why: expect.stringContaining("DesignDropdownTrigger"), fix: expect.stringContaining("DesignButton") });
+  });
+
+  it("tells token misses from sizes", () => {
+    expect(explainClass("hover:bg-[rgba(0,0,0,0.1)]").category).toBe("colour");
+    expect(explainClass("text-[13px]").category).toBe("type");
+    expect(explainClass("w-[200px]").category).toBe("size");
   });
 });
 

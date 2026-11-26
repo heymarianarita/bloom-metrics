@@ -126,6 +126,10 @@ export default {
         "btn-muted-active-bg": "var(--btn-muted-active-bg)",
         "btn-dark-hover-bg": "var(--btn-dark-hover-bg)",
         "btn-dark-active-bg": "var(--btn-dark-active-bg)",
+        "btn-inverse": "var(--btn-inverse)",
+        "btn-inverse-hover-bg": "var(--btn-inverse-hover-bg)",
+        "btn-inverse-active-bg": "var(--btn-inverse-active-bg)",
+        "surface-inverse-selected": "var(--surface-inverse-selected)",
         // Interactive surfaces
         "surface-hover": "var(--surface-hover)",
         "surface-active": "var(--surface-active)",
