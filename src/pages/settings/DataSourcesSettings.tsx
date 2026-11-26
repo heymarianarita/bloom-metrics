@@ -10,6 +10,7 @@ import { useRefreshGetDXTeams } from "@/hooks/useRefreshGetDXTeams";
 import { SourceCard, SourceSection, type SourceRun } from "@/components/settings/source/SourceCard";
 import CodeAdoptionSourceCard from "@/components/settings/CodeAdoptionSourceCard";
 import Ga4PropertiesCard from "@/components/settings/Ga4PropertiesCard";
+import GrafanaQueriesCard from "@/components/settings/GrafanaQueriesCard";
 import { SelectList } from "@/components/settings/SelectList";
 import { SettingsLayout } from "@/components/settings/SettingsLayout";
 
@@ -129,6 +130,8 @@ const DataSourcesSettings = () => {
                 <CodeAdoptionSourceCard key={selected.key} saved={saved} lastRun={lastRun} />
               ) : selected.key === "ga4_documentation" ? (
                 <Ga4PropertiesCard key={selected.key} saved={saved} lastRun={lastRun} />
+              ) : selected.key === "grafana" ? (
+                <GrafanaQueriesCard key={selected.key} saved={saved} lastRun={lastRun} />
               ) : (
                 <GenericSourceCard key={selected.key} def={selected} saved={saved} lastRun={lastRun} />
               )

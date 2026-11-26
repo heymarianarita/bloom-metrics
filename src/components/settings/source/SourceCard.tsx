@@ -8,6 +8,7 @@ import { DesignInputText } from "@/components/ds/DesignInput";
 import { DesignEmptyState } from "@/components/ds/DesignEmptyState";
 import CredentialsCard from "@/components/settings/CredentialsCard";
 import { CREDENTIAL_DEFS, useCredentialStatus } from "@/hooks/useCredentials";
+import { useIsAdmin, useSession } from "@/hooks/useAuth";
 import { formatDateTime } from "@/lib/formatDate";
 import type { SortableRowProps } from "@/components/settings/SortableList";
 
@@ -47,6 +48,8 @@ export const SourceCard = ({
   children?: React.ReactNode;
 }) => {
   const status = useCredentialStatus();
+  const { user } = useSession();
+  const isAdmin = useIsAdmin(user).data === true;
   const defs = CREDENTIAL_DEFS.filter((d) => d.sourceKey === credentialsKey);
   const readable = new Set((status.data ?? []).filter((c) => c.readable !== false).map((c) => c.name));
   const allSet = defs.length > 0 && defs.every((d) => readable.has(d.name));
@@ -66,7 +69,7 @@ export const SourceCard = ({
               <DesignBadge theme={allSet ? "success" : "error"} styling="light">
                 <Key size={12} /> {allSet ? `${noun} set` : `${noun} missing`}
               </DesignBadge>
-              {allSet && (
+              {allSet && isAdmin && (
                 <DesignButton
                   variant="outlined"
                   theme="muted"
@@ -89,8 +92,16 @@ export const SourceCard = ({
 
       {children}
 
-      {credentialsKey && defs.length > 0 && (showCredentials || !allSet) && (
+      {credentialsKey && defs.length > 0 && isAdmin && (showCredentials || !allSet) && (
         <CredentialsCard sourceKey={credentialsKey} />
+      )}
+      {credentialsKey && defs.length > 0 && !isAdmin && !allSet && status.isSuccess && (
+        <SourceSection title={noun}>
+          <p className="text-sm text-muted-foreground">
+            Not set: {defs.filter((d) => !readable.has(d.name)).map((d) => d.label).join(", ")}. Only admins can add{" "}
+            {noun.toLowerCase()}, so ask one to add {defs.length === 1 ? "it" : "them"}.
+          </p>
+        </SourceSection>
       )}
 
       {(lastRun || onSync) && (

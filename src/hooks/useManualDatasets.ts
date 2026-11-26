@@ -15,7 +15,11 @@ export const ENTRY_METHODS = [
   { value: "other", label: "Other" },
 ] as const;
 /** Datasets filled by a sync rather than by people: read-only in the app. */
-export const SYNCED_SOURCES: Record<string, string> = { figma: "Synced from Figma", github: "Synced from GitHub" };
+export const SYNCED_SOURCES: Record<string, string> = {
+  figma: "Synced from Figma",
+  github: "Synced from GitHub",
+  grafana: "Synced from Grafana",
+};
 export type EntryMethod = (typeof ENTRY_METHODS)[number]["value"] | keyof typeof SYNCED_SOURCES | "";
 
 export const isSyncedDataset = (dataset: { entry_method?: string } | undefined) =>

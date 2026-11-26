@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 export interface CredentialStatus {
   name: string;
   updated_at: string;
-  updated_by: string | null;
+  /** Admins only. */
+  updated_by?: string | null;
   /** False when the server can no longer decrypt it (the encryption key changed): save it again. */
   readable?: boolean;
 }
@@ -57,6 +58,20 @@ export const CREDENTIAL_DEFS: {
     name: "GITHUB_TOKEN",
     label: "GitHub token",
     helper: "github.com → Settings → Developer settings → Fine-grained tokens. Owner vinted, only the repositories below, Contents: read-only.",
+    secret: true,
+  },
+  {
+    sourceKey: "grafana",
+    name: "GRAFANA_URL",
+    label: "Grafana address",
+    helper: "The Grafana the token belongs to, e.g. https://grafana.example.com. Set here, by admins only, so the token is only ever sent to it.",
+    secret: false,
+  },
+  {
+    sourceKey: "grafana",
+    name: "GRAFANA_TOKEN",
+    label: "Grafana token",
+    helper: "A read-only service account token. Grafana doesn't let people create these themselves: ask the team that runs it.",
     secret: true,
   },
   {

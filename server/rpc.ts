@@ -1,5 +1,5 @@
 import { query, toIso } from "./db.ts";
-import { adminExists, hasRole, type SessionUser } from "./auth.ts";
+import { adminExists, canEdit, hasRole, type SessionUser } from "./auth.ts";
 import { deleteCredential, isReadable, setCredential } from "./credentials.ts";
 
 /** The Postgres functions the frontend calls through supabase.rpc(). */
@@ -18,13 +18,20 @@ export async function handleRpc(name: string, args: Record<string, unknown>, use
       return ok(await adminExists());
 
     case "credential_status": {
-      if (!(await hasRole(user.id, "admin"))) return ok([]);
+      const admin = await hasRole(user.id, "admin");
+      // Editors see which tokens are set, so their source cards don't report them missing.
+      if (!admin && !(await canEdit(user.id))) return ok([]);
       const rows = await query<{ name: string; value: string; updated_at: string; updated_by: string | null }>(
         "SELECT name, value, updated_at, updated_by FROM service_credentials ORDER BY name",
       );
       // The value itself never leaves the server; only whether it can still be decrypted.
       return ok(
-        rows.map(({ value, ...r }) => ({ ...r, updated_at: toIso(r.updated_at), readable: isReadable(value) })),
+        rows.map(({ value, updated_by, ...r }) => ({
+          ...r,
+          ...(admin ? { updated_by } : {}),
+          updated_at: toIso(r.updated_at),
+          readable: isReadable(value),
+        })),
       );
     }
 

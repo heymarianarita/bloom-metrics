@@ -55,6 +55,14 @@ export const DATA_SOURCE_DEFS: {
     fields: [],
   },
   {
+    key: "grafana",
+    label: "Grafana",
+    description: "Results of Grafana queries, saved as datasets every Monday.",
+    mode: "dynamic",
+    credential: "GRAFANA_TOKEN",
+    fields: [],
+  },
+  {
     key: "atlassian_goals",
     label: "Atlassian goals",
     description: "Source for OKRs — goals, progress and delivery tracking.",

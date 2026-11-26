@@ -15,6 +15,7 @@ import { FUNCTIONS } from "./functions/index.ts";
 import { backfillFigmaSnapshots, captureFigmaSnapshots } from "./functions/figma-snapshot.ts";
 import { getdxTeamsAgeDays, refreshGetdxTeams } from "./functions/getdx-teams.ts";
 import { syncCodeAdoption } from "./functions/code-adoption.ts";
+import { syncGrafana } from "./functions/grafana.ts";
 import { pool } from "./db.ts";
 import { localDevFlag } from "./devmode.ts";
 import { exportSnapshot } from "./snapshot.ts";
@@ -163,6 +164,18 @@ const syncCode = () =>
     .then((r) => console.log("code adoption sync:", JSON.stringify(r.body).slice(0, 300)))
     .catch((e) => console.error("code adoption sync failed", e instanceof Error ? e.message : e));
 cron.schedule("15 7 * * *", syncCode, { timezone: "UTC" });
+
+// Grafana queries, Mondays: each sync fetches 90 days, so weekly runs miss nothing that Grafana
+// keeps for 90 days, with weeks to spare if a run fails.
+cron.schedule(
+  "30 7 * * 1",
+  () => {
+    syncGrafana()
+      .then((r) => console.log("grafana sync:", JSON.stringify(r.body).slice(0, 300)))
+      .catch((e) => console.error("grafana sync failed", e instanceof Error ? e.message : e));
+  },
+  { timezone: "UTC" },
+);
 
 app.listen(port, () => {
   console.log(`bloom-metrics listening on :${port}`);
