@@ -205,8 +205,19 @@ const resolvePeriod = (value: string): { current: DateRange; previous: DateRange
 const deltaLabel = (current: number, previous: number, format: (value: number) => string) => {
   const delta = current - previous;
   if (!Number.isFinite(delta)) return undefined;
-  const sign = delta > 0 ? "+" : delta < 0 ? "-" : "";
-  return `${sign}${format(Math.abs(delta))} vs prev.`;
+  const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
+  return `${sign}${format(Math.abs(delta))}`;
+};
+
+const quarterLabel = (range: DateRange) => `${range.startDate.slice(0, 4)}-Q${Math.floor(Number(range.startDate.slice(5, 7)) / 3) + 1}`;
+
+/** What the period is compared with, in words: the quarter or year itself where it is one. */
+const rangeLabel = (period: string, range: DateRange, fallback: string) =>
+  period.endsWith("_quarter") ? quarterLabel(range) : period.endsWith("_year") ? range.startDate.slice(0, 4) : fallback;
+
+const yearBefore = (range: DateRange): DateRange => {
+  const back = (date: string) => `${Number(date.slice(0, 4)) - 1}${date.slice(4)}`;
+  return { startDate: back(range.startDate), endDate: back(range.endDate) };
 };
 
 /** Relative change; when there is no baseline a rise counts as a full swing. */
@@ -218,11 +229,6 @@ const pctChange = (current: number, previous: number) => {
 const signedPercent = (value: number) =>
   `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(value * 100).toFixed(1)}%`;
 
-const yearAgoNote = (current: number, yearAgo?: number) => {
-  if (yearAgo === undefined) return undefined;
-  if (yearAgo <= 0) return "No data a year ago";
-  return `${signedPercent(pctChange(current, yearAgo))} vs last year`;
-};
 
 const THRESHOLD_OPTIONS = [
   { value: "0", label: "Never flag" },
@@ -274,6 +280,7 @@ const TableSectionHeader = ({
 const Documentation = () => {
   const { propertySlug } = useParams();
   const [period, setPeriod] = React.useState("last_30");
+  const [compare, setCompare] = React.useState<"previous" | "year_ago">("previous");
   const [threshold, setThreshold] = React.useState("0.2");
   const [moversDirection, setMoversDirection] = React.useState("gaining");
   const [moversSearch, setMoversSearch] = React.useState("");
@@ -331,8 +338,26 @@ const Documentation = () => {
     () => sumTotals(ga4Properties, (p) => p.periods?.[period]?.yearAgoTotals),
     [ga4Properties, period],
   );
-  const yearAgoOf = (pick: (totals: Ga4Totals) => number) =>
-    hasYearAgo ? pick(yearAgoTotals) : undefined;
+    // A year period's previous period already is the year before.
+  const canCompareYearAgo = hasYearAgo && !period.endsWith("_year");
+  const comparing = compare === "year_ago" && canCompareYearAgo ? "year_ago" : "previous";
+  const baseline = comparing === "year_ago" ? yearAgoTotals : previousTotals;
+  const days = period.startsWith("last_") && !period.endsWith("_quarter") && !period.endsWith("_year") ? period.slice(5) : "";
+  const previousLabel = rangeLabel(period, ga4PreviousRange, `Previous ${days} days`);
+  const yearAgoLabel = rangeLabel(period, yearBefore(ga4Range), "Same days last year");
+  const compareOptions = [
+    { value: "previous", label: previousLabel },
+    ...(canCompareYearAgo ? [{ value: "year_ago", label: yearAgoLabel }] : []),
+  ];
+  const chosenLabel = comparing === "year_ago" ? yearAgoLabel : previousLabel;
+  /** The comparison mid-sentence: "previous 30 days", "2026-Q2". */
+  const baselineLabel = chosenLabel.charAt(0).toLowerCase() + chosenLabel.slice(1);
+  /** The relative change under each card, against the chosen comparison. */
+  const changeNote = (current: number, previous: number) => {
+    if (isGa4Loading) return undefined;
+    if (previous <= 0) return `No data for ${baselineLabel}`;
+    return `${signedPercent(pctChange(current, previous))} vs ${baselineLabel}`;
+  };
   const isFlagged = (current: number, previous: number) =>
     thresholdValue > 0 && Math.abs(pctChange(current, previous)) >= thresholdValue;
 
@@ -458,7 +483,7 @@ const Documentation = () => {
       out.push({
         kind: changeKind(cur - prev, pct, flat),
         title: `${label} ${pct >= 0 ? "up" : "down"} ${signedPercent(pct).replace(/^[+−]/, "")}`,
-        body: `${fmt(cur)} against ${fmt(prev)} in the previous period.`,
+        body: `${fmt(cur)} against ${fmt(prev)} for ${baselineLabel}.`,
         change: {
           label,
           value: fmt(cur),
@@ -466,14 +491,14 @@ const Documentation = () => {
           direction: flat ? "flat" : pct > 0 ? "up" : "down",
           tone: flat ? "neutral" : pct > 0 ? "good" : "bad",
           period: "This range",
-          previousPeriod: "the previous range",
+          previousPeriod: baselineLabel,
         },
       });
     };
     const n = (v: number) => numberFormatter.format(Math.round(v));
-    change("Active users", ga4Totals.activeUsers, previousTotals.activeUsers, n);
-    change("Page views", ga4Totals.pageViews, previousTotals.pageViews, n);
-    change("Engagement rate", ga4Totals.engagementRate, previousTotals.engagementRate, (v) =>
+    change("Active users", ga4Totals.activeUsers, baseline.activeUsers, n);
+    change("Page views", ga4Totals.pageViews, baseline.pageViews, n);
+    change("Engagement rate", ga4Totals.engagementRate, baseline.engagementRate, (v) =>
       percentFormatter.format(v),
     );
     const fastest = ga4Rows.find((r) => r.fastest);
@@ -502,7 +527,7 @@ const Documentation = () => {
       });
     }
     return out;
-  }, [hasGa4Data, ga4Totals, previousTotals, ga4Rows, pageRows]);
+  }, [hasGa4Data, ga4Totals, baseline, baselineLabel, ga4Rows, pageRows]);
 
   const ga4Columns: DataTableColumn<DocumentationPlatformRow>[] = [
     {
@@ -657,7 +682,7 @@ const Documentation = () => {
   ];
 
   const currentAvgSession = ga4Totals.avgSessionDurationSeconds ?? 0;
-  const previousAvgSession = previousTotals.avgSessionDurationSeconds ?? 0;
+  const baselineAvgSession = baseline.avgSessionDurationSeconds ?? 0;
 
   /** Tiny trend line for a stat card, taken from the daily series. */
   const spark = (key: keyof Ga4DailyPoint) =>
@@ -709,6 +734,15 @@ const Documentation = () => {
             value={period}
             onChange={setPeriod}
           />
+          <span className="text-xs text-muted-foreground whitespace-nowrap pb-2">vs</span>
+          <DesignInputSelect
+            className="w-[200px]"
+            size="small"
+            label="Compared with"
+            options={compareOptions}
+            value={comparing}
+            onChange={(value) => setCompare(value as "previous" | "year_ago")}
+          />
           <DesignInputSelect
             className="w-[200px]"
             size="small"
@@ -742,51 +776,51 @@ const Documentation = () => {
             className="border-0 rounded-none bg-background"
             label="Active users"
             value={isGa4Loading ? "—" : numberFormatter.format(ga4Totals.activeUsers)}
-            change={deltaLabel(ga4Totals.activeUsers, previousTotals.activeUsers, (v) =>
+            change={deltaLabel(ga4Totals.activeUsers, baseline.activeUsers, (v) =>
               numberFormatter.format(Math.round(v)),
             )}
-            changeUp={ga4Totals.activeUsers >= previousTotals.activeUsers}
-            note={yearAgoNote(ga4Totals.activeUsers, yearAgoOf((t) => t.activeUsers))}
+            changeUp={ga4Totals.activeUsers >= baseline.activeUsers}
+            note={changeNote(ga4Totals.activeUsers, baseline.activeUsers)}
             sparkline={spark("activeUsers")}
-            flagged={isFlagged(ga4Totals.activeUsers, previousTotals.activeUsers)}
+            flagged={isFlagged(ga4Totals.activeUsers, baseline.activeUsers)}
             icon={<Users size={18} />}
           />
           <DesignStatCard
             className="border-0 rounded-none bg-background"
             label="Total users"
             value={isGa4Loading ? "—" : numberFormatter.format(ga4Totals.totalUsers ?? 0)}
-            change={deltaLabel(ga4Totals.totalUsers ?? 0, previousTotals.totalUsers ?? 0, (v) =>
+            change={deltaLabel(ga4Totals.totalUsers ?? 0, baseline.totalUsers ?? 0, (v) =>
               numberFormatter.format(Math.round(v)),
             )}
-            changeUp={(ga4Totals.totalUsers ?? 0) >= (previousTotals.totalUsers ?? 0)}
-            note={yearAgoNote(ga4Totals.totalUsers ?? 0, yearAgoOf((t) => t.totalUsers ?? 0))}
+            changeUp={(ga4Totals.totalUsers ?? 0) >= (baseline.totalUsers ?? 0)}
+            note={changeNote(ga4Totals.totalUsers ?? 0, baseline.totalUsers ?? 0)}
             sparkline={spark("totalUsers")}
-            flagged={isFlagged(ga4Totals.totalUsers ?? 0, previousTotals.totalUsers ?? 0)}
+            flagged={isFlagged(ga4Totals.totalUsers ?? 0, baseline.totalUsers ?? 0)}
             icon={<UsersThree size={18} />}
           />
           <DesignStatCard
             className="border-0 rounded-none bg-background"
             label="New users"
             value={isGa4Loading ? "—" : numberFormatter.format(ga4Totals.newUsers)}
-            change={deltaLabel(ga4Totals.newUsers, previousTotals.newUsers, (v) =>
+            change={deltaLabel(ga4Totals.newUsers, baseline.newUsers, (v) =>
               numberFormatter.format(Math.round(v)),
             )}
-            changeUp={ga4Totals.newUsers >= previousTotals.newUsers}
-            note={yearAgoNote(ga4Totals.newUsers, yearAgoOf((t) => t.newUsers))}
-            flagged={isFlagged(ga4Totals.newUsers, previousTotals.newUsers)}
+            changeUp={ga4Totals.newUsers >= baseline.newUsers}
+            note={changeNote(ga4Totals.newUsers, baseline.newUsers)}
+            flagged={isFlagged(ga4Totals.newUsers, baseline.newUsers)}
             icon={<Users size={18} />}
           />
           <DesignStatCard
             className="border-0 rounded-none bg-background"
             label="Sessions"
             value={isGa4Loading ? "—" : numberFormatter.format(ga4Totals.sessions)}
-            change={deltaLabel(ga4Totals.sessions, previousTotals.sessions, (v) =>
+            change={deltaLabel(ga4Totals.sessions, baseline.sessions, (v) =>
               numberFormatter.format(Math.round(v)),
             )}
-            changeUp={ga4Totals.sessions >= previousTotals.sessions}
-            note={yearAgoNote(ga4Totals.sessions, yearAgoOf((t) => t.sessions))}
+            changeUp={ga4Totals.sessions >= baseline.sessions}
+            note={changeNote(ga4Totals.sessions, baseline.sessions)}
             sparkline={spark("sessions")}
-            flagged={isFlagged(ga4Totals.sessions, previousTotals.sessions)}
+            flagged={isFlagged(ga4Totals.sessions, baseline.sessions)}
             icon={<ChartLineUp size={18} />}
           />
         </div>
@@ -798,36 +832,36 @@ const Documentation = () => {
             className="border-0 rounded-none bg-background"
             label="Page views"
             value={isGa4Loading ? "—" : numberFormatter.format(ga4Totals.pageViews)}
-            change={deltaLabel(ga4Totals.pageViews, previousTotals.pageViews, (v) =>
+            change={deltaLabel(ga4Totals.pageViews, baseline.pageViews, (v) =>
               numberFormatter.format(Math.round(v)),
             )}
-            changeUp={ga4Totals.pageViews >= previousTotals.pageViews}
-            note={yearAgoNote(ga4Totals.pageViews, yearAgoOf((t) => t.pageViews))}
+            changeUp={ga4Totals.pageViews >= baseline.pageViews}
+            note={changeNote(ga4Totals.pageViews, baseline.pageViews)}
             sparkline={spark("pageViews")}
-            flagged={isFlagged(ga4Totals.pageViews, previousTotals.pageViews)}
+            flagged={isFlagged(ga4Totals.pageViews, baseline.pageViews)}
             icon={<Eye size={18} />}
           />
           <DesignStatCard
             className="border-0 rounded-none bg-background"
             label="Engaged sessions"
             value={isGa4Loading ? "—" : numberFormatter.format(ga4Totals.engagedSessions ?? 0)}
-            change={deltaLabel(ga4Totals.engagedSessions ?? 0, previousTotals.engagedSessions ?? 0, (v) =>
+            change={deltaLabel(ga4Totals.engagedSessions ?? 0, baseline.engagedSessions ?? 0, (v) =>
               numberFormatter.format(Math.round(v)),
             )}
-            changeUp={(ga4Totals.engagedSessions ?? 0) >= (previousTotals.engagedSessions ?? 0)}
-            note={yearAgoNote(ga4Totals.engagedSessions ?? 0, yearAgoOf((t) => t.engagedSessions ?? 0))}
+            changeUp={(ga4Totals.engagedSessions ?? 0) >= (baseline.engagedSessions ?? 0)}
+            note={changeNote(ga4Totals.engagedSessions ?? 0, baseline.engagedSessions ?? 0)}
             sparkline={spark("engagedSessions")}
-            flagged={isFlagged(ga4Totals.engagedSessions ?? 0, previousTotals.engagedSessions ?? 0)}
+            flagged={isFlagged(ga4Totals.engagedSessions ?? 0, baseline.engagedSessions ?? 0)}
             icon={<ChartLineUp size={18} />}
           />
           <DesignStatCard
             className="border-0 rounded-none bg-background"
             label="Average session duration"
             value={isGa4Loading ? "—" : formatDuration(currentAvgSession)}
-            change={deltaLabel(currentAvgSession, previousAvgSession, formatDuration)}
-            changeUp={currentAvgSession >= previousAvgSession}
-            note={yearAgoNote(currentAvgSession, yearAgoOf((t) => t.avgSessionDurationSeconds ?? 0))}
-            flagged={isFlagged(currentAvgSession, previousAvgSession)}
+            change={deltaLabel(currentAvgSession, baselineAvgSession, formatDuration)}
+            changeUp={currentAvgSession >= baselineAvgSession}
+            note={changeNote(currentAvgSession, baselineAvgSession)}
+            flagged={isFlagged(currentAvgSession, baselineAvgSession)}
             icon={<Timer size={18} />}
           />
           <DesignStatCard
@@ -836,12 +870,12 @@ const Documentation = () => {
             value={isGa4Loading ? "—" : percentFormatter.format(ga4Totals.engagementRate)}
             change={deltaLabel(
               ga4Totals.engagementRate * 100,
-              previousTotals.engagementRate * 100,
+              baseline.engagementRate * 100,
               (v) => `${v.toFixed(1)} pp`,
             )}
-            changeUp={ga4Totals.engagementRate >= previousTotals.engagementRate}
-            note={yearAgoNote(ga4Totals.engagementRate, yearAgoOf((t) => t.engagementRate))}
-            flagged={isFlagged(ga4Totals.engagementRate, previousTotals.engagementRate)}
+            changeUp={ga4Totals.engagementRate >= baseline.engagementRate}
+            note={changeNote(ga4Totals.engagementRate, baseline.engagementRate)}
+            flagged={isFlagged(ga4Totals.engagementRate, baseline.engagementRate)}
             icon={<ChartBar size={18} />}
           />
         </div>
@@ -1029,6 +1063,7 @@ const Documentation = () => {
               totals: ga4Totals,
               previousTotals,
               ...(hasYearAgo && { yearAgoTotals }),
+              comparedWith: baselineLabel,
               perProperty: ga4Rows.map((r) => ({ label: r.label, totals: r.rowTotals, previousTotals: r.rowPreviousTotals })),
               topPages: topPages.slice(0, 10).map((p) => ({ path: p.path, pageViews: p.pageViews, previousPageViews: p.previousPageViews })),
             },
