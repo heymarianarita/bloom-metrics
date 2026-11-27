@@ -14,6 +14,7 @@ import AppShell from "@/components/layout/AppShell";
 import { DesignPageHeader } from "@/components/ds/DesignPageHeader";
 import { DesignSpacer } from "@/components/ds/DesignSpacer";
 import { DesignStatCard } from "@/components/ds/DesignStatCard";
+import { DesignStatGroup } from "@/components/ds/DesignStatGroup";
 import { DesignDataTable, type DataTableColumn } from "@/components/ds/DesignDataTable";
 import { DesignInfoBanner } from "@/components/ds/DesignInfoBanner";
 import { DesignBadge } from "@/components/ds/DesignBadge";
@@ -771,9 +772,8 @@ const Documentation = () => {
           </>
         )}
 
-        <div className="rounded-md border border-border grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-surface-hover overflow-hidden items-stretch auto-rows-fr">
+        <DesignStatGroup>
           <DesignStatCard
-            className="border-0 rounded-none bg-background"
             label="Active users"
             value={isGa4Loading ? "—" : numberFormatter.format(ga4Totals.activeUsers)}
             change={deltaLabel(ga4Totals.activeUsers, baseline.activeUsers, (v) =>
@@ -786,7 +786,6 @@ const Documentation = () => {
             icon={<Users size={18} />}
           />
           <DesignStatCard
-            className="border-0 rounded-none bg-background"
             label="Total users"
             value={isGa4Loading ? "—" : numberFormatter.format(ga4Totals.totalUsers ?? 0)}
             change={deltaLabel(ga4Totals.totalUsers ?? 0, baseline.totalUsers ?? 0, (v) =>
@@ -799,7 +798,6 @@ const Documentation = () => {
             icon={<UsersThree size={18} />}
           />
           <DesignStatCard
-            className="border-0 rounded-none bg-background"
             label="New users"
             value={isGa4Loading ? "—" : numberFormatter.format(ga4Totals.newUsers)}
             change={deltaLabel(ga4Totals.newUsers, baseline.newUsers, (v) =>
@@ -811,7 +809,6 @@ const Documentation = () => {
             icon={<Users size={18} />}
           />
           <DesignStatCard
-            className="border-0 rounded-none bg-background"
             label="Sessions"
             value={isGa4Loading ? "—" : numberFormatter.format(ga4Totals.sessions)}
             change={deltaLabel(ga4Totals.sessions, baseline.sessions, (v) =>
@@ -823,13 +820,12 @@ const Documentation = () => {
             flagged={isFlagged(ga4Totals.sessions, baseline.sessions)}
             icon={<ChartLineUp size={18} />}
           />
-        </div>
+        </DesignStatGroup>
 
         <DesignSpacer size="medium" />
 
-        <div className="rounded-md border border-border grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-surface-hover overflow-hidden items-stretch auto-rows-fr">
+        <DesignStatGroup>
           <DesignStatCard
-            className="border-0 rounded-none bg-background"
             label="Page views"
             value={isGa4Loading ? "—" : numberFormatter.format(ga4Totals.pageViews)}
             change={deltaLabel(ga4Totals.pageViews, baseline.pageViews, (v) =>
@@ -842,7 +838,6 @@ const Documentation = () => {
             icon={<Eye size={18} />}
           />
           <DesignStatCard
-            className="border-0 rounded-none bg-background"
             label="Engaged sessions"
             value={isGa4Loading ? "—" : numberFormatter.format(ga4Totals.engagedSessions ?? 0)}
             change={deltaLabel(ga4Totals.engagedSessions ?? 0, baseline.engagedSessions ?? 0, (v) =>
@@ -855,7 +850,6 @@ const Documentation = () => {
             icon={<ChartLineUp size={18} />}
           />
           <DesignStatCard
-            className="border-0 rounded-none bg-background"
             label="Average session duration"
             value={isGa4Loading ? "—" : formatDuration(currentAvgSession)}
             change={deltaLabel(currentAvgSession, baselineAvgSession, formatDuration)}
@@ -865,7 +859,6 @@ const Documentation = () => {
             icon={<Timer size={18} />}
           />
           <DesignStatCard
-            className="border-0 rounded-none bg-background"
             label="Engagement rate"
             value={isGa4Loading ? "—" : percentFormatter.format(ga4Totals.engagementRate)}
             change={deltaLabel(
@@ -878,7 +871,7 @@ const Documentation = () => {
             flagged={isFlagged(ga4Totals.engagementRate, baseline.engagementRate)}
             icon={<ChartBar size={18} />}
           />
-        </div>
+        </DesignStatGroup>
 
 
         <DesignSpacer size="medium" />

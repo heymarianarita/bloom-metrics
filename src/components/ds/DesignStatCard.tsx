@@ -91,7 +91,8 @@ const DesignStatCard = React.forwardRef<HTMLDivElement, DesignStatCardProps>(
           inGroup && "flex-1 flex flex-col justify-between border-0 rounded-none bg-transparent",
           flagged && "ring-1 ring-inset ring-[var(--destructive)]",
           className,
-          flagged && "rounded-[6px]",
+          // Inside a group the highlight follows the group's corners, which sit inside its 1px border.
+          flagged && inGroup && "rounded-[calc(var(--radius)-1px)]",
         )}
         {...props}
       >
