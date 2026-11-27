@@ -1,0 +1,54 @@
+---
+description: Every UI feature is built from Bloom web-ui components (the Design* components in src/components/ds), never ad-hoc HTML, shadcn or custom styling
+alwaysApply: true
+---
+
+# Build UI only with web-ui (Bloom) components
+
+This app's web-ui components are the `Design*` components in `src/components/ds/` (e.g.
+`DesignButton`, `DesignInputSelect`, `DesignDialog`, `DesignDataTable`, `DesignCard`,
+`DesignBadge`, `DesignTooltip`, `DesignSideSheet`). Every new or changed feature uses them.
+
+```tsx
+// ❌ BAD: raw HTML, shadcn primitives or one-off styling in feature code
+<button className="rounded bg-teal-700 px-3 py-1 text-white">Save</button>
+<select>…</select>
+import { Dialog } from "@/components/ui/dialog";
+<table className="w-full text-sm">…</table>
+
+// ✅ GOOD
+<DesignButton variant="filled" theme="primary">Save</DesignButton>
+<DesignInputSelect options={options} value={v} onChange={setV} />
+<DesignDialog open={open} onOpenChange={setOpen} title="…">…</DesignDialog>
+<DesignDataTable columns={columns} data={rows} rowKey={(r) => r.id} />
+```
+
+- Custom tables (e.g. editable grids) use `tableStyles` from `src/components/ds/tableStyles.ts`.
+- `src/components/ui/*` (shadcn/Radix) is only for building `Design*` components, not for features.
+- Use props the component documents; don't restyle it with `className` colours, radii or spacing.
+- Colours, spacing and type come from the CSS variables in `src/index.css`, not hex values.
+- Type: the font is V-Inter (set globally). Use the Tailwind sizes, which are Bloom's scale:
+  `text-xs` caption 12/16 · `text-sm` subtitle 14/18 · `text-base` body/title 16/22 ·
+  `text-lg` section heading 18/24 · `text-xl` heading 22/28 · `text-2xl` heading XL 24/32.
+  Weights are only `font-normal` (375), `font-medium` (500) and `font-semibold` (580). No `text-[13px]`,
+  `font-[600]` or letter spacing.
+- Spacing: Bloom's steps are 2, 4, 6, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 56, 64px, i.e. Tailwind
+  `0.5 1 1.5 2 3 4 5 6 7 8 9 10 11 12 14 16`. Not `2.5`, `3.5` or `[10px]`.
+- Radius: `rounded-md` (6px) for controls and nested cards, `rounded-xl` (12px) for page-level containers,
+  `rounded-full` for pills.
+- Row tints: `bg-surface-hover` / `bg-surface-active`, or `bg-surface-primary-hover` / `-active` /
+  `-selected` for teal-tinted list rows. Not `bg-[rgba(...)]`.
+- No italic text (`italic`, `<em>`, `<i>`): web-ui's type scale has none. Quotes are set apart with the quote marks and a left border instead.
+
+## When something is missing or unclear
+
+The source of truth is the original web-ui repo:
+`~/Documents/design-systems/web-ui/packages/web-ui/src/lib/<Component>`
+(`.tsx`, `.scss`/`.css`, `.mdx` guidelines, `.stories.tsx`). The web-ui Storybook MCP
+(`user-web-ui-storybook`) has the same docs.
+
+1. Check whether a `Design*` component already covers it.
+2. If not, read the web-ui source for that component and add or extend a `Design*`
+   component in `src/components/ds/` that matches it (tokens, sizes, states, props), then use it.
+3. Never invent props or variants web-ui doesn't have. If web-ui has no such component, say so
+   and compose existing `Design*` components instead of hand-styling.

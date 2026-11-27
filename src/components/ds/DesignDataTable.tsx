@@ -1,0 +1,736 @@
+import * as React from "react";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import { useState, useMemo } from "react";
+import { cn } from "@/lib/utils";
+import { Search, X, ChevronDown, ChevronRight, Filter, MoreVertical, RotateCcw } from "lucide-react";
+import { ArrowDown16, ArrowTop16, ArrowsDownTop16 } from "./icons/TableSortIcons";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { DesignInputBar } from "./DesignInputBar";
+import { DesignInputSelect } from "./DesignInputSelect";
+import { DesignButton } from "./DesignButton";
+import { DesignChip } from "./DesignChip";
+import { DesignCheckbox } from "./DesignCheckbox";
+import { DesignToggle } from "./DesignToggle";
+import { DesignPagination } from "./DesignPagination";
+import { DesignEmptyState } from "./DesignEmptyState";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { DesignDivider } from "./DesignDivider";
+import { DesignTooltip } from "./DesignTooltip";
+import { tableStyles } from "./tableStyles";
+
+/** The narrowest an "fr" or unsized column gets. */
+const FLEX_MIN_WIDTH = 200;
+
+/* ─── Types ─── */
+
+export type SortDirection = "asc" | "desc" | null;
+
+export interface DataTableColumn<T> {
+  key: string;
+  header?: string;
+  render?: (row: T, index: number) => React.ReactNode;
+  /** Width CSS value, e.g. "200px" or "1fr" */
+  width?: string;
+  /** Show sort icon in header */
+  sortable?: boolean;
+  /**
+   * Hovering a cell shows its whole text in a tooltip (default true). Turn off for cells
+   * holding several elements, e.g. a badge and a button, which would read as one run-on label.
+   */
+  cellTooltip?: boolean;
+  /** Long text wraps onto more lines instead of truncating behind a tooltip, as in web-ui's Table. */
+  wrap?: boolean;
+}
+
+export interface DataTableFilter {
+  id: string;
+  label: string;
+  options: { value: string; label: string }[];
+}
+
+export interface DataTableTab {
+  id: string;
+  label: string;
+  count?: number;
+}
+
+export interface DataTableAction<T> {
+  icon: React.ReactNode;
+  tooltip?: string;
+  onClick: (row: T, index: number) => void;
+}
+
+export interface DesignDataTableProps<T> {
+  columns: DataTableColumn<T>[];
+  data: T[];
+  /** Unique key extractor per row */
+  rowKey: (row: T, index: number) => string;
+
+  /* ── Toolbar ── */
+  searchPlaceholder?: string;
+  /** Controlled search text, for a search field rendered outside the table (e.g. with hideToolbar) */
+  search?: string;
+  onSearchChange?: (value: string) => void;
+  filters?: DataTableFilter[];
+  /** Additional filters shown only in the side sheet */
+  sideSheetFilters?: DataTableFilter[];
+  /** Tabs shown below the filter bar */
+  tabs?: DataTableTab[];
+  activeTab?: string;
+  onTabChange?: (tabId: string) => void;
+  /** Total results label shown in toolbar */
+  totalResultsLabel?: string;
+  /** Allow toolbar filters to wrap to multiple rows (default: false — single row with overflow hidden) */
+  wrapFilters?: boolean;
+
+  /* ── Selection ── */
+  selectable?: boolean;
+  selectedKeys?: string[];
+  onSelectionChange?: (keys: string[]) => void;
+
+  /* ── Row actions ── */
+  actions?: DataTableAction<T>[];
+  /** Show a toggle at the end of each row */
+  rowToggle?: boolean;
+  toggledKeys?: string[];
+  onToggleChange?: (key: string, checked: boolean) => void;
+
+  /* ── Pagination ── */
+  pageSize?: number;
+  /** Hide pagination */
+  hidePagination?: boolean;
+
+  /** Hide the table header row */
+  hideHeader?: boolean;
+
+  /** Hide the entire toolbar (search, filters, tabs) */
+  hideToolbar?: boolean;
+
+  /** Less cell padding, for rows holding 36px controls (selects, buttons) */
+  compact?: boolean;
+
+  /* ── Sorting ── */
+  sortKey?: string;
+  sortDirection?: SortDirection;
+  onSortChange?: (key: string, direction: SortDirection) => void;
+
+  /* ── Empty state ── */
+  emptyIcon?: React.ReactNode;
+  emptyTitle?: string;
+  emptyBody?: string;
+  emptyAction?: React.ReactNode;
+
+  /* ── Nesting ── */
+  /**
+   * Child rows of a row, for a nested table (Bloom Table "nested" pattern): a parent gets a
+   * round chevron that shows or hides its children, which sit on a tinted background.
+   * Pagination and sorting apply to top-level rows; a search also matches children.
+   */
+  subRows?: (row: T) => T[] | undefined;
+  /** Start with every parent expanded (default true). */
+  defaultExpanded?: boolean;
+
+  /* ── Title ── */
+  /** Optional title displayed above the toolbar inside the card */
+  title?: string;
+  /** Optional action element displayed next to the title (e.g. "View All" button) */
+  titleAction?: React.ReactNode;
+  /** Show the search field in the title row, right-aligned, instead of in the toolbar (needs `title`) */
+  searchInTitle?: boolean;
+  /** Name for screen readers when there's no `title`; each table on a page needs a different one */
+  label?: string;
+
+  className?: string;
+}
+
+/* ─── (FilterDropdown and ActiveChip removed — now using DesignInputSelect) ─── */
+
+/* ─── Helpers ─── */
+
+/** Recursively extract plain text from a React node for tooltip display */
+function extractText(node: React.ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(extractText).filter(Boolean).join(" ");
+  if (React.isValidElement(node)) {
+    const children = (node.props as { children?: React.ReactNode }).children;
+    return children ? extractText(children) : "";
+  }
+  return "";
+}
+
+/* ─── Main Component ─── */
+
+function DesignDataTableInner<T>(
+  {
+    columns,
+    data,
+    rowKey,
+    searchPlaceholder = "Search",
+    search: controlledSearch,
+    onSearchChange,
+    filters = [],
+    sideSheetFilters = [],
+    tabs = [],
+    activeTab,
+    onTabChange,
+    totalResultsLabel,
+    wrapFilters = false,
+    selectable = false,
+    selectedKeys: controlledSelected,
+    onSelectionChange,
+    actions = [],
+    rowToggle = false,
+    toggledKeys: controlledToggled,
+    onToggleChange,
+    pageSize = 5,
+    hidePagination = false,
+    hideHeader = false,
+    hideToolbar = false,
+    compact = false,
+    sortKey: controlledSortKey,
+    sortDirection: controlledSortDirection,
+    onSortChange,
+    emptyIcon,
+    emptyTitle = "No results found",
+    emptyBody,
+    emptyAction,
+    title,
+    titleAction,
+    searchInTitle = false,
+    label,
+    subRows,
+    defaultExpanded = true,
+    className,
+  }: DesignDataTableProps<T>,
+  ref: React.ForwardedRef<HTMLDivElement>
+) {
+  const [internalSearch, setInternalSearch] = useState("");
+  const search = controlledSearch ?? internalSearch;
+  const setSearch = (value: string) => {
+    onSearchChange?.(value);
+    if (controlledSearch === undefined) setInternalSearch(value);
+  };
+  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
+  const [page, setPage] = useState(1);
+  /** A table wider than its card scrolls sideways; keyboard users then need to focus it to scroll. */
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
+  const [scrolls, setScrolls] = useState(false);
+  React.useEffect(() => {
+    if (!scroller) return;
+    const measure = () => setScrolls(scroller.scrollWidth > scroller.clientWidth + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(scroller);
+    if (scroller.firstElementChild) observer.observe(scroller.firstElementChild);
+    return () => observer.disconnect();
+  }, [scroller]);
+  const [internalSelected, setInternalSelected] = useState<string[]>([]);
+  const [internalToggled, setInternalToggled] = useState<string[]>([]);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  /** Parents the user collapsed (or expanded, when defaultExpanded is false). */
+  const [flipped, setFlipped] = useState<string[]>([]);
+  const isExpanded = (key: string) => flipped.includes(key) !== defaultExpanded;
+  const toggleExpanded = (key: string) =>
+    setFlipped((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+
+  const selected = controlledSelected ?? internalSelected;
+  const setSelected = onSelectionChange ?? setInternalSelected;
+  const toggled = controlledToggled ?? internalToggled;
+
+  const allFilters = [...filters, ...sideSheetFilters];
+
+  // Filter chips
+  const allActiveChips = useMemo(() => {
+    const chips: { filterId: string; value: string; label: string }[] = [];
+    for (const [filterId, values] of Object.entries(activeFilters)) {
+      const filterDef = allFilters.find((f) => f.id === filterId);
+      for (const v of values) {
+        const opt = filterDef?.options.find((o) => o.value === v);
+        chips.push({ filterId, value: v, label: opt?.label ?? v });
+      }
+    }
+    return chips;
+  }, [activeFilters, allFilters]);
+
+  const handleFilterSelect = (filterId: string, value: string) => {
+    setActiveFilters((prev) => {
+      const existing = prev[filterId] ?? [];
+      if (existing.includes(value)) {
+        const next = existing.filter((v) => v !== value);
+        if (next.length === 0) {
+          const { [filterId]: _, ...rest } = prev;
+          return rest;
+        }
+        return { ...prev, [filterId]: next };
+      }
+      return { ...prev, [filterId]: [...existing, value] };
+    });
+    setPage(1);
+  };
+
+  const removeChip = (filterId: string, value: string) => {
+    setActiveFilters((prev) => {
+      const next = (prev[filterId] ?? []).filter((v) => v !== value);
+      if (next.length === 0) {
+        const { [filterId]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [filterId]: next };
+    });
+    setPage(1);
+  };
+
+  const clearAll = () => {
+    setActiveFilters({});
+    setSearch("");
+    setPage(1);
+  };
+
+  // Search: case-insensitive match on any column's plain value (strings and numbers).
+  const query = search.trim().toLowerCase();
+  const visibleData = useMemo(() => {
+    if (!query) return data;
+    const matches = (row: T) =>
+      columns.some((col) => {
+        const value = (row as Record<string, unknown>)[col.key];
+        return (typeof value === "string" || typeof value === "number") && String(value).toLowerCase().includes(query);
+      });
+    return data.filter((row) => matches(row) || (subRows?.(row) ?? []).some(matches));
+  }, [data, columns, query, subRows]);
+
+  // A search typed outside the table starts again from the first page.
+  React.useEffect(() => setPage(1), [controlledSearch]);
+
+  // Pagination
+  const pageCount = Math.max(1, Math.ceil(visibleData.length / pageSize));
+  const pagedData = visibleData.slice((page - 1) * pageSize, page * pageSize);
+
+  // Selection helpers
+  const allPageKeys = pagedData.map((row, i) => rowKey(row, (page - 1) * pageSize + i));
+  const allSelected = allPageKeys.length > 0 && allPageKeys.every((k) => selected.includes(k));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelected(selected.filter((k) => !allPageKeys.includes(k)));
+    } else {
+      setSelected([...new Set([...selected, ...allPageKeys])]);
+    }
+  };
+
+  const toggleSelectRow = (key: string) => {
+    if (selected.includes(key)) {
+      setSelected(selected.filter((k) => k !== key));
+    } else {
+      setSelected([...selected, key]);
+    }
+  };
+
+  const searchMovedToTitle = searchInTitle && Boolean(title);
+  const hasActions = actions.length > 0 || rowToggle;
+  // Below this the table scrolls sideways, so "fr" and unsized columns never shrink to nothing.
+  const minWidth =
+    columns.reduce((sum, col) => sum + (col.width?.endsWith("px") ? parseFloat(col.width) : FLEX_MIN_WIDTH), 0) +
+    (selectable ? 48 : 0) +
+    (hasActions ? 96 : 0);
+  const resultsLabel = query
+    ? `${visibleData.length} of ${data.length} results`
+    : (totalResultsLabel ?? `${data.length} results`);
+  const totalFilterCount = allActiveChips.length;
+  // A titled table is its card's whole content, so it pads itself; otherwise the parent does.
+  const inset = Boolean(title);
+
+  return (
+    <TooltipPrimitive.Provider delayDuration={300}>
+    <div ref={ref} className={cn("flex flex-col", className)}>
+      {/* ── Title ── */}
+      {title && (
+        <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-[8px]">
+          <h2 className="text-lg font-semibold text-[var(--foreground)]">{title}</h2>
+          {(searchInTitle || titleAction) && (
+            <div className="flex items-center gap-2">
+              {searchInTitle && (
+                <div className="w-[200px]">
+                  <DesignInputBar
+                    size="small"
+                    placeholder={searchPlaceholder}
+                    leftIcon={<Search className="w-4 h-4" />}
+                    rightIcon={search ? <X className="w-3.5 h-3.5 cursor-pointer" /> : undefined}
+                    onRightIconClick={() => { setSearch(""); setPage(1); }}
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                  />
+                </div>
+              )}
+              {titleAction}
+            </div>
+          )}
+        </div>
+      )}
+      {/* ── Toolbar ── */}
+      {!hideToolbar && (
+      <div className={cn("flex flex-col gap-[12px] relative z-10 pb-3", inset && "px-5 pt-1")}>
+        {/* Row 1: Search + Select filters + All filters + Reset */}
+        {(!searchMovedToTitle || filters.length > 0 || (!wrapFilters && allFilters.length > 0)) && (
+        <div className={cn("flex items-center gap-3", wrapFilters ? "flex-wrap" : "flex-nowrap")}>
+          {!searchMovedToTitle && (
+          <div className="w-[200px]">
+            <DesignInputBar
+              placeholder={searchPlaceholder}
+              leftIcon={<Search className="w-4 h-4" />}
+              rightIcon={search ? <X className="w-3.5 h-3.5 cursor-pointer" /> : undefined}
+              onRightIconClick={() => { setSearch(""); setPage(1); }}
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            />
+          </div>
+          )}
+          {filters.map((f) => (
+             <div key={f.id} className="w-[180px]">
+              <DesignInputSelect
+                placeholder={f.label}
+                options={f.options}
+                size="medium"
+                value={activeFilters[f.id]?.[0] ?? ""}
+                onChange={(val) => handleFilterSelect(f.id, val)}
+              />
+            </div>
+          ))}
+          {!wrapFilters && allFilters.length > 0 && (
+            <>
+              <DesignTooltip content={`All filters${totalFilterCount > 0 ? ` ${totalFilterCount}/${allFilters.length}` : ''}`}>
+                <DesignButton variant="outlined" theme="muted" size="medium" onClick={() => setSheetOpen(true)} className="whitespace-nowrap truncate max-w-[180px]">
+                  <span className="truncate">All filters {totalFilterCount > 0 && `${totalFilterCount}/${allFilters.length}`}</span>
+                  <Filter className="w-3.5 h-3.5 shrink-0" />
+                </DesignButton>
+              </DesignTooltip>
+              {totalFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="flex items-center gap-1.5 text-sm text-[var(--foreground)] font-medium cursor-pointer hover:underline"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Reset filters
+                </button>
+              )}
+            </>
+          )}
+        </div>
+        )}
+
+        {/* Active filter chips row (shown when wrapFilters is enabled and filters are active) */}
+        {wrapFilters && allActiveChips.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {allActiveChips.map((chip) => (
+              <DesignChip
+                key={`${chip.filterId}-${chip.value}`}
+                variant="filled"
+                radius="round"
+                onClick={() => removeChip(chip.filterId, chip.value)}
+                suffix={<X className="w-3 h-3" />}
+              >
+                {chip.label}
+              </DesignChip>
+            ))}
+            <button
+              type="button"
+              onClick={clearAll}
+              className="text-sm text-primary font-medium cursor-pointer hover:underline ml-1"
+            >
+              Clear all
+            </button>
+            <span className="text-sm text-[var(--muted-foreground)] ml-1">{resultsLabel}</span>
+          </div>
+        )}
+
+        {/* Row 2: Tabs (12px gap from row 1) */}
+        {tabs.length > 0 && (
+          <div className="flex items-center gap-[8px] flex-wrap">
+            {tabs.map((tab) => (
+              <DesignChip
+                key={tab.id}
+                isActive={activeTab === tab.id}
+                size="small"
+                onClick={() => onTabChange?.(tab.id)}
+              >
+                {tab.count != null ? `${tab.label} (${tab.count})` : tab.label}
+              </DesignChip>
+            ))}
+          </div>
+        )}
+      </div>
+      )}
+
+      {/* ── Side Sheet (All Filters) ── */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent overlayClassName="bg-transparent" className="w-[33.33vw] min-w-[360px] p-0 flex flex-col rounded-none border-l border-[var(--border)]">
+          {/* Header */}
+          <div className="px-6 h-[60px] flex items-center justify-between shrink-0 border-b border-[var(--border)]">
+            <span className="text-lg font-semibold text-[var(--foreground)]">All filters</span>
+            <button
+              onClick={() => setSheetOpen(false)}
+              className="w-8 h-8 flex items-center justify-center rounded-[6px] text-[var(--foreground)] hover:bg-[rgba(21,25,26,0.04)] cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          {/* Filter fields */}
+          <div className="flex-1 overflow-y-auto px-6 pt-1 pb-6 space-y-4">
+            {allFilters.map((f) => (
+              <div key={f.id} className="space-y-2">
+                <label className="text-sm text-[var(--muted-foreground)] font-normal">{f.label}</label>
+                <DesignInputSelect
+                  placeholder={`Select ${f.label.toLowerCase()}`}
+                  options={f.options}
+                  value={activeFilters[f.id]?.[0] ?? ""}
+                  onChange={(val) => handleFilterSelect(f.id, val)}
+                />
+              </div>
+            ))}
+          </div>
+          {/* Footer */}
+          <div className="px-6 h-[85px] flex items-center justify-end gap-3 shrink-0 border-t border-[var(--border)]">
+            <DesignButton variant="outlined" theme="muted" size="medium" onClick={clearAll}>Reset</DesignButton>
+            <DesignButton variant="filled" theme="primary" size="medium" onClick={() => setSheetOpen(false)}>Show results</DesignButton>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Table ── */}
+      {pagedData.length > 0 ? (
+        <div className={cn(tableStyles.container, "overflow-hidden", inset && "mx-5 mb-5")}>
+          <div
+            ref={setScroller}
+            className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--primary)]"
+            tabIndex={scrolls ? 0 : undefined}
+            role={scrolls ? "region" : undefined}
+            aria-label={scrolls ? `${title ?? label ?? "Table"}, scrolls sideways` : undefined}
+          >
+          <table className={cn(tableStyles.table, "table-fixed")} style={{ minWidth }}>
+            {/* Fixed widths (px, rem, %) are applied; "fr" columns share the rest equally. */}
+            <colgroup>
+              {selectable && <col style={{ width: 48 }} />}
+              {columns.map((col) => (
+                <col key={col.key} style={{ width: col.width && !col.width.endsWith("fr") ? col.width : undefined }} />
+              ))}
+              {hasActions && <col style={{ width: 96 }} />}
+            </colgroup>
+            {!hideHeader && (
+              <thead>
+                <tr>
+                  {selectable && (
+                    <th className={cn(tableStyles.th, "w-[48px]")} />
+                  )}
+                  {columns.map((col) => {
+                    const isSorted = controlledSortKey === col.key;
+                    const sortDir = isSorted ? controlledSortDirection : null;
+                    const canSort = Boolean(col.sortable && onSortChange);
+                    const handleSort = () => {
+                      if (!onSortChange) return;
+                      if (!isSorted || sortDir === null) onSortChange(col.key, "asc");
+                      else if (sortDir === "asc") onSortChange(col.key, "desc");
+                      else onSortChange(col.key, null);
+                    };
+                    const SortIcon = sortDir === "asc" ? ArrowTop16 : sortDir === "desc" ? ArrowDown16 : ArrowsDownTop16;
+                    return (
+                      <th
+                        key={col.key}
+                        aria-sort={sortDir === "asc" ? "ascending" : sortDir === "desc" ? "descending" : undefined}
+                        className={cn(tableStyles.th, "overflow-hidden max-w-0")}
+                      >
+                        <span className="flex items-center gap-1">
+                          <DesignTooltip content={col.header ?? ""} side="top">
+                            <span className="truncate">{col.header ?? ""}</span>
+                          </DesignTooltip>
+                          {canSort && (
+                            <button
+                              type="button"
+                              aria-label={`Sort by ${col.header ?? col.key}`}
+                              onClick={handleSort}
+                              className={tableStyles.sortButton}
+                            >
+                              <SortIcon />
+                            </button>
+                          )}
+                        </span>
+                      </th>
+                    );
+                  })}
+                  {hasActions && (
+                    <th className={cn(tableStyles.th, "w-[96px]")} />
+                  )}
+                </tr>
+              </thead>
+            )}
+            <tbody>
+              {pagedData
+                .flatMap((row, localIdx) => {
+                  const globalIdx = (page - 1) * pageSize + localIdx;
+                  const key = rowKey(row, globalIdx);
+                  const children = subRows?.(row) ?? [];
+                  const parent = { row, globalIdx, key, depth: 0, childCount: children.length };
+                  // While searching, every matching parent shows its children.
+                  if (!children.length || (!query && !isExpanded(key))) return [parent];
+                  return [
+                    parent,
+                    ...children.map((child, i) => ({
+                      row: child,
+                      globalIdx,
+                      key: rowKey(child, i),
+                      depth: 1,
+                      childCount: 0,
+                    })),
+                  ];
+                })
+                .map(({ row, globalIdx, key, depth, childCount }) => {
+                const isSelected = selected.includes(key);
+                const isToggled = toggled.includes(key);
+                const expanded = childCount > 0 && (Boolean(query) || isExpanded(key));
+
+                return (
+                  <tr
+                    key={key}
+                    className={cn(tableStyles.row, depth > 0 && tableStyles.rowNested)}
+                  >
+                    {selectable && (
+                      <td className={cn(tableStyles.td, "w-[48px]", compact && "py-1")}>
+                        <DesignCheckbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelectRow(key)}
+                        />
+                      </td>
+                    )}
+                    {columns.map((col, colIdx) => {
+                      const cellContent = col.render
+                        ? col.render(row, globalIdx)
+                        : (row as Record<string, unknown>)[col.key] != null
+                          ? String((row as Record<string, unknown>)[col.key])
+                          : "";
+                      const isStringContent = typeof cellContent === "string";
+                      // Extract plain text from JSX for tooltip
+                      const plainText = isStringContent
+                        ? (cellContent as string)
+                        : extractText(cellContent);
+                      const tooltipText = col.cellTooltip === false ? "" : plainText;
+                      return (
+                        <td
+                          key={col.key}
+                          className={cn(
+                            tableStyles.td,
+                            "overflow-hidden max-w-0",
+                            compact && "py-1",
+                          )}
+                        >
+                          {subRows && colIdx === 0 && childCount > 0 ? (
+                            <div className="flex items-center gap-2 min-w-0 -my-1.5">
+                              <button
+                                type="button"
+                                aria-expanded={expanded}
+                                aria-label={`${expanded ? "Collapse" : "Expand"} ${plainText}`}
+                                onClick={() => toggleExpanded(key)}
+                                className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-[var(--muted)] text-[var(--foreground)] hover:brightness-95 active:brightness-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] transition-colors"
+                              >
+                                {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                              </button>
+                              <DesignTooltip content={tooltipText} side="top">
+                                <div className="min-w-0 [&_p]:truncate [&_span]:truncate truncate">{cellContent}</div>
+                              </DesignTooltip>
+                            </div>
+                          ) : col.wrap ? (
+                            <div className="min-w-0 break-words">{cellContent}</div>
+                          ) : (
+                            <DesignTooltip content={tooltipText} side="top">
+                              <div className="min-w-0 [&_p]:truncate [&_span]:truncate truncate">
+                                {cellContent}
+                              </div>
+                            </DesignTooltip>
+                          )}
+                        </td>
+                      );
+                    })}
+                    {hasActions && (
+                      <td className={cn(tableStyles.td, compact && "py-1")}>
+                        <div className="flex items-center justify-start gap-1">
+                          {rowToggle && (
+                            <DesignToggle
+                              checked={isToggled}
+                              onCheckedChange={(checked) => {
+                                if (onToggleChange) {
+                                  onToggleChange(key, !!checked);
+                                } else {
+                                  setInternalToggled((prev) =>
+                                    checked ? [...prev, key] : prev.filter((k) => k !== key)
+                                  );
+                                }
+                              }}
+                            />
+                          )}
+                          {actions.length > 0 && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="w-8 h-8 flex items-center justify-center rounded-[6px] text-[var(--muted-foreground)] hover:bg-[rgba(21,25,26,0.04)] active:bg-[rgba(21,25,26,0.08)] transition-colors cursor-pointer"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="min-w-[160px]">
+                                {actions.map((action, ai) => (
+                                  <DropdownMenuItem
+                                    key={ai}
+                                    onClick={() => action.onClick(row, globalIdx)}
+                                    className="gap-2 cursor-pointer"
+                                  >
+                                    {action.icon}
+                                    {action.tooltip}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          </div>
+
+          {/* ── Pagination ── */}
+          {!hidePagination && pageCount > 1 && (
+            <div className="px-3 py-2 border-t border-[var(--table-divider-body)] flex justify-end">
+              <DesignPagination
+                currentPage={page}
+                pageCount={pageCount}
+                onPageClick={setPage}
+                preservedDistance={2}
+                isLastPageAlwaysShown
+                aria-label={title || label ? `${title ?? label} pages` : "Pagination"}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ── Empty state ── */
+        <DesignEmptyState
+          icon={emptyIcon}
+          title={emptyTitle}
+          body={emptyBody}
+          action={emptyAction}
+        />
+      )}
+    </div>
+    </TooltipPrimitive.Provider>
+  );
+}
+
+const DesignDataTable = React.forwardRef(DesignDataTableInner) as <T>(
+  props: DesignDataTableProps<T> & { ref?: React.Ref<HTMLDivElement> }
+) => React.ReactElement;
+
+export { DesignDataTable };

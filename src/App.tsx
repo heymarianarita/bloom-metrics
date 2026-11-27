@@ -1,0 +1,100 @@
+import * as React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+
+import Adoption from "./pages/metrics/Adoption";
+import AiPrototypingPage from "./pages/metrics/adoption/AiPrototypingPage";
+import Documentation from "./pages/metrics/Documentation";
+import Impact from "./pages/metrics/Impact";
+import GroupPage from "./pages/metrics/GroupPage";
+import OKRs from "./pages/okrs/OKRs";
+import Performance from "./pages/performance/Performance";
+import Auth from "./pages/Auth";
+import SetPassword from "./pages/SetPassword";
+import DataSourcesSettings from "./pages/settings/DataSourcesSettings";
+import PerformanceSettings from "./pages/settings/PerformanceSettings";
+import OkrsSettings from "./pages/settings/OkrsSettings";
+import ManualMetricsSettings from "./pages/settings/ManualMetricsSettings";
+import MetricsSettings from "./pages/settings/MetricsSettings";
+import ViewsSettings from "./pages/settings/ViewsSettings";
+import HistorySettings from "./pages/settings/HistorySettings";
+import SlackReportsSettings from "./pages/settings/SlackReportsSettings";
+import AiUsageSettings from "./pages/settings/AiUsageSettings";
+import ComponentsSettings from "./pages/settings/ComponentsSettings";
+import UsersSettings from "./pages/settings/UsersSettings";
+import NotFound from "./pages/NotFound";
+import BloomUsageSettings from "./pages/settings/BloomUsageSettings";
+import { settingsNavItems } from "./components/layout/AppShell";
+import { inAuditFrame } from "./lib/auditFrame";
+
+const queryClient = new QueryClient();
+
+const PageViewTracker = () => {
+  const location = useLocation();
+  const first = React.useRef(true);
+  React.useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    if (inAuditFrame()) return;
+    const gtag = (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag;
+    gtag?.("event", "page_view", {
+      page_path: location.pathname + location.search,
+      page_location: window.location.href,
+    });
+  }, [location.pathname, location.search]);
+  return null;
+};
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <PageViewTracker />
+        <Routes>
+          <Route path="/" element={<Navigate to="/metrics" replace />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/set-password" element={<SetPassword />} />
+          <Route path="/okrs" element={<OKRs />} />
+          <Route path="/metrics" element={<Navigate to="/metrics/impact" replace />} />
+          <Route path="/metrics/impact" element={<Impact />} />
+          <Route path="/metrics/adoption" element={<Adoption />} />
+          <Route path="/metrics/adoption/ai-prototyping" element={<AiPrototypingPage />} />
+          <Route path="/metrics/adoption/:touchpoint" element={<Adoption />} />
+          <Route path="/metrics/documentation" element={<Documentation />} />
+          <Route path="/metrics/documentation/:propertySlug" element={<Documentation />} />
+          <Route path="/metrics/:groupSlug" element={<GroupPage />} />
+          <Route path="/metrics/:groupSlug/:subSlug" element={<GroupPage />} />
+          <Route path="/performance" element={<Performance />} />
+          <Route path="/ai-usage" element={<Navigate to="/settings/ai-usage" replace />} />
+          <Route path="/settings" element={<Navigate to={settingsNavItems[0].path} replace />} />
+          <Route path="/settings/data-sources" element={<DataSourcesSettings />} />
+          <Route path="/settings/okrs" element={<OkrsSettings />} />
+          <Route path="/settings/performance" element={<PerformanceSettings />} />
+          <Route path="/settings/manual-metrics" element={<ManualMetricsSettings />} />
+          <Route path="/settings/metrics" element={<MetricsSettings />} />
+          <Route path="/settings/views" element={<ViewsSettings />} />
+          {/* Quantitative, Qualitative and Metric groups are now one page. */}
+          <Route path="/settings/qualitative" element={<Navigate to="/settings/metrics" replace />} />
+          <Route path="/settings/metric-groups" element={<Navigate to="/settings/metrics" replace />} />
+          <Route path="/settings/components" element={<ComponentsSettings />} />
+          <Route path="/settings/history" element={<HistorySettings />} />
+          <Route path="/settings/slack-reports" element={<SlackReportsSettings />} />
+          <Route path="/settings/ai-usage" element={<AiUsageSettings />} />
+          <Route path="/settings/bloom-usage" element={<BloomUsageSettings />} />
+          <Route path="/settings/bloom-compliance" element={<Navigate to="/settings/bloom-usage" replace />} />
+          <Route path="/settings/users" element={<UsersSettings />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;

@@ -1,0 +1,525 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { comparePeriods, periodRank } from "../../server/shared/periods.ts";
+import { aggregateRows, type AggregationConfig } from "../../server/shared/aggregate.ts";
+import { reorderRows } from "@/hooks/useMetricGroups";
+
+/** "rating": a 1–5 score (e.g. a survey answer); its metrics can label each score. */
+export type DatasetColumnKind = "text" | "number" | "rating" | "email" | "date" | "period";
+
+/** How a dataset gets its data; shown in the dataset list. */
+export const ENTRY_METHODS = [
+  { value: "typed", label: "Typed in here" },
+  { value: "paste", label: "Pasted from a spreadsheet" },
+  { value: "csv", label: "CSV export, imported" },
+  { value: "other", label: "Other" },
+] as const;
+/** Datasets filled by a sync rather than by people: read-only in the app. */
+export const SYNCED_SOURCES: Record<string, string> = {
+  figma: "Synced from Figma",
+  github: "Synced from GitHub",
+  grafana: "Synced from Grafana",
+};
+export type EntryMethod = (typeof ENTRY_METHODS)[number]["value"] | keyof typeof SYNCED_SOURCES | "";
+
+export const isSyncedDataset = (dataset: { entry_method?: string } | undefined) =>
+  Boolean(dataset?.entry_method && SYNCED_SOURCES[dataset.entry_method]);
+
+export interface ManualDataset {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  entry_method: EntryMethod;
+  /** Steps to update it: where the data comes from and how often. */
+  entry_notes: string;
+  sort_order: number;
+  archived: boolean;
+  /** Asked once: its qualitative metrics show in a view's "One-off questions" section. */
+  one_off: boolean;
+}
+
+export interface ManualDatasetColumn {
+  id: string;
+  dataset_id: string;
+  key: string;
+  label: string;
+  kind: DatasetColumnKind;
+  sort_order: number;
+}
+
+export interface ManualDatasetRow {
+  id: string;
+  dataset_id: string;
+  data: Record<string, string | number | null>;
+  sort_order: number;
+  updated_at: string;
+}
+
+export const slugify = (value: string) =>
+  value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+
+export const useManualDatasets = () =>
+  useQuery({
+    queryKey: ["manual-datasets"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("manual_datasets")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as ManualDataset[];
+    },
+  });
+
+export const useDatasetColumns = (datasetId?: string) =>
+  useQuery({
+    queryKey: ["manual-dataset-columns", datasetId ?? "none"],
+    enabled: Boolean(datasetId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("manual_dataset_columns")
+        .select("*")
+        .eq("dataset_id", datasetId!)
+        .order("sort_order", { ascending: true });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as ManualDatasetColumn[];
+    },
+  });
+
+/** Every column of every dataset — used by the bulk import flow. */
+export const useAllDatasetColumns = () =>
+  useQuery({
+    queryKey: ["manual-dataset-columns", "all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("manual_dataset_columns")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as ManualDatasetColumn[];
+    },
+  });
+
+export const useDatasetRows = (datasetId?: string) =>
+  useQuery({
+    queryKey: ["manual-dataset-rows", datasetId ?? "none"],
+    enabled: Boolean(datasetId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("manual_dataset_rows")
+        .select("*")
+        .eq("dataset_id", datasetId!)
+        .order("sort_order", { ascending: true });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as ManualDatasetRow[];
+    },
+  });
+
+const invalidate = (queryClient: ReturnType<typeof useQueryClient>, keys: string[]) =>
+  keys.forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
+
+export const useCreateDataset = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { name: string; description?: string; entry_method?: string; entry_notes?: string; one_off?: boolean }) => {
+      const { data, error } = await supabase
+        .from("manual_datasets")
+        .insert({
+          name: input.name,
+          slug: slugify(input.name) || `dataset_${Date.now()}`,
+          description: input.description ?? "",
+          entry_method: input.entry_method ?? "",
+          entry_notes: input.entry_notes ?? "",
+          one_off: input.one_off ?? false,
+        } as never)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      return data as unknown as ManualDataset;
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-datasets"]),
+  });
+};
+
+/** Copies a dataset with all of its columns and rows. */
+export const useDuplicateDataset = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      source,
+      includeRows = true,
+    }: {
+      source: ManualDataset;
+      includeRows?: boolean;
+    }) => {
+      const name = `${source.name} (copy)`;
+      const { data: created, error } = await supabase
+        .from("manual_datasets")
+        .insert({
+          name,
+          slug: `${slugify(name) || "dataset"}_${Date.now()}`,
+          description: source.description ?? "",
+          // A copy is ordinary data people edit, even when the original is synced.
+          entry_method: isSyncedDataset(source) ? "" : source.entry_method ?? "",
+          entry_notes: isSyncedDataset(source) ? "" : source.entry_notes ?? "",
+          one_off: source.one_off ?? false,
+        } as never)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      const dataset = created as unknown as ManualDataset;
+
+      const [{ data: columns }, { data: rows }] = await Promise.all([
+        supabase.from("manual_dataset_columns").select("*").eq("dataset_id", source.id).order("sort_order"),
+        includeRows
+          ? supabase.from("manual_dataset_rows").select("*").eq("dataset_id", source.id).order("sort_order")
+          : Promise.resolve({ data: [] as unknown[] }),
+      ]);
+
+      if (columns?.length) {
+        const { error: colError } = await supabase.from("manual_dataset_columns").insert(
+          (columns as unknown as ManualDatasetColumn[]).map((c) => ({
+            dataset_id: dataset.id,
+            key: c.key,
+            label: c.label,
+            kind: c.kind,
+            sort_order: c.sort_order,
+          })) as never,
+        );
+        if (colError) throw new Error(colError.message);
+      }
+
+      if (rows?.length) {
+        const { error: rowError } = await supabase.from("manual_dataset_rows").insert(
+          (rows as unknown as ManualDatasetRow[]).map((r) => ({
+            dataset_id: dataset.id,
+            data: r.data,
+            sort_order: r.sort_order,
+          })) as never,
+        );
+        if (rowError) throw new Error(rowError.message);
+      }
+
+      return dataset;
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-datasets", "manual-dataset-columns", "manual-dataset-rows"]),
+  });
+};
+
+export const useUpdateDataset = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      name: string;
+      description?: string;
+      entry_method?: string;
+      entry_notes?: string;
+      one_off?: boolean;
+    }) => {
+      const { error } = await supabase
+        .from("manual_datasets")
+        .update({
+          name: input.name,
+          description: input.description ?? "",
+          entry_method: input.entry_method ?? "",
+          entry_notes: input.entry_notes ?? "",
+          one_off: input.one_off ?? false,
+        } as never)
+        .eq("id", input.id);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-datasets"]),
+  });
+};
+
+/** Saves the order of the dataset list (Settings → Datasets). */
+export const useReorderDatasets = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => reorderRows("manual_datasets", ids),
+    onSuccess: () => invalidate(queryClient, ["manual-datasets"]),
+  });
+};
+
+export const useDeleteDataset = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("manual_datasets").delete().eq("id", id);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-datasets", "manual-dataset-columns", "manual-dataset-rows"]),
+  });
+};
+
+export const useAddDatasetColumn = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      dataset_id: string;
+      label: string;
+      kind: DatasetColumnKind;
+      sort_order: number;
+    }) => {
+      const { error } = await supabase.from("manual_dataset_columns").insert({
+        dataset_id: input.dataset_id,
+        key: slugify(input.label) || `col_${Date.now()}`,
+        label: input.label,
+        kind: input.kind,
+        sort_order: input.sort_order,
+      } as never);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-dataset-columns"]),
+  });
+};
+
+
+export const useDeleteDatasetColumn = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("manual_dataset_columns").delete().eq("id", id);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-dataset-columns"]),
+  });
+};
+
+export const useAddDatasetRow = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { dataset_id: string; data?: Record<string, unknown>; sort_order: number }) => {
+      const { error } = await supabase.from("manual_dataset_rows").insert({
+        dataset_id: input.dataset_id,
+        data: input.data ?? {},
+        sort_order: input.sort_order,
+      } as never);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-dataset-rows"]),
+  });
+};
+
+export const useUpdateDatasetRow = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; data: Record<string, unknown> }) => {
+      const { error } = await supabase
+        .from("manual_dataset_rows")
+        .update({ data: input.data } as never)
+        .eq("id", input.id);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-dataset-rows"]),
+  });
+};
+
+export const useRenameDatasetColumn = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; label: string; kind?: DatasetColumnKind }) => {
+      const { error } = await supabase
+        .from("manual_dataset_columns")
+        .update({ label: input.label, ...(input.kind ? { kind: input.kind } : {}) } as never)
+        .eq("id", input.id);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-dataset-columns"]),
+  });
+};
+
+export const useAddDatasetRows = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      dataset_id: string;
+      rows: Record<string, unknown>[];
+      startOrder: number;
+      /** The dataset_imports row these come from, so the import can be undone. */
+      import_id?: string;
+    }) => {
+      const payload = input.rows.map((data, index) => ({
+        dataset_id: input.dataset_id,
+        ...(input.import_id ? { import_id: input.import_id } : {}),
+        data,
+        sort_order: input.startOrder + index,
+      }));
+      const { error } = await supabase.from("manual_dataset_rows").insert(payload as never);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-dataset-rows", "dataset-imports"]),
+  });
+};
+
+/** A CSV import into a dataset; its rows carry its id, so it can be undone as a whole. */
+export interface DatasetImport {
+  id: string;
+  dataset_id: string;
+  file_name: string;
+  row_count: number;
+  /** Keys of the columns the import created. */
+  created_columns: string[];
+  /** Values it overwrote in rows already there (null: the row had none), restored on undo. */
+  replaced?: { row_id: string; before: Record<string, unknown> }[];
+  undone_at: string | null;
+  created_at: string;
+}
+
+export const useDatasetImports = (datasetId?: string) =>
+  useQuery({
+    queryKey: ["dataset-imports", datasetId ?? "none"],
+    enabled: Boolean(datasetId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("dataset_imports")
+        .select("*")
+        .eq("dataset_id", datasetId!)
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as DatasetImport[];
+    },
+  });
+
+/** Records an import before its rows are written; returns its id for the rows. */
+export const createDatasetImport = async (input: {
+  dataset_id: string;
+  file_name: string;
+  row_count: number;
+  created_columns: string[];
+  replaced?: DatasetImport["replaced"];
+}) => {
+  const { data, error } = await supabase
+    .from("dataset_imports")
+    .insert(input as never)
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  return (data as unknown as { id: string }).id;
+};
+
+/**
+ * Removes every row an import added (edits made to them since included) and the columns it
+ * created, unless someone has since filled them in on other rows. The removed rows stay in
+ * Data history → Change history.
+ */
+export const useUndoDatasetImport = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (entry: DatasetImport) => {
+      const { error } = await supabase.from("manual_dataset_rows").delete().eq("import_id", entry.id);
+      if (error) throw new Error(error.message);
+
+      if (entry.replaced?.length) {
+        const { data: current, error: readError } = await supabase
+          .from("manual_dataset_rows")
+          .select("id, data")
+          .in("id", entry.replaced.map((r) => r.row_id));
+        if (readError) throw new Error(readError.message);
+        const byId = new Map(((current ?? []) as unknown as { id: string; data: Record<string, unknown> | null }[]).map((r) => [r.id, r.data ?? {}]));
+        for (const { row_id, before } of entry.replaced) {
+          const data = byId.get(row_id);
+          if (!data) continue;
+          const restored = { ...data };
+          for (const [key, value] of Object.entries(before)) {
+            if (value === undefined || value === null) delete restored[key];
+            else restored[key] = value;
+          }
+          const { error: restoreError } = await supabase.from("manual_dataset_rows").update({ data: restored } as never).eq("id", row_id);
+          if (restoreError) throw new Error(restoreError.message);
+        }
+      }
+
+      if (entry.created_columns.length) {
+        const { data: remaining, error: rowsError } = await supabase
+          .from("manual_dataset_rows")
+          .select("data")
+          .eq("dataset_id", entry.dataset_id);
+        if (rowsError) throw new Error(rowsError.message);
+        const inUse = (key: string) =>
+          ((remaining ?? []) as unknown as { data: Record<string, unknown> | null }[]).some((row) => {
+            const value = row.data?.[key];
+            return value !== null && value !== undefined && value !== "";
+          });
+        const unused = entry.created_columns.filter((key) => !inUse(key));
+        if (unused.length) {
+          const { error: colError } = await supabase
+            .from("manual_dataset_columns")
+            .delete()
+            .eq("dataset_id", entry.dataset_id)
+            .in("key", unused);
+          if (colError) throw new Error(colError.message);
+        }
+      }
+
+      const { error: markError } = await supabase
+        .from("dataset_imports")
+        .update({ undone_at: new Date().toISOString() } as never)
+        .eq("id", entry.id);
+      if (markError) throw new Error(markError.message);
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-dataset-rows", "manual-dataset-columns", "dataset-imports"]),
+  });
+};
+
+
+export const useDeleteDatasetRow = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("manual_dataset_rows").delete().eq("id", id);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-dataset-rows"]),
+  });
+};
+
+/** Removes every row of a dataset while keeping its columns and configuration. */
+export const useClearDatasetRows = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (datasetId: string) => {
+      const { error } = await supabase
+        .from("manual_dataset_rows")
+        .delete()
+        .eq("dataset_id", datasetId);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => invalidate(queryClient, ["manual-dataset-rows"]),
+  });
+};
+
+/** Aggregate dataset rows into one value per period, following a metric's configuration. */
+export const aggregateDataset = (rows: ManualDatasetRow[], config: AggregationConfig) =>
+  aggregateRows(
+    rows.map((row) => row.data ?? {}),
+    config,
+  ).sort((a, b) => comparePeriods(b.period, a.period));
+
+export { periodRank, comparePeriods };
+
+/** When each dataset's data last changed (null when it has no rows), for the dataset list. */
+export const useDatasetStats = (datasetIds: string[]) =>
+  useQuery({
+    // Under "manual-dataset-rows", so it refreshes whenever rows change.
+    queryKey: ["manual-dataset-rows", "stats", datasetIds.join("|")],
+    enabled: datasetIds.length > 0,
+    queryFn: async () => {
+      const entries = await Promise.all(
+        datasetIds.map(async (id) => {
+          const { data, error } = await supabase
+            .from("manual_dataset_rows")
+            .select("updated_at")
+            .eq("dataset_id", id)
+            .order("updated_at", { ascending: false })
+            .limit(1);
+          if (error) throw new Error(error.message);
+          const updatedAt = (data?.[0] as { updated_at?: string } | undefined)?.updated_at ?? null;
+          return [id, { updatedAt }] as const;
+        }),
+      );
+      return Object.fromEntries(entries) as Record<string, { updatedAt: string | null }>;
+    },
+  });

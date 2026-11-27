@@ -1,0 +1,226 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+import { gzip } from "node:zlib";
+import express, { type NextFunction, type Request, type Response } from "express";
+import cookieParser from "cookie-parser";
+import cron from "node-cron";
+import { authRouter, hasRole, readSession } from "./auth.ts";
+import { applyDevAdminPassword, logAdminSetupLinks, passwordRouter } from "./passwords.ts";
+import { handleDbRequest, onWrite } from "./dbapi.ts";
+import { handleRpc } from "./rpc.ts";
+import { insightsChatRouter } from "./insights/chat.ts";
+import { datasetChanged, resetInterruptedRuns, runAllSources } from "./qualitative/job.ts";
+import { FUNCTIONS } from "./functions/index.ts";
+import { backfillFigmaSnapshots, captureFigmaSnapshots } from "./functions/figma-snapshot.ts";
+import { getdxTeamsAgeDays, refreshGetdxTeams } from "./functions/getdx-teams.ts";
+import { syncCodeAdoption } from "./functions/code-adoption.ts";
+import { syncGrafana } from "./functions/grafana.ts";
+import { runDueReports } from "./slackReports/job.ts";
+import { pool } from "./db.ts";
+import { localDevFlag } from "./devmode.ts";
+import { exportSnapshot } from "./snapshot.ts";
+import type { FnHandler } from "./functions/types.ts";
+
+const gzipAsync = promisify(gzip);
+const app = express();
+const port = Number(process.env.PORT ?? 8080);
+const distDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../dist");
+
+app.set("trust proxy", true);
+app.disable("x-powered-by");
+app.use(cookieParser());
+app.use(express.json({ limit: "25mb" }));
+
+const wrap =
+  (fn: (req: Request, res: Response) => Promise<void>) =>
+  (req: Request, res: Response, next: NextFunction) =>
+    fn(req, res).catch(next);
+
+app.get("/healthz", wrap(async (_req, res) => {
+  await pool.query("SELECT 1");
+  res.json({ ok: true });
+}));
+
+app.use(authRouter());
+app.use(passwordRouter());
+app.use(insightsChatRouter());
+
+app.post("/api/db", wrap(async (req, res) => {
+  const out = await handleDbRequest(req.body, await readSession(req));
+  res.status(out.status).json(out);
+}));
+
+app.post("/api/rpc/:name", wrap(async (req, res) => {
+  const out = await handleRpc(req.params.name, req.body ?? {}, await readSession(req));
+  res.status(out.status).json(out);
+}));
+
+/** Admins only: the data as a file, for `npm run db:load` on a laptop (secrets left out). */
+app.get("/api/admin/snapshot", wrap(async (req, res) => {
+  const user = await readSession(req);
+  if (!(await hasRole(user?.id, "admin"))) {
+    res.status(403).json({ error: "Only admins can download the data" });
+    return;
+  }
+  const snapshot = await exportSnapshot();
+  const file = await gzipAsync(JSON.stringify(snapshot));
+  res.setHeader("Content-Disposition", `attachment; filename="bloom-metrics-${snapshot.exported_at.slice(0, 10)}.json.gz"`);
+  res.setHeader("Content-Type", "application/gzip");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(file);
+}));
+
+/** Local development only: made-up Figma data (server/dev is not in the production image). */
+const fakeFigma = async (name: string): Promise<FnHandler | undefined> => {
+  if (!name.startsWith("figma-") || !localDevFlag("FIGMA_FAKE_DATA")) return undefined;
+  const { FAKE_FIGMA_FUNCTIONS } = await import("./dev/fake-figma.ts");
+  return FAKE_FIGMA_FUNCTIONS[name];
+};
+
+app.all("/api/functions/:name", wrap(async (req, res) => {
+  const handler = (await fakeFigma(req.params.name)) ?? FUNCTIONS[req.params.name];
+  if (!handler) {
+    res.status(404).json({ error: `Function ${req.params.name} not found` });
+    return;
+  }
+  const query = new URLSearchParams(req.url.split("?")[1] ?? "");
+  const out = await handler({
+    method: req.method,
+    query,
+    body: req.body ?? {},
+    headers: req.headers as Record<string, string | undefined>,
+    user: await readSession(req),
+  });
+  res.status(out.status ?? 200).json(out.body);
+}));
+
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "Not found" });
+});
+
+/** The Google Analytics tag for GA_MEASUREMENT_ID; none when it isn't set. */
+const analyticsTag = (id: string | undefined) =>
+  id && /^G-[A-Z0-9]+$/.test(id)
+    ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${id}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      // The Bloom usage page loads app pages in a hidden frame; those aren't visits.
+      var bloomAuditFrame = window.self !== window.top && new URLSearchParams(location.search).has('bloom-audit');
+      gtag('config', '${id}', bloomAuditFrame ? { send_page_view: false } : {});
+    </script>`
+    : "";
+let indexHtml: Promise<string> | undefined;
+const readIndexHtml = () =>
+  (indexHtml ??= readFile(path.join(distDir, "index.html"), "utf8")
+    .then((html) => html.replace("<!-- google-analytics -->", analyticsTag(process.env.GA_MEASUREMENT_ID?.trim())))
+    .catch((e) => {
+      indexHtml = undefined;
+      throw e;
+    }));
+
+// The built React app, with index.html as the fallback for client-side routes.
+app.use(express.static(distDir, { index: false, maxAge: "1h" }));
+app.get("*", wrap(async (_req, res) => {
+  res.setHeader("Cache-Control", "no-cache");
+  res.type("html").send(await readIndexHtml());
+}));
+
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  console.error(err);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+// Replaces the pg_cron job: 1st and 15th of each month, 05:15 UTC.
+cron.schedule(
+  "15 5 1,15 * *",
+  () => {
+    captureFigmaSnapshots()
+      .then((r) => console.log("figma snapshot captured", JSON.stringify(r).slice(0, 500)))
+      .catch((e) => console.error("figma snapshot failed", e));
+  },
+  { timezone: "UTC" },
+);
+
+// Fill in finished quarters that were never captured (only missing ones are fetched from Figma).
+const backfillFigma = () =>
+  backfillFigmaSnapshots()
+    .then((t) =>
+      console.log(`figma backfill: ${t.captured} captured, ${t.skipped} without data, ${t.failed} failed, ${t.removed} false zeros removed`),
+    )
+    .catch((e) => console.error("figma backfill failed", e instanceof Error ? e.message : e));
+
+/** On start: fill past quarters, then refresh the current one so it's on the chart right away. */
+const refreshFigmaOnStart = () =>
+  backfillFigma().then(() =>
+    captureFigmaSnapshots()
+      .then((r) => console.log("figma current quarter captured:", (r.body as { ok?: boolean })?.ok === true))
+      .catch((e) => console.error("figma current quarter capture failed", e instanceof Error ? e.message : e)),
+  );
+cron.schedule("45 5 * * *", backfillFigma, { timezone: "UTC" });
+
+// GetDX teams change rarely: refresh the stored copy on the 1st of each month.
+const refreshGetdx = () =>
+  refreshGetdxTeams()
+    .then((c) => console.log(`getdx teams refreshed: ${c.teams.length} teams, ${c.historic.length} historic`))
+    .catch((e) => console.error("getdx teams refresh failed", e instanceof Error ? e.message : e));
+cron.schedule("0 4 1 * *", refreshGetdx, { timezone: "UTC" });
+
+// Qualitative metrics: re-analysed shortly after their dataset changes, and once a day as a fallback.
+onWrite((table, rows) => {
+  if (table !== "manual_dataset_rows") return;
+  new Set(rows.map((r) => String(r.dataset_id))).forEach(datasetChanged);
+});
+cron.schedule(
+  "30 6 * * *",
+  () => {
+    runAllSources().catch((e) => console.error("qualitative refresh failed", e instanceof Error ? e.message : e));
+  },
+  { timezone: "UTC" },
+);
+
+// Code adoption: the ds-analyzer reports change weekly; checking daily
+// picks up a new one within a day (runs without a new report cost one GitHub call).
+const syncCode = () =>
+  syncCodeAdoption()
+    .then((r) => console.log("code adoption sync:", JSON.stringify(r.body).slice(0, 300)))
+    .catch((e) => console.error("code adoption sync failed", e instanceof Error ? e.message : e));
+cron.schedule("15 7 * * *", syncCode, { timezone: "UTC" });
+
+// Grafana queries, Mondays: each sync fetches 90 days, so weekly runs miss nothing that Grafana
+// keeps for 90 days, with weeks to spare if a run fails.
+cron.schedule(
+  "30 7 * * 1",
+  () => {
+    syncGrafana()
+      .then((r) => console.log("grafana sync:", JSON.stringify(r.body).slice(0, 300)))
+      .catch((e) => console.error("grafana sync failed", e instanceof Error ? e.message : e));
+  },
+  { timezone: "UTC" },
+);
+
+// Slack reports: one-off ones are scheduled to the quarter hour, quarterly ones to a whole hour (UTC).
+// Also checked on start, so a send missed while the server was down still goes out.
+const sendSlackReports = () =>
+  runDueReports().catch((e) => console.error("slack reports failed", e instanceof Error ? e.message : e));
+cron.schedule("*/5 * * * *", sendSlackReports, { timezone: "UTC" });
+
+app.listen(port, () => {
+  console.log(`bloom-metrics listening on :${port}`);
+  applyDevAdminPassword()
+    .then(logAdminSetupLinks)
+    .catch((e) => console.error("could not prepare admin sign-in", e));
+  // Not with fake Figma data: that must never be stored.
+  if (!localDevFlag("FIGMA_FAKE_DATA")) refreshFigmaOnStart();
+  syncCode();
+  sendSlackReports();
+  resetInterruptedRuns().catch((e) => console.error("could not reset qualitative runs", e));
+  getdxTeamsAgeDays()
+    .then((age) => {
+      if (age > 31) return refreshGetdx();
+    })
+    .catch((e) => console.error("could not check GetDX copy", e));
+});

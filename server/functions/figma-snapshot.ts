@@ -1,0 +1,346 @@
+import { randomUUID } from "node:crypto";
+import { execute, nowMysql, query, toIso } from "../db.ts";
+import { authenticateCronRequest } from "./cron-auth.ts";
+import figmaAnalytics from "./figma-analytics.ts";
+import { syncFigmaDataset } from "./figma-dataset.ts";
+import type { FnHandler, FnResponse } from "./types.ts";
+
+/**
+ * Figma adoption history.
+ *
+ * The Library Analytics API is range-based — it never accumulates. This function
+ * captures the CURRENT quarter's numbers into `figma_adoption_snapshots`, keyed by
+ * (file_key, quarter), so history builds up on its own.
+ *
+ * POST with `Authorization: Bearer <CRON_SECRET>`  -> capture (the server scheduler calls
+ *                                                     captureFigmaSnapshots() directly)
+ * GET                                              -> read the stored history
+ *
+ * Each run re-captures the current quarter, so its row is never more than two weeks
+ * stale. Runs in the first three weeks of a quarter ALSO re-capture the previous
+ * quarter over its full date range, which is what finalises it — otherwise a quarter
+ * would freeze on the 15th of its last month and lose its final fortnight.
+ *
+ * Required env vars:
+ *   FIGMA_FILE_KEYS — JSON array or comma-separated list of library file keys to track,
+ *                     e.g. ["abc123..."] or [{"key":"abc123...","label":"Web"}].
+ *   CRON_SECRET     — required for the HTTP POST capture path
+ *   FIGMA_ACCESS_TOKEN (credential, via figma-analytics)
+ */
+
+function json(body: unknown, status = 200): FnResponse {
+  return { status, body };
+}
+
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+interface Period { quarter: string; periodStart: string; periodEnd: string; final: boolean }
+
+/** The quarter containing `now`, with its end clamped to today. */
+function quarterOf(now: Date): Period {
+  const y = now.getUTCFullYear();
+  const q = Math.floor(now.getUTCMonth() / 3) + 1;
+  const start = new Date(Date.UTC(y, (q - 1) * 3, 1));
+  const end = new Date(Date.UTC(y, q * 3, 0));
+  const final = now >= end;
+  return {
+    quarter: `${y}-Q${q}`,
+    periodStart: iso(start),
+    periodEnd: iso(final ? end : now),
+    final,
+  };
+}
+
+/**
+ * What to capture on this run: always the current quarter, plus the previous one
+ * while we're still early in a new quarter, so the closed quarter gets a final,
+ * complete capture rather than freezing mid-month.
+ */
+function periodsToCapture(now = new Date()): Period[] {
+  const current = quarterOf(now);
+  const periods = [current];
+  const daysIntoQuarter =
+    (now.getTime() - Date.parse(current.periodStart + "T00:00:00Z")) / 86400000;
+  if (daysIntoQuarter <= 21) {
+    const beforeStart = new Date(Date.parse(current.periodStart + "T00:00:00Z") - 86400000);
+    const prev = quarterOf(beforeStart);
+    periods.push({ ...prev, final: true });
+  }
+  return periods;
+}
+
+/** Figma keeps library insert/detach analytics for roughly this long. */
+const FIGMA_RETENTION_DAYS = 365;
+
+/**
+ * Closed quarters, oldest first, that lie entirely inside Figma's retention window:
+ * older quarters would only be partly counted (or not at all).
+ */
+function closedQuartersInRetention(now = new Date()): Period[] {
+  const oldest = now.getTime() - FIGMA_RETENTION_DAYS * 86400000;
+  const out: Period[] = [];
+  let cursor = Date.parse(quarterOf(now).periodStart + "T00:00:00Z");
+  for (;;) {
+    const prev = quarterOf(new Date(cursor - 86400000));
+    if (Date.parse(prev.periodStart + "T00:00:00Z") < oldest) break;
+    out.unshift({ ...prev, final: true });
+    cursor = Date.parse(prev.periodStart + "T00:00:00Z");
+  }
+  return out;
+}
+
+function readFileKeys(): { key: string; label?: string }[] {
+  const raw = process.env.FIGMA_FILE_KEYS?.trim();
+  if (!raw) return [];
+  if (raw.startsWith("[")) {
+    try {
+      // Entries may be plain keys, {key, label} or {id, label} (the format the live app uses).
+      return (JSON.parse(raw) as unknown[])
+        .map((e) => {
+          if (typeof e === "string") return { key: e.trim() };
+          const o = (e ?? {}) as { key?: string; id?: string; fileKey?: string; label?: string; name?: string };
+          return { key: String(o.key ?? o.id ?? o.fileKey ?? "").trim(), label: o.label ?? o.name };
+        })
+        .filter((e) => e.key);
+    } catch {
+      return [];
+    }
+  }
+  return raw.split(",").map((k) => ({ key: k.trim() })).filter((e) => e.key);
+}
+
+type CaptureResult = Record<string, unknown> & { ok: boolean };
+
+/** Captures one library for one period into figma_adoption_snapshots. */
+async function captureOne(
+  key: string,
+  { quarter, periodStart, periodEnd, final }: Period,
+  opts: { skipEmpty?: boolean } = {},
+): Promise<CaptureResult> {
+  // Reuse figma-analytics so the Figma parsing lives in exactly one place.
+  let status = 500;
+  let payload: any = null;
+  try {
+    const res = await figmaAnalytics({
+      method: "POST",
+      query: new URLSearchParams(),
+      body: { fileKey: key, startDate: periodStart, endDate: periodEnd },
+      headers: {},
+      user: null,
+    });
+    status = res.status ?? 200;
+    payload = res.body ?? null;
+  } catch (e) {
+    console.error(`figma-analytics threw for ${key}:`, e);
+  }
+  const ok = status >= 200 && status < 300;
+  if (!ok || !payload) {
+    console.error(`figma-analytics failed for ${key} [${status}]`);
+    return { fileKey: key, quarter, ok: false, status, error: payload?.error };
+  }
+  if (payload.analyticsAvailable === false) {
+    return { fileKey: key, quarter, ok: false, error: payload.analyticsNote };
+  }
+
+  const components = (payload.components ?? []) as any[];
+  const s = payload.summary ?? {};
+  // Figma keeps insert/detach analytics for about a year: a quarter with neither is
+  // "no data", not a real zero, so don't store it. (Usages are a current count, not
+  // activity within the range, so they don't count as data here.)
+  if (opts.skipEmpty && !s.totalInserts && !s.totalDetaches) {
+    return { fileKey: key, quarter, ok: false, skipped: "no analytics for this period" };
+  }
+  const componentsUsed = components.filter((c) => (c.inserts ?? 0) > 0).length;
+
+  const row = {
+    file_key: key,
+    file_name: payload.file?.name ?? null,
+    quarter,
+    period_start: periodStart,
+    period_end: periodEnd,
+    inserts: s.totalInserts ?? null,
+    detaches: s.totalDetaches ?? null,
+    usages: s.totalUsages ?? null,
+    component_count: s.componentCount ?? components.length,
+    components_used: componentsUsed,
+    documented_count: s.documentedCount ?? null,
+    documentation_coverage: s.documentationCoverage ?? null,
+    detach_rate: s.detachRate ?? null,
+    components: components.map((c) => ({
+      key: c.key,
+      name: c.name,
+      page: c.page,
+      inserts: c.inserts,
+      detaches: c.detaches,
+      usages: c.usages,
+      documented: c.documented,
+    })),
+    captured_at: nowMysql(),
+  };
+
+  try {
+    await execute(
+      `INSERT INTO figma_adoption_snapshots
+         (id, file_key, file_name, quarter, period_start, period_end, inserts, detaches, usages,
+          component_count, components_used, documented_count, documentation_coverage, detach_rate,
+          components, captured_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS JSON), ?)
+       ON DUPLICATE KEY UPDATE
+         file_name = VALUES(file_name), period_start = VALUES(period_start), period_end = VALUES(period_end),
+         inserts = VALUES(inserts), detaches = VALUES(detaches), usages = VALUES(usages),
+         component_count = VALUES(component_count), components_used = VALUES(components_used),
+         documented_count = VALUES(documented_count), documentation_coverage = VALUES(documentation_coverage),
+         detach_rate = VALUES(detach_rate), components = VALUES(components), captured_at = VALUES(captured_at)`,
+      [
+        randomUUID(), row.file_key, row.file_name, row.quarter, row.period_start, row.period_end,
+        row.inserts, row.detaches, row.usages, row.component_count, row.components_used,
+        row.documented_count, row.documentation_coverage, row.detach_rate,
+        JSON.stringify(row.components), row.captured_at,
+      ],
+    );
+    return { fileKey: key, quarter, final, ok: true, inserts: row.inserts, detaches: row.detaches };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error(`Snapshot upsert failed for ${key}: ${message}`);
+    return { fileKey: key, quarter, ok: false, error: message };
+  }
+}
+
+/** The Monday on or before a date (Figma's weeks start on Monday). */
+const mondayOf = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() || 7) - 1)));
+
+/**
+ * Stores one library's weekly activity from `days` ago until today. The range starts on a
+ * Monday so every stored week is complete (a week that began before the range would only be
+ * partly counted); the current week is stored as far as it goes and filled in on later runs.
+ */
+async function captureWeeks(key: string, days: number): Promise<number> {
+  const start = mondayOf(new Date(Date.now() - days * 86400000));
+  const res = await figmaAnalytics({
+    method: "POST",
+    query: new URLSearchParams(),
+    body: { fileKey: key, startDate: iso(start), endDate: iso(new Date()) },
+    headers: {},
+    user: null,
+  }).catch(() => null);
+  const body = res?.body as { weeks?: { week: string; page: string; inserts: number; detaches: number }[] } | undefined;
+  const weeks = (body?.weeks ?? []).filter((w) => w.week >= iso(start));
+  for (const w of weeks) {
+    await execute(
+      `INSERT INTO figma_weekly_activity (file_key, week, page, inserts, detaches, captured_at) VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE inserts = VALUES(inserts), detaches = VALUES(detaches), captured_at = VALUES(captured_at)`,
+      [key, w.week, w.page, w.inserts, w.detaches, nowMysql()],
+    );
+  }
+  return weeks.length;
+}
+
+/**
+ * Weekly activity for every library: the last three weeks on each run, or Figma's whole
+ * retention window for a library with no weeks stored yet.
+ */
+export async function captureFigmaWeeks(): Promise<number> {
+  let stored = 0;
+  for (const { key } of readFileKeys()) {
+    const have = await query("SELECT 1 FROM figma_weekly_activity WHERE file_key = ? LIMIT 1", [key]);
+    try {
+      stored += await captureWeeks(key, have.length ? 21 : FIGMA_RETENTION_DAYS - 7);
+    } catch (e) {
+      console.error(`figma weekly capture failed for ${key}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  return stored;
+}
+
+/** Keeps the "Figma component analytics" dataset in step with the snapshots. */
+async function refreshDataset() {
+  try {
+    const { rows } = await syncFigmaDataset();
+    console.log(`figma dataset synced: ${rows} rows`);
+  } catch (e) {
+    console.error("figma dataset sync failed", e instanceof Error ? e.message : e);
+  }
+}
+
+/** Write path without the HTTP auth check; used by the POST handler and the scheduler. */
+export async function captureFigmaSnapshots(): Promise<FnResponse> {
+  const fileKeys = readFileKeys();
+  if (fileKeys.length === 0) {
+    return json(
+      {
+        error: "No libraries configured",
+        details: "Set FIGMA_FILE_KEYS to the Figma library file key(s) to snapshot.",
+      },
+      503,
+    );
+  }
+
+  const periods = periodsToCapture();
+  const results: CaptureResult[] = [];
+  for (const period of periods) {
+    for (const { key } of fileKeys) results.push(await captureOne(key, period));
+  }
+
+  const anyOk = results.some((r) => r.ok);
+  const weeks = await captureFigmaWeeks();
+  if (anyOk || weeks) await refreshDataset();
+  return json({ ok: anyOk, periods, results }, anyOk ? 200 : 502);
+}
+
+/**
+ * Fills in closed quarters inside Figma's retention window that were never captured
+ * (e.g. before the snapshot job existed), straight from Figma. Closed quarters don't
+ * change, so each is fetched once. Also removes stored "false zero" quarters (no
+ * inserts and no detaches), which mean Figma had no data, not zero activity.
+ */
+export async function backfillFigmaSnapshots(): Promise<{ captured: number; skipped: number; failed: number; removed: number }> {
+  const fileKeys = readFileKeys();
+  const tally = { captured: 0, skipped: 0, failed: 0, removed: 0 };
+  if (fileKeys.length === 0) return tally;
+  const cleaned = await execute(
+    "DELETE FROM figma_adoption_snapshots WHERE COALESCE(inserts, 0) = 0 AND COALESCE(detaches, 0) = 0",
+  );
+  tally.removed = cleaned.affectedRows ?? 0;
+  const stored = await query<{ file_key: string; quarter: string }>(
+    "SELECT file_key, quarter FROM figma_adoption_snapshots",
+  );
+  const have = new Set(stored.map((r) => `${r.file_key}|${r.quarter}`));
+  for (const period of closedQuartersInRetention()) {
+    for (const { key } of fileKeys) {
+      if (have.has(`${key}|${period.quarter}`)) continue;
+      const r = await captureOne(key, period, { skipEmpty: true });
+      if (r.ok) tally.captured++;
+      else if (r.skipped) tally.skipped++;
+      else tally.failed++;
+    }
+  }
+  const weeks = await captureFigmaWeeks();
+  if (tally.captured || tally.removed || weeks) await refreshDataset();
+  return tally;
+}
+
+const handler: FnHandler = async (req) => {
+  // ---- Read path: history for the Adoption page -----------------------------
+  if (req.method === "GET") {
+    const fileKey = req.query.get("fileKey")?.trim();
+    try {
+      const rows = await query<Record<string, unknown>>(
+        "SELECT file_key,file_name,quarter,period_start,period_end,inserts,detaches,usages," +
+          "component_count,components_used,documented_count,documentation_coverage,detach_rate,captured_at " +
+          `FROM figma_adoption_snapshots${fileKey ? " WHERE file_key = ?" : ""} ORDER BY quarter ASC`,
+        fileKey ? [fileKey] : [],
+      );
+      return json({ snapshots: rows.map((r) => ({ ...r, captured_at: toIso(r.captured_at) })) });
+    } catch (e) {
+      return json({ error: "Could not read snapshots", details: e instanceof Error ? e.message : String(e) }, 502);
+    }
+  }
+
+  // ---- Write path: cron-only ------------------------------------------------
+  const unauthorized = authenticateCronRequest(req);
+  if (unauthorized) return unauthorized;
+
+  return captureFigmaSnapshots();
+};
+
+export default handler;

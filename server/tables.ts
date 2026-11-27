@@ -1,0 +1,211 @@
+/**
+ * Table metadata for the generic data API (/api/db).
+ *
+ * `read` / `write` replace the Postgres row-level-security policies:
+ *   public  — anyone, signed in or not
+ *   editor  — admin or editor role (can_edit)
+ *   admin   — admin role
+ *   none    — only the server itself (integration functions)
+ *   custom  — checked in access.ts (profiles, user_roles)
+ */
+export type Access = "public" | "editor" | "admin" | "none" | "custom";
+
+export interface TableDef {
+  columns: string[];
+  json?: string[];
+  bool?: string[];
+  read: Access;
+  write: Access;
+  /** Writes are recorded in data_change_log (the old log_data_change trigger). */
+  audited?: boolean;
+  /** Has an updated_at column the server bumps on UPDATE. */
+  updatedAt?: boolean;
+  /** Extra columns sync_runs-style inserts are allowed for signed-in viewers. */
+  insertByAnyUser?: boolean;
+}
+
+const ts = ["created_at", "updated_at"];
+
+export const TABLES: Record<string, TableDef> = {
+  profiles: {
+    columns: ["id", "email", "display_name", "avatar_url", ...ts],
+    read: "custom",
+    write: "custom",
+    updatedAt: true,
+  },
+  user_roles: {
+    columns: ["id", "user_id", "role", "created_at"],
+    read: "custom",
+    write: "custom",
+  },
+  data_source_configs: {
+    columns: ["id", "source_key", "label", "config", "enabled", "updated_by", ...ts],
+    json: ["config"],
+    bool: ["enabled"],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  sync_runs: {
+    columns: ["id", "source_key", "status", "message", "row_count", "triggered_by", "ran_at"],
+    read: "public",
+    write: "none",
+    insertByAnyUser: true,
+  },
+  metric_groups: {
+    columns: ["id", "parent_id", "slug", "name", "description", "sort_order", "periodicity", "filters", ...ts],
+    json: ["filters"],
+    read: "public",
+    write: "editor",
+    updatedAt: true,
+  },
+  view_rows: {
+    columns: ["id", "view_id", "layout", "sort_order", ...ts],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  view_items: {
+    columns: ["id", "view_id", "row_id", "slot", "kind", "ref", "section", "hidden", "sort_order", "options", ...ts],
+    json: ["options"],
+    bool: ["hidden"],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  manual_datasets: {
+    columns: ["id", "slug", "name", "description", "entry_method", "entry_notes", "sort_order", "archived", "one_off", ...ts],
+    bool: ["archived", "one_off"],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  manual_dataset_columns: {
+    columns: ["id", "dataset_id", "key", "label", "kind", "sort_order", ...ts],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  manual_dataset_rows: {
+    columns: ["id", "dataset_id", "import_id", "data", "sort_order", ...ts],
+    json: ["data"],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  dataset_imports: {
+    columns: ["id", "dataset_id", "file_name", "row_count", "created_columns", "replaced", "undone_at", ...ts],
+    json: ["created_columns", "replaced"],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  manual_metrics: {
+    columns: [
+      "id", "slug", "name", "unit", "surface", "subgroup_id", "description", "sort_order", "archived",
+      "dataset_id", "value_column", "period_column", "aggregation", "aggregation_options", "source_type",
+      "source_key", "source_field", "filter_columns", "breakdown_views", "direction", "scale_labels", ...ts,
+    ],
+    json: ["aggregation_options", "filter_columns", "breakdown_views", "scale_labels"],
+    bool: ["archived"],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  manual_metric_values: {
+    columns: ["id", "metric_id", "period", "value", "note", ...ts],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  ai_template_definitions: {
+    columns: ["id", "slug", "name", "sort_order", "archived", ...ts],
+    bool: ["archived"],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  ai_template_metrics: {
+    columns: [
+      "id", "template_id", "quarter", "prototypes_created", "active_users", "active_teams",
+      "prototypes_off_bloom", "note", ...ts,
+    ],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  performance_entries: {
+    columns: [
+      "id", "quarter", "team", "intended_outcomes", "main_deliverables", "headcount",
+      "discovery_rag", "delivery_rag", "impact_rag", "comment", "sort_order", ...ts,
+    ],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  qualitative_sources: {
+    columns: [
+      "id", "name", "description", "group_name", "dataset_id", "period_column", "text_column", "tone", "breakdowns",
+      "enabled", "sort_order", "run_status", "run_message", "run_at", ...ts,
+    ],
+    json: ["breakdowns"],
+    bool: ["enabled"],
+    read: "public",
+    write: "editor",
+    audited: true,
+    updatedAt: true,
+  },
+  ai_usage: {
+    columns: [
+      "id", "feature", "detail", "model", "input_tokens", "output_tokens",
+      "cache_write_tokens", "cache_read_tokens", "cost_usd", "created_at",
+    ],
+    read: "editor",
+    write: "none",
+  },
+  data_change_log: {
+    columns: ["id", "table_name", "row_id", "action", "changed_by", "old_data", "new_data", "changed_at"],
+    json: ["old_data", "new_data"],
+    read: "public",
+    write: "none",
+  },
+  ga4_report_snapshots: {
+    columns: ["id", "source", "range_start", "range_end", "properties", "raw_payload", "created_at"],
+    json: ["properties", "raw_payload"],
+    read: "none",
+    write: "none",
+  },
+  figma_adoption_snapshots: {
+    columns: [
+      "id", "file_key", "file_name", "quarter", "period_start", "period_end", "inserts", "detaches",
+      "usages", "component_count", "components_used", "documented_count", "documentation_coverage",
+      "detach_rate", "components", "captured_at", "created_at",
+    ],
+    json: ["components"],
+    read: "none",
+    write: "none",
+  },
+  code_adoption_snapshots: {
+    columns: [
+      "id", "repo", "source_path", "commit_sha", "generated_at", "total_files", "ds_percent", "native_percent",
+      "tagged_percent", "untagged_percent", "summary", "domains", "greenhouse_usage", "captured_at", "created_at",
+    ],
+    json: ["summary", "domains", "greenhouse_usage"],
+    read: "none",
+    write: "none",
+  },
+};
+
+export const DATETIME_COLUMNS = new Set(["created_at", "updated_at", "ran_at", "changed_at", "captured_at", "run_at", "undone_at"]);
