@@ -149,4 +149,13 @@ describe("slack report message", () => {
     expect(JSON.stringify(buildMessage({ ...base, summary: "From the model" }).blocks)).toContain("Summary written by AI");
     expect(buildMessage({ ...base, summary: "  " }).blocks.filter((b) => b.type === "section")).toHaveLength(0);
   });
+
+  it("splits a long summary into sections under Slack's limit, keeping lines whole", () => {
+    const summary = ["*Trends*", ...Array.from({ length: 30 }, (_, i) => `• Point ${i}: ${"x".repeat(150)}`)].join("\n");
+    const { blocks } = buildMessage({ name: "R", quarter: "2026-Q3", previousQuarter: "2026-Q2", intro: "", metrics: [], summary, appUrl: "https://x" });
+    const sections = blocks.filter((b) => b.type === "section").map((b) => (b as { text: { text: string } }).text.text);
+    expect(sections.length).toBeGreaterThan(1);
+    expect(sections.every((t) => t.length <= 3000)).toBe(true);
+    expect(sections.join("\n")).toBe(summary);
+  });
 });

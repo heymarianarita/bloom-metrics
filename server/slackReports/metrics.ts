@@ -1,6 +1,7 @@
 import { query } from "../db.ts";
 import { periodSeries, type AggregationConfig } from "../shared/aggregate.ts";
 import { bucketPeriod } from "../shared/periods.ts";
+import { previousQuarter } from "./schedule.ts";
 import sheetsAnalytics from "../functions/sheets-analytics.ts";
 
 /**
@@ -20,6 +21,8 @@ export interface ReportMetric {
   rows: number | null;
   /** Why there's no value, when the metric's source can't be read by quarter. */
   unavailable?: string;
+  /** The quarter and the four before it, oldest first (null where there's no data), for spotting trends. */
+  history?: { quarter: string; value: number | null }[];
 }
 
 type MetricRow = {
@@ -176,6 +179,8 @@ export async function reportMetrics(metricIds: string[], quarter: string, previo
   );
   const byId = new Map(rows.filter((r) => !r.archived).map((r) => [r.id, r]));
   const src = sources();
+  const recent = [quarter];
+  while (recent.length < 5) recent.unshift(previousQuarter(recent[0]));
 
   return Promise.all(
     metricIds
@@ -192,7 +197,13 @@ export async function reportMetrics(metricIds: string[], quarter: string, previo
           const lookup = await lookupFor(metric, src);
           if (typeof lookup === "string") return { ...base, value: null, previous: null, rows: null, unavailable: lookup };
           const current = lookup(quarter);
-          return { ...base, value: current?.value ?? null, previous: lookup(previous)?.value ?? null, rows: current?.rows ?? null };
+          return {
+            ...base,
+            value: current?.value ?? null,
+            previous: lookup(previous)?.value ?? null,
+            rows: current?.rows ?? null,
+            history: recent.map((q) => ({ quarter: q, value: lookup(q)?.value ?? null })),
+          };
         } catch (e) {
           console.error(`slack report: could not read metric ${metric.name}`, e);
           return { ...base, value: null, previous: null, rows: null, unavailable: "Couldn't read this metric's data." };

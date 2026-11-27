@@ -1,5 +1,5 @@
 import * as React from "react";
-import { CalendarCheck, FloppyDisk, MagnifyingGlass, PaperPlaneTilt, Sparkle } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, CalendarCheck, FloppyDisk, MagnifyingGlass, PaperPlaneTilt, Sparkle } from "@phosphor-icons/react";
 import { DesignSideSheet } from "@/components/ds/DesignSideSheet";
 import { DesignButton } from "@/components/ds/DesignButton";
 import { DesignInputText, DesignInputTextArea } from "@/components/ds/DesignInput";
@@ -18,6 +18,7 @@ import {
   useSaveSlackReport,
   useSendSlackReport,
   useSlackReportValues,
+  useReviseSlackSummary,
   useWriteSlackSummary,
   type SlackReport,
   type SlackReportInput,
@@ -103,6 +104,7 @@ export const SlackReportEditor = ({
   const save = useSaveSlackReport();
   const send = useSendSlackReport();
   const writeSummary = useWriteSlackSummary();
+  const reviseSummary = useReviseSlackSummary();
   const metrics = useManualMetrics();
   const metricGroups = useMetricGroups();
   const [form, setForm] = React.useState<SlackReportInput>(() => blank(quarters[0] ?? ""));
@@ -111,6 +113,8 @@ export const SlackReportEditor = ({
   const [search, setSearch] = React.useState("");
   const [metricsOpen, setMetricsOpen] = React.useState(false);
   const [summaryNote, setSummaryNote] = React.useState<string | null>(null);
+  const [instruction, setInstruction] = React.useState("");
+  const [previousSummary, setPreviousSummary] = React.useState<{ summary: string | null; byAi: boolean } | null>(null);
   const [showErrors, setShowErrors] = React.useState(false);
 
   React.useEffect(() => {
@@ -124,6 +128,8 @@ export const SlackReportEditor = ({
     setSearch("");
     setMetricsOpen(false);
     setSummaryNote(null);
+    setInstruction("");
+    setPreviousSummary(null);
     setShowErrors(false);
     writeSummary.reset();
     // Only when the sheet opens or switches report; writeSummary.reset is stable.
@@ -160,15 +166,41 @@ export const SlackReportEditor = ({
       return { ...f, metric_ids: available.filter((m) => next.has(m.id)).map((m) => m.id) };
     });
 
+  /** Puts an AI result in the box, keeping what was there so it can be undone. */
+  const applyAiSummary = (result: { summary: string | null; note: string | null }) => {
+    if (result.summary === null) {
+      setSummaryNote(result.note);
+      return false;
+    }
+    setPreviousSummary(form.summary?.trim() ? { summary: form.summary, byAi: form.summary_by_ai } : null);
+    setForm((f) => ({ ...f, summary: result.summary, summary_quarter: quarter, summary_by_ai: true }));
+    return true;
+  };
+
   const onWriteSummary = async () => {
     setSummaryNote(null);
     try {
-      const result = await writeSummary.mutateAsync({ content, quarter });
-      if (result.summary === null) setSummaryNote(result.note);
-      else setForm((f) => ({ ...f, summary: result.summary, summary_quarter: quarter, summary_by_ai: true }));
+      applyAiSummary(await writeSummary.mutateAsync({ content, quarter }));
     } catch (err) {
       setSummaryNote(err instanceof Error ? err.message : "Couldn't write the summary. Try again.");
     }
+  };
+
+  const onReviseSummary = async () => {
+    if (!instruction.trim() || !form.summary?.trim()) return;
+    setSummaryNote(null);
+    try {
+      const result = await reviseSummary.mutateAsync({ content, quarter, summary: form.summary, instruction: instruction.trim() });
+      if (applyAiSummary(result)) setInstruction("");
+    } catch (err) {
+      setSummaryNote(err instanceof Error ? err.message : "Couldn't change the summary. Try again.");
+    }
+  };
+
+  const onUndoAi = () => {
+    if (!previousSummary) return;
+    setForm((f) => ({ ...f, summary: previousSummary.summary, summary_quarter: quarter, summary_by_ai: previousSummary.byAi }));
+    setPreviousSummary(null);
   };
 
   const onEditSummary = (text: string) =>
@@ -326,7 +358,7 @@ export const SlackReportEditor = ({
               />
               <DesignCell
                 title="AI summary"
-                bodyText="3 to 5 points on what changed and why. You can review and edit it below."
+                bodyText="The trends that matter, with the numbers behind them, and what people said, including every one-off question. You can review and change it below."
                 controlType="toggle"
                 checked={form.include_summary}
                 onCheckedChange={(v) => set("include_summary", v)}
@@ -400,8 +432,8 @@ export const SlackReportEditor = ({
                       ? `For ${quarter}. Later quarters get a new AI summary when they're sent.`
                       : "Slack formatting: *bold*, and start a line with • for a bullet. Left empty, it's written when the report is sent."
                   }
-                  rows={7}
-                  maxLength={3000}
+                  rows={10}
+                  maxLength={6000}
                   value={form.summary ?? ""}
                   onChange={(e) => onEditSummary(e.target.value)}
                   error={showErrors && Boolean(summaryError)}
@@ -413,14 +445,48 @@ export const SlackReportEditor = ({
                     theme="primary"
                     icon={<Sparkle size={16} />}
                     isLoading={writeSummary.isPending}
-                    disabled={!quarter}
+                    disabled={!quarter || reviseSummary.isPending}
                     onClick={onWriteSummary}
                   >
                     {form.summary?.trim() ? "Write again with AI" : "Write with AI"}
                   </DesignButton>
+                  {previousSummary && (
+                    <DesignButton variant="flat" theme="primary" icon={<ArrowCounterClockwise size={16} />} onClick={onUndoAi}>
+                      Undo AI change
+                    </DesignButton>
+                  )}
                   <span className="text-xs text-muted-foreground">Takes up to a minute and uses Anthropic API credits.</span>
                 </div>
-                {summaryNote && <DesignInfoBanner type="warning" title="No AI summary" description={summaryNote} showCloseButton={false} />}
+                {form.summary?.trim() && (
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1 min-w-0">
+                      <DesignInputText
+                        label="Ask for changes"
+                        placeholder="e.g. Shorter, and lead with CSAT"
+                        maxLength={1000}
+                        value={instruction}
+                        onChange={(e) => setInstruction(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            onReviseSummary();
+                          }
+                        }}
+                      />
+                    </div>
+                    <DesignButton
+                      variant="outlined"
+                      theme="primary"
+                      icon={<Sparkle size={16} />}
+                      isLoading={reviseSummary.isPending}
+                      disabled={!instruction.trim() || writeSummary.isPending}
+                      onClick={onReviseSummary}
+                    >
+                      Apply
+                    </DesignButton>
+                  </div>
+                )}
+                {summaryNote && <DesignInfoBanner type="warning" title="The AI couldn't help this time" description={summaryNote} showCloseButton={false} />}
               </div>
             )}
           </FormSection>

@@ -5,6 +5,7 @@ import { postToChannel } from "../slack.ts";
 import { buildMessage } from "./message.ts";
 import { impactMetricIds, reportMetrics, type ReportMetric } from "./metrics.ts";
 import { dueQuarter, onceStatus, previousQuarter } from "./schedule.ts";
+import { openQuestionsFor } from "./qualitative.ts";
 import { writeSummary } from "./summary.ts";
 
 /**
@@ -85,12 +86,14 @@ export async function reportValues(content: ReportContent, quarter: string): Pro
   return { quarter, previousQuarter: previous, impact, metrics };
 }
 
-export async function reportSummary(content: ReportContent, values: ReportValues) {
+export async function reportSummary(content: ReportContent, values: ReportValues, revise?: { current: string; instruction: string }) {
   return writeSummary({
     reportName: content.name,
     quarter: values.quarter,
     previousQuarter: values.previousQuarter,
     metrics: [...values.impact, ...values.metrics],
+    openQuestions: await openQuestionsFor(values.quarter),
+    revise,
   });
 }
 

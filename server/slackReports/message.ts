@@ -106,7 +106,9 @@ export function buildMessage(input: {
     blocks.push({ type: "section", text: { type: "mrkdwn", text: escapeSlack(input.intro.trim()).slice(0, 3000) } });
   }
   if (input.summary?.trim()) {
-    blocks.push({ type: "section", text: { type: "mrkdwn", text: escapeSlack(input.summary.trim()).slice(0, 3000) } });
+    for (const text of metricSections(escapeSlack(input.summary.trim()).split("\n"))) {
+      blocks.push({ type: "section", text: { type: "mrkdwn", text } });
+    }
     if (input.summaryByAi ?? true) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: AI_SUMMARY_NOTE }] });
   }
   const impact = input.impact ?? [];

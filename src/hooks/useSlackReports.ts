@@ -77,6 +77,13 @@ export const useWriteSlackSummary = () =>
       invoke<{ summary: string | null; note: string | null }>({ action: "summary", ...input }),
   });
 
+/** Changes a written summary as asked ("shorter", "lead with CSAT"). */
+export const useReviseSlackSummary = () =>
+  useMutation({
+    mutationFn: (input: { content: SlackReportContent; quarter: string; summary: string; instruction: string }) =>
+      invoke<{ summary: string | null; note: string | null }>({ action: "revise", ...input }),
+  });
+
 export const useSaveSlackReport = () => {
   const queryClient = useQueryClient();
   return useMutation({

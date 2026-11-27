@@ -22,6 +22,7 @@ import type { FnHandler } from "./types.ts";
  *   GET                                   → reports, Slack status, quarters a report can be about
  *   POST {action: "values", content, quarter}  → the metrics' values, for the live preview
  *   POST {action: "summary", content, quarter} → an AI summary to review and edit
+ *   POST {action: "revise", content, quarter, summary, instruction} → that summary changed as asked
  *   POST {action: "save", report}         → creates or updates a report (draft, scheduled or quarterly)
  *   POST {action: "send", id, quarter?}   → posts the saved report now
  *   POST {action: "delete", id}
@@ -32,6 +33,8 @@ const json = (body: unknown, status = 200) => ({ status, body });
 /** A channel ID (C0123ABCD, G…) or a channel name, with or without "#". */
 const CHANNEL = /^([CG][A-Z0-9]{8,}|#?[a-z0-9][a-z0-9._-]{0,79})$/;
 const QUARTER = /^\d{4}-Q[1-4]$/;
+/** Two of Slack's 3000-character sections. */
+const SUMMARY_MAX = 6000;
 const quarter = z.string().regex(QUARTER, "Choose a quarter, like 2026-Q3.");
 
 const content = z.object({
@@ -53,8 +56,7 @@ const reportInput = content
     mode: z.enum(["once", "quarterly"]),
     quarter: quarter.nullable(),
     scheduled_at: z.string().datetime({ offset: true }).nullable(),
-    // Slack's limit for a section's text.
-    summary: z.string().max(3000, "Keep the summary to 3000 characters.").nullable(),
+    summary: z.string().max(SUMMARY_MAX, `Keep the summary to ${SUMMARY_MAX} characters.`).nullable(),
     summary_quarter: quarter.nullable(),
     summary_by_ai: z.boolean(),
     enabled: z.boolean(),
@@ -129,12 +131,27 @@ const handler: FnHandler = async (req) => {
 
   const action = String(req.body?.action ?? "");
 
-  if (action === "values" || action === "summary") {
-    const parsed = z.object({ content, quarter }).safeParse(req.body);
+  if (action === "values" || action === "summary" || action === "revise") {
+    const parsed = z
+      .object({
+        content,
+        quarter,
+        summary: z.string().max(SUMMARY_MAX).optional(),
+        instruction: z.string().trim().max(1000, "Keep the request to 1000 characters.").optional(),
+      })
+      .safeParse(req.body);
     if (!parsed.success) return json({ ok: false, error: firstIssue(parsed.error, "Check the report.") }, 400);
+    const { summary, instruction } = parsed.data;
+    if (action === "revise" && (!summary?.trim() || !instruction)) {
+      return json({ ok: false, error: "Write a summary first, then say what to change." }, 400);
+    }
     const values = await reportValues(parsed.data.content, parsed.data.quarter);
     if (action === "values") return json({ ok: true, ...values });
-    const written = await reportSummary(parsed.data.content, values);
+    const written = await reportSummary(
+      parsed.data.content,
+      values,
+      action === "revise" ? { current: summary!, instruction: instruction! } : undefined,
+    );
     return json({ ok: true, summary: written.summary, note: written.summary === null ? written.note : null });
   }
 
